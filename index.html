@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мой Дневник</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4">
+
+    <div class="max-w-md mx-auto">
+        <!-- Шапка -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-xl font-bold">📊 Дневник оценок</h1>
+            <button id="settingsBtn" onclick="resetSettings()" class="text-xs bg-slate-800 px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hidden">Сменить профиль</button>
+        </div>
+
+        <!-- Шаг 1: Ввод ссылки на таблицу -->
+        <div id="setupScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4">
+            <h2 class="font-semibold text-lg">Подключение таблицы</h2>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Ссылка на Google Таблицу</label>
+                <input type="text" id="sheetLink" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
+            </div>
+            <button onclick="loadSheet()" class="w-full bg-indigo-600 hover:bg-indigo-500 font-medium py-3 rounded-xl transition">Далее</button>
+        </div>
+
+        <!-- Шаг 2: Ввод группы и выбор ФИО -->
+        <div id="authScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 hidden">
+            <h2 class="font-semibold text-lg">Выбор группы и ФИО</h2>
+
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Название группы (вкладки внизу таблицы)</label>
+                <div class="flex gap-2">
+                    <input type="text" id="groupNameInput" placeholder="например: 5952" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
+                    <button onclick="loadStudents()" class="bg-indigo-600 hover:bg-indigo-500 px-4 rounded-xl text-sm font-medium transition">Найти</button>
+                </div>
+            </div>
+
+            <div id="studentBlock" class="hidden space-y-3 pt-2 border-t border-slate-700">
+                <label class="block text-xs text-slate-400 mb-1">Выбери своё ФИО:</label>
+                <select id="studentSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
+                    <option value="">Выбери фамилию...</option>
+                </select>
+                <button onclick="saveProfile()" class="w-full bg-indigo-600 hover:bg-indigo-500 font-medium py-3 rounded-xl transition">Сохранить и войти</button>
+            </div>
+        </div>
+
+        <!-- Шаг 3: Экран оценок -->
+        <div id="marksScreen" class="space-y-4 hidden">
+            <div class="bg-slate-800 p-4 rounded-2xl flex justify-between items-center shadow-lg">
+                <div>
+                    <div id="studentDisplay" class="font-bold text-base">Имя студента</div>
+                    <div id="groupDisplay" class="text-xs text-slate-400">Группа</div>
+                </div>
+                <button onclick="fetchMarks()" class="bg-slate-700 hover:bg-slate-600 p-2.5 rounded-xl text-xs flex items-center gap-1 transition">
+                    🔄 Обновить
+                </button>
+            </div>
+
+            <div id="marksList" class="space-y-2">
+                <!-- Оценки -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sheetId = "";
+        let currentGroupName = "";
+
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        window.onload = function() {
+            const saved = localStorage.getItem('user_profile');
+            if (saved) {
+                const profile = JSON.parse(saved);
+                sheetId = profile.sheetId;
+                document.getElementById('setupScreen').classList.add('hidden');
+                document.getElementById('settingsBtn').classList.remove('hidden');
+                document.getElementById('studentDisplay').innerText = profile.studentName;
+                document.getElementById('groupDisplay').innerText = `Группа: ${profile.groupName}`;
+                document.getElementById('marksScreen').classList.remove('hidden');
+                fetchMarks();
+            }
+        }
+
+        function extractSheetId(link) {
+            const match = link.match(/\/d\/([a-zA-Z0-9-_]+)/);
+            return match ? match[1] : null;
+        }
+
+        function loadSheet() {
+            const link = document.getElementById('sheetLink').value.trim();
+            sheetId = extractSheetId(link);
+            if (!sheetId) {
+                alert('Неверная ссылка на Google Таблицу');
+                return;
+            }
+
+            document.getElementById('setupScreen').classList.add('hidden');
+            document.getElementById('authScreen').classList.remove('hidden');
+        }
+
+        async function loadStudents() {
+            const groupName = document.getElementById('groupNameInput').value.trim();
+            if (!groupName) {
+                alert('Введите название группы');
+                return;
+            }
+            currentGroupName = groupName;
+
+            try {
+                const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(groupName)}`;
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Не удалось загрузить данные вкладки");
+
+                const text = await response.text();
+                const rows = parseCSV(text);
+
+                if (rows.length === 0) {
+                    alert('В этой группе нет данных или вкладка пуста');
+                    return;
+                }
+
+                const keys = Object.keys(rows[0]);
+                let nameKey = keys.find(k => /name|фио|студент|ф\.и\.о\./i.test(k)) || keys[0];
+
+                const select = document.getElementById('studentSelect');
+                select.innerHTML = '<option value="">Выбери свое ФИО</option>';
+                rows.forEach((row, idx) => {
+                    if (row[nameKey]) {
+                        select.innerHTML += `<option value="${idx}" data-name="${row[nameKey]}">${row[nameKey]}</option>`;
+                    }
+                });
+
+                document.getElementById('studentBlock').classList.remove('hidden');
+            } catch (e) {
+                alert('Ошибка при загрузке студентов. Проверьте правильность названия группы и доступ к таблице.');
+            }
+        }
+
+        function saveProfile() {
+            const select = document.getElementById('studentSelect');
+            const opt = select.options[select.selectedIndex];
+            const studentName = opt ? opt.getAttribute('data-name') : null;
+
+            if (!studentName) {
+                alert('Выберите свое ФИО из списка');
+                return;
+            }
+
+            const profile = { sheetId, groupName: currentGroupName, studentName };
+            localStorage.setItem('user_profile', JSON.stringify(profile));
+
+            document.getElementById('authScreen').classList.add('hidden');
+            document.getElementById('settingsBtn').classList.remove('hidden');
+            document.getElementById('studentDisplay').innerText = studentName;
+            document.getElementById('groupDisplay').innerText = `Группа: ${currentGroupName}`;
+            document.getElementById('marksScreen').classList.remove('hidden');
+            fetchMarks();
+        }
+
+        async function fetchMarks() {
+            const profile = JSON.parse(localStorage.getItem('user_profile'));
+            const container = document.getElementById('marksList');
+            container.innerHTML = '<div class="text-center text-slate-400 py-6">Загрузка оценок...</div>';
+
+            try {
+                const url = `https://docs.google.com/spreadsheets/d/${profile.sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(profile.groupName)}`;
+                const response = await fetch(url);
+                const text = await response.text();
+                const rows = parseCSV(text);
+
+                const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
+                let nameKey = keys.find(k => /name|фио|студент|ф\.и\.о\./i.test(k)) || keys[0];
+
+                const row = rows.find(r => r[nameKey] === profile.studentName);
+                if (!row) {
+                    container.innerHTML = '<div class="text-red-400 text-center py-6">Данные студента не найдены</div>';
+                    return;
+                }
+
+                let html = '';
+                let count = 0;
+
+                for (let [key, val] of Object.entries(row)) {
+                    if (key === nameKey) continue;
+                    if (!val || val.trim() === '' || val.trim() === '—' || val.trim() === '-') continue;
+                    if (/Unnamed|№/i.test(key)) continue;
+                    if (!/[а-яё]/i.test(key)) continue; // Только русские названия предметов
+
+                    html += `
+                        <div class="bg-slate-800 p-3.5 rounded-xl flex justify-between items-center shadow">
+                            <span class="text-sm text-slate-300 pr-2">${key}</span>
+                            <span class="bg-indigo-600/30 text-indigo-300 font-bold px-3 py-1 rounded-lg text-sm">${val}</span>
+                        </div>
+                    `;
+                    count++;
+                }
+
+                if (count === 0) {
+                    html = '<div class="text-slate-400 text-center py-6">Пока нет выставленных оценок</div>';
+                }
+
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = '<div class="text-red-400 text-center py-6">Ошибка соединения с таблицей</div>';
+            }
+        }
+
+        function parseCSV(text) {
+            let lines = text.split("\n");
+            let result = [];
+            let headers = lines[0].split(",").map(h => h.replace(/^"|"$/g, '').trim());
+
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                let currentline = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                let obj = {};
+                for (let j = 0; j < headers.length; j++) {
+                    let val = currentline[j] ? currentline[j].replace(/^"|"$/g, '').trim() : "";
+                    obj[headers[j]] = val;
+                }
+                result.push(obj);
+            }
+            return result;
+        }
+
+        function resetSettings() {
+            if (confirm("Сбросить настройки профиля?")) {
+                localStorage.removeItem('user_profile');
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>
