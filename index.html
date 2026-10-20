@@ -21,14 +21,14 @@
             <div class="flex items-center gap-2">
                 <span class="text-xl">📊</span>
                 <h1 class="text-lg font-bold tracking-tight">Дневник ПТК</h1>
-                <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono">v2.7</span>
+                <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono">v2.8</span>
             </div>
             <button onclick="hardReset()" class="text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-xl transition">
                 Сброс
             </button>
         </div>
 
-        <!-- Переключатель основных разделов -->
+        <!-- Переключатель основных разделов (ВСЕГДА ДОСТУПЕН) -->
         <div id="mainNav" class="grid grid-cols-2 gap-2">
             <button onclick="switchSection('marks')" id="navMarksBtn" class="bg-indigo-600 text-white py-2.5 rounded-xl font-medium text-xs transition shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5">
                 <span>📊</span> Оценки
@@ -50,10 +50,11 @@
                 <div id="subjectsTabs" class="flex gap-2 overflow-x-auto pb-1 no-scrollbar"></div>
             </div>
 
-            <div class="bg-slate-800 p-4 rounded-2xl flex justify-between items-center shadow-lg border border-slate-700/50">
+            <!-- Карточка студента (скрывается, если нет предметов) -->
+            <div id="studentCard" class="bg-slate-800 p-4 rounded-2xl flex justify-between items-center shadow-lg border border-slate-700/50 hidden">
                 <div>
-                    <div id="studentDisplay" class="font-bold text-base text-white">Добавьте предмет</div>
-                    <div id="groupDisplay" class="text-xs text-slate-400 mt-0.5">Нажмите «Добавить предмет» выше</div>
+                    <div id="studentDisplay" class="font-bold text-base text-white">ФИО Студента</div>
+                    <div id="groupDisplay" class="text-xs text-slate-400 mt-0.5">Группа</div>
                 </div>
                 <button onclick="loadMarksForActiveSubject()" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white px-3.5 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition shadow-lg shadow-indigo-600/20">
                     🔄 Обновить
@@ -105,7 +106,7 @@
         <div id="setupScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 border border-slate-700/50 hidden">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base">Подключение предмета (оценки)</h2>
-                <button id="cancelAddBtn" onclick="showMainScreen()" class="text-xs text-slate-400 hover:text-white hidden">Отмена</button>
+                <button onclick="switchSection('marks')" class="text-xs text-slate-400 hover:text-white">Отмена</button>
             </div>
 
             <div>
@@ -126,9 +127,7 @@
             <!-- Блок с кнопками найденных в таблице групп -->
             <div id="groupSelectBlock" class="hidden space-y-2.5 pt-3 border-t border-slate-700/60">
                 <label class="block text-xs text-emerald-400 font-medium">3. Выберите вашу группу (вкладку таблицы):</label>
-                <div id="groupsButtonsContainer" class="flex flex-wrap gap-2">
-                    <!-- Сюда автоматически рендерятся кнопки всех листов таблицы -->
-                </div>
+                <div id="groupsButtonsContainer" class="flex flex-wrap gap-2"></div>
             </div>
 
             <!-- Блок выбора студента -->
@@ -178,7 +177,6 @@
         let currentSelectedWeek = 'upper';
         let selectedGroupForMarks = '';
 
-        // Кэш скачанной книги Google Таблицы при настройке
         let tempMarksWorkbook = null;
         let tempExcelData = null;
 
@@ -192,12 +190,11 @@
             currentSelectedWeek = getInitialWeekType();
             updateWeekButtonsUI();
 
-            if (subjects.length > 0) {
-                showMainScreen();
-            } else if (schedules.length > 0) {
+            // Если оценок нет, но есть расписание — сразу открываем расписание. Иначе открываем главный экран без принудительной формы.
+            if (subjects.length === 0 && schedules.length > 0) {
                 switchSection('schedule');
             } else {
-                openAddSubject();
+                switchSection('marks');
             }
         };
 
@@ -279,7 +276,6 @@
             document.getElementById('studentSelectBlock').classList.add('hidden');
 
             try {
-                // Скачиваем всю книгу Google Таблицы напрямую и достаем реальный список всех листов (групп)
                 const workbook = await fetchWorkbookFromGoogle(sheetId);
                 tempMarksWorkbook = workbook;
 
@@ -400,11 +396,12 @@
             subjects.push({ subjectName: subjName, sheetId: extractSheetId(link), groupName: selectedGroupForMarks, studentName });
             localStorage.setItem(STORAGE_MARKS_KEY, JSON.stringify(subjects));
             activeSubjectIndex = subjects.length - 1;
-            showMainScreen();
+            switchSection('marks');
         }
 
         function openAddSubject() {
-            document.getElementById('mainNav').classList.add('hidden');
+            // Оставляем верхнее меню видимым, чтобы всегда можно было уйти в Расписание
+            document.getElementById('mainNav').classList.remove('hidden');
             document.getElementById('marksSection').classList.add('hidden');
             document.getElementById('scheduleSection').classList.add('hidden');
             document.getElementById('setupScreen').classList.remove('hidden');
@@ -415,19 +412,17 @@
             document.getElementById('sheetLinkInput').value = '';
             selectedGroupForMarks = '';
             tempMarksWorkbook = null;
-            document.getElementById('cancelAddBtn').classList.toggle('hidden', subjects.length === 0);
-        }
-
-        function showMainScreen() {
-            document.getElementById('setupScreen').classList.add('hidden');
-            document.getElementById('setupScheduleScreen').classList.add('hidden');
-            document.getElementById('mainNav').classList.remove('hidden');
-            switchSection('marks');
         }
 
         function renderSubjectTabs() {
             const container = document.getElementById('subjectsTabs');
             container.innerHTML = '';
+
+            if (subjects.length === 0) {
+                container.innerHTML = `<button onclick="openAddSubject()" class="text-xs bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 px-3 py-2 rounded-xl">➕ Добавить первый предмет</button>`;
+                return;
+            }
+
             subjects.forEach((subj, idx) => {
                 const isActive = idx === activeSubjectIndex;
                 container.innerHTML += `
@@ -445,23 +440,35 @@
             if (confirm(`Удалить предмет «${subjects[idx].subjectName}»?`)) {
                 subjects.splice(idx, 1);
                 localStorage.setItem(STORAGE_MARKS_KEY, JSON.stringify(subjects));
-                if (subjects.length === 0) openAddSubject(); else { activeSubjectIndex = 0; showMainScreen(); }
+                activeSubjectIndex = 0;
+                switchSection('marks');
             }
         }
 
         async function loadMarksForActiveSubject() {
             const current = subjects[activeSubjectIndex];
             const container = document.getElementById('marksList');
+            const studentCard = document.getElementById('studentCard');
+
             if (!current) {
-                container.innerHTML = '';
+                studentCard.classList.add('hidden');
+                container.innerHTML = `
+                    <div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 text-center space-y-3">
+                        <div class="text-slate-400 text-sm">У вас пока не добавлено ни одной таблицы с оценками</div>
+                        <button onclick="openAddSubject()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2.5 rounded-xl transition shadow-lg shadow-indigo-600/20">
+                            ➕ Подключить таблицу оценок
+                        </button>
+                    </div>
+                `;
                 return;
             }
+
+            studentCard.classList.remove('hidden');
             document.getElementById('studentDisplay').innerText = current.studentName;
             document.getElementById('groupDisplay').innerText = `Группа: ${current.groupName} • ${current.subjectName}`;
             container.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Загружаем оценки...</div>';
 
             try {
-                // Загружаем данные вкладки через CSV или XLSX
                 const url = `https://docs.google.com/spreadsheets/d/${current.sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(current.groupName)}&_t=${Date.now()}`;
                 const res = await fetch(url);
                 const csvText = await res.text();
@@ -500,7 +507,6 @@
                             if (c === nameColIdx) continue;
                             let rawHeader = headers[c];
                             let val = (studentRow[c] || '').toString().trim();
-                            // Фильтруем пустые ячейки и ошибки деления на ноль (#DIV/0!)
                             if (!val || val === '—' || val === '-' || /#(DIV|ДЕЛ|VALUE|ЗНАЧ|REF|Н\/Д)/i.test(val)) continue;
                             if (/^(№|п\/п|№\s*п\/п)$/i.test(rawHeader) || c === 0) continue;
 
@@ -522,7 +528,7 @@
 
         // --- РАСПИСАНИЕ ---
         function openAddSchedule() {
-            document.getElementById('mainNav').classList.add('hidden');
+            document.getElementById('mainNav').classList.remove('hidden');
             document.getElementById('marksSection').classList.add('hidden');
             document.getElementById('scheduleSection').classList.add('hidden');
             document.getElementById('setupScreen').classList.add('hidden');
@@ -627,7 +633,8 @@
             if (confirm(`Удалить расписание группы ${schedules[idx].groupName}?`)) {
                 schedules.splice(idx, 1);
                 localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
-                if (schedules.length === 0) openAddSchedule(); else { activeScheduleIndex = 0; renderScheduleTabs(); loadScheduleForActive(); }
+                activeScheduleIndex = 0;
+                switchSection('schedule');
             }
         }
 
@@ -647,7 +654,14 @@
             if (!current || !current.rawRows) {
                 document.getElementById('schedHeaderInfo').innerText = "Расписание не выбрано";
                 document.getElementById('schedSubInfo').innerText = "Загрузите файл расписания выше";
-                container.innerHTML = '<div class="text-slate-400 text-center py-8 bg-slate-800/40 rounded-2xl text-sm">Нажмите «Загрузить файл» вверху</div>';
+                container.innerHTML = `
+                    <div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 text-center space-y-3">
+                        <div class="text-slate-400 text-sm">У вас пока не загружено расписание</div>
+                        <button onclick="openAddSchedule()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2.5 rounded-xl transition shadow-lg shadow-indigo-600/20">
+                            📁 Загрузить файл (.xls / .xlsx)
+                        </button>
+                    </div>
+                `;
                 return;
             }
 
