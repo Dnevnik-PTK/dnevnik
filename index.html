@@ -28,18 +28,27 @@
             <button onclick="loadSheet()" class="w-full bg-indigo-600 hover:bg-indigo-500 font-medium py-3 rounded-xl transition">Далее</button>
         </div>
 
-        <!-- Шаг 2: Ввод группы и выбор ФИО -->
+        <!-- Шаг 2: Ввод группы, выбор колонки с ФИО и самого ФИО -->
         <div id="authScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 hidden">
-            <h2 class="font-semibold text-lg">Выбор группы и ФИО</h2>
+            <h2 class="font-semibold text-lg">Настройка профиля</h2>
             
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Название группы (вкладки внизу таблицы)</label>
                 <div class="flex gap-2">
                     <input type="text" id="groupNameInput" placeholder="например: 5953" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
-                    <button onclick="loadStudents()" class="bg-indigo-600 hover:bg-indigo-500 px-4 rounded-xl text-sm font-medium transition">Найти</button>
+                    <button onclick="loadColumns()" class="bg-indigo-600 hover:bg-indigo-500 px-4 rounded-xl text-sm font-medium transition">Загрузить</button>
                 </div>
             </div>
 
+            <!-- Шаг 2.1: Выбор колонки с именами -->
+            <div id="columnBlock" class="hidden space-y-2 pt-2 border-t border-slate-700">
+                <label class="block text-xs text-slate-400 mb-1">Где в таблице написаны фамилии (какой столбец)?</label>
+                <select id="columnSelect" onchange="loadStudentsFromColumn()" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
+                    <option value="">Выбери столбец с именами...</option>
+                </select>
+            </div>
+
+            <!-- Шаг 2.2: Выбор конкретного ФИО -->
             <div id="studentBlock" class="hidden space-y-3 pt-2 border-t border-slate-700">
                 <label class="block text-xs text-slate-400 mb-1">Выбери своё ФИО:</label>
                 <select id="studentSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
@@ -70,6 +79,8 @@
     <script>
         let sheetId = "";
         let currentGroupName = "";
+        let cachedRows = [];
+        let chosenNameKey = "";
 
         const tg = window.Telegram.WebApp;
         tg.expand();
@@ -79,6 +90,7 @@
             if (saved) {
                 const profile = JSON.parse(saved);
                 sheetId = profile.sheetId;
+                chosenNameKey = profile.nameKey;
                 document.getElementById('setupScreen').classList.add('hidden');
                 document.getElementById('settingsBtn').classList.remove('hidden');
                 document.getElementById('studentDisplay').innerText = profile.studentName;
@@ -105,22 +117,8 @@
             document.getElementById('authScreen').classList.remove('hidden');
         }
 
-        // Железобетонный поиск колонки с именами по содержимому строк (исключает п/п и цифры)
-        function findNameKey(keys, rows) {
-            let cleanKeys = keys.filter(k => !/(п\/п|№|id|порядковый|дата|группа)/i.test(k));
-
-            for (let k of cleanKeys) {
-                let hasNames = rows.some(r => {
-                    let val = r[k];
-                    return val && isNaN(val) && val.trim().includes(' ') && /[а-яё]/i.test(val);
-                });
-                if (hasNames) return k;
-            }
-            
-            return keys[2] || keys[1] || keys[0];
-        }
-
-        async function loadStudents() {
+        // Шаг А: Скачиваем таблицу и выводим все доступные колонки на выбор
+        async function loadColumns() {
             const groupName = document.getElementById('groupNameInput').value.trim();
             if (!groupName) {
                 alert('Введите название группы');
@@ -130,7 +128,7 @@
 
             const btn = event.target;
             const oldText = btn.innerText;
-            btn.innerText = "Ищем...";
+            btn.innerText = "Загрузка...";
 
             try {
                 const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(groupName)}`;
@@ -143,27 +141,43 @@
                     throw new Error("Таблица не найдена или вкладка не существует.");
                 }
 
-                const rows = parseCSV(text);
-                if (rows.length === 0) throw new Error('В этой группе нет данных');
+                cachedRows = parseCSV(text);
+                if (cachedRows.length === 0) throw new Error('В этой группе нет данных');
 
-                const keys = Object.keys(rows[0]);
-                let nameKey = findNameKey(keys, rows);
+                const keys = Object.keys(cachedRows[0]);
+                const colSelect = document.getElementById('columnSelect');
+                colSelect.innerHTML = '<option value="">Выбери столбец с фамилиями...</option>';
 
-                const select = document.getElementById('studentSelect');
-                select.innerHTML = '<option value="">Выбери свое ФИО</option>';
-                rows.forEach((row, idx) => {
-                    let nameVal = row[nameKey];
-                    if (nameVal && isNaN(nameVal) && /[а-яё]/i.test(nameVal)) {
-                        select.innerHTML += `<option value="${idx}" data-name="${nameVal}">${nameVal}</option>`;
-                    }
+                keys.forEach((key) => {
+                    // Покажем пример первой строки для каждого столбца, чтобы было понятно, где фамилии
+                    const sample = cachedRows[0][key] || '';
+                    colSelect.innerHTML += `<option value="${key}">${key} (пример: ${sample})</option>`;
                 });
 
-                document.getElementById('studentBlock').classList.remove('hidden');
+                document.getElementById('columnBlock').classList.remove('hidden');
             } catch (e) {
                 alert('Ошибка: ' + e.message);
             } finally {
                 btn.innerText = oldText;
             }
+        }
+
+        // Шаг Б: Когда пользователь выбрал нужный столбец, подгружаем список студентов из него
+        function loadStudentsFromColumn() {
+            chosenNameKey = document.getElementById('columnSelect').value;
+            if (!chosenNameKey) return;
+
+            const select = document.getElementById('studentSelect');
+            select.innerHTML = '<option value="">Выбери свое ФИО</option>';
+
+            cachedRows.forEach((row, idx) => {
+                let nameVal = row[chosenNameKey];
+                if (nameVal && nameVal.trim() !== '') {
+                    select.innerHTML += `<option value="${idx}" data-name="${nameVal}">${nameVal}</option>`;
+                }
+            });
+
+            document.getElementById('studentBlock').classList.remove('hidden');
         }
 
         function saveProfile() {
@@ -176,7 +190,7 @@
                 return;
             }
 
-            const profile = { sheetId, groupName: currentGroupName, studentName };
+            const profile = { sheetId, groupName: currentGroupName, studentName, nameKey: chosenNameKey };
             localStorage.setItem('user_profile', JSON.stringify(profile));
 
             document.getElementById('authScreen').classList.add('hidden');
@@ -198,10 +212,9 @@
                 const text = await response.text();
                 const rows = parseCSV(text);
 
-                const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
-                let nameKey = findNameKey(keys, rows);
-
+                const nameKey = profile.nameKey;
                 const row = rows.find(r => r[nameKey] === profile.studentName);
+                
                 if (!row) {
                     container.innerHTML = '<div class="text-red-400 text-center py-6">Данные студента не найдены</div>';
                     return;
