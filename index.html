@@ -18,7 +18,7 @@
             <div class="flex items-center gap-2">
                 <span class="text-xl">📊</span>
                 <h1 class="text-lg font-bold tracking-tight">Дневник ПТК</h1>
-                <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono">v3.2</span>
+                <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono">v3.5</span>
             </div>
             <button type="button" onclick="hardReset()" class="text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-xl transition">
                 Сброс
@@ -92,25 +92,20 @@
         <!-- РАЗДЕЛ 3: ЗАМЕНЫ -->
         <div id="changesSection" class="space-y-4 hidden">
             <div class="bg-slate-800 p-4 rounded-2xl shadow-lg border border-slate-700/50 space-y-3">
-                <div class="flex justify-between items-start gap-2">
+                <div class="flex justify-between items-center gap-2">
                     <div>
                         <div id="changesHeaderTitle" class="font-bold text-sm text-white">⚡ Изменения в расписании</div>
-                        <div id="changesStatusText" class="text-xs text-indigo-300 mt-0.5">Выберите файл .docx или обновите с сайта</div>
+                        <div id="changesStatusText" class="text-xs text-indigo-300 mt-0.5">Нажмите «🔄 С сайта» или выберите файл</div>
                     </div>
                     <div class="flex gap-1.5 shrink-0">
-                        <label class="cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl text-xs font-semibold transition shadow-md">
+                        <label class="cursor-pointer bg-slate-700 hover:bg-slate-600 text-slate-200 px-3.5 py-2.5 rounded-xl text-xs font-medium transition">
                             📁 Файл .docx
                             <input type="file" accept=".docx,.doc,.xls,.xlsx" onchange="handleManualChangesFile(event)" class="hidden">
                         </label>
-                        <button type="button" onclick="fetchChangesFromPortal()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-2 rounded-xl text-xs font-medium transition">
+                        <button type="button" onclick="fetchChangesFromPortal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2.5 rounded-xl text-xs font-bold transition shadow-md">
                             🔄 С сайта
                         </button>
                     </div>
-                </div>
-
-                <div id="portalFilesContainer" class="hidden space-y-1.5 pt-2 border-t border-slate-700/60">
-                    <div class="text-[11px] text-slate-400">Найденные замены на сайте НовГУ:</div>
-                    <div id="portalFilesList" class="flex flex-wrap gap-1.5"></div>
                 </div>
 
                 <div class="space-y-1.5 pt-2 border-t border-slate-700/60">
@@ -120,12 +115,6 @@
             </div>
 
             <div id="changesList" class="space-y-2.5"></div>
-
-            <div class="text-center pt-1">
-                <a href="https://portal.novsu.ru/univer/timetable/spo/i.1473214//?id=2445999" target="_blank" class="inline-block bg-slate-800 hover:bg-slate-700 border border-slate-700 text-indigo-400 px-4 py-2.5 rounded-xl text-xs font-medium transition">
-                    🌐 Скачать файл замен с portal.novsu.ru ↗
-                </a>
-            </div>
         </div>
 
         <!-- ЭКРАН ДОБАВЛЕНИЯ ПРЕДМЕТА -->
@@ -184,15 +173,14 @@
 
         const STORAGE_MARKS_KEY = 'ptk_diary_subjects_v3';
         const STORAGE_SCHED_KEY = 'ptk_diary_schedules_v6';
-        const STORAGE_CHANGES_KEY = 'ptk_diary_changes_v2';
-        const NOVSU_CHANGES_URL = 'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999';
+        const STORAGE_CHANGES_KEY = 'ptk_diary_changes_v5';
 
         let subjects = [], activeSubjectIndex = 0;
         let schedules = [], activeScheduleIndex = 0;
         let currentSelectedWeek = 'upper';
         let selectedGroupForMarks = '';
 
-        let changesData = { dateTitle: '', fileName: '', items: [], portalFiles: [] };
+        let changesData = { dateTitle: 'Изменения в расписании', fileName: 'С сайта НовГУ', items: [] };
         let activeChangesGroupFilter = 'ALL';
         let tempMarksWorkbook = null, tempExcelData = null;
 
@@ -260,123 +248,36 @@
             if (section === 'marks') { renderSubjectTabs(); loadMarksForActiveSubject(); }
             else if (section === 'schedule') { renderScheduleTabs(); loadScheduleForActive(); }
             else if (section === 'changes') {
-                renderPortalFilesButtons();
                 renderChangesGroupFilter();
                 renderChangesList();
             }
         }
 
-        // ================= ЗАМЕНЫ (.DOCX / ПОРТАЛ НОВГУ) =================
-        async function fetchWithCorsFallback(targetUrl, asArrayBuffer) {
-            // 1. Сначала пробуем JSON-обертку AllOrigins (она лучше всего проходит защиту)
-            if (!asArrayBuffer) {
-                try {
-                    const r = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
-                    if (r.ok) {
-                        const j = await r.json();
-                        if (j && j.contents) return j.contents;
-                    }
-                } catch (e) {}
-            }
-
-            // 2. Прямые прокси для текста и бинарных файлов (.docx)
-            const proxies = [
-                u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
-                u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
-                u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-                u => `https://thingproxy.freeboard.io/fetch/${u}`
-            ];
-
-            for (let i = 0; i < proxies.length; i++) {
-                try {
-                    const res = await fetch(proxies[i](targetUrl));
-                    if (!res.ok) continue;
-                    return asArrayBuffer ? await res.arrayBuffer() : await res.text();
-                } catch (e) {}
-            }
-            throw new Error("Сервер НовГУ отклонил запрос прокси");
-        }
-
+        // ================= ЗАМЕНЫ (ЧЕРЕЗ СВОЙ СЕРВЕР RENDER) =================
         async function fetchChangesFromPortal() {
             const statusEl = document.getElementById('changesStatusText');
             const listEl = document.getElementById('changesList');
-            statusEl.innerText = "⏳ Подключаемся к portal.novsu.ru...";
-            listEl.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Пробуем обойти блокировку сайта НовГУ...</div>';
+            statusEl.innerText = "⏳ Загружаем через наш сервер...";
+            listEl.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Связываемся с порталом НовГУ...</div>';
 
             try {
-                const html = await fetchWithCorsFallback(NOVSU_CHANGES_URL, false);
-                const doc = new DOMParser().parseFromString(html, 'text/html');
-                const fileLinks = [];
-
-                doc.querySelectorAll('a[href]').forEach(a => {
-                    const href = a.getAttribute('href') || '';
-                    const text = (a.textContent || '').replace(/\s+/g, ' ').trim();
-                    // Ищем даты типа 21.10.2026 или ссылки на файлы замен
-                    if (/\.(docx?|xlsx?)\b/i.test(href) || /\d{2}\.\d{2}\.\d{2,4}/.test(text) || /file|download/i.test(href)) {
-                        const fullUrl = new URL(href, 'https://portal.novsu.ru').href;
-                        if (!fileLinks.some(f => f.url === fullUrl)) {
-                            fileLinks.push({ title: text || href.split('/').pop(), url: fullUrl });
-                        }
-                    }
-                });
-
-                changesData.portalFiles = fileLinks;
-                renderPortalFilesButtons();
-
-                if (fileLinks.length > 0) {
-                    const target = fileLinks[fileLinks.length - 1];
-                    await loadPortalChangesFile(target.url, target.title);
-                } else {
-                    throw new Error("Ссылки на файлы не найдены");
-                }
+                // Твой рабочий бэкенд на Render
+                const renderServerUrl = 'https://dnevnik-1.onrender.com/api/changes';
+                
+                const res = await fetch(renderServerUrl);
+                if (!res.ok) throw new Error("Сервер не ответил");
+                
+                const html = await res.text();
+                parseDocxHtmlChanges(html, "Замены с портала НовГУ");
+                
             } catch (e) {
-                statusEl.innerText = "Используйте кнопку «📁 Файл .docx» справа";
+                statusEl.innerText = "Ошибка автоматической загрузки";
                 listEl.innerHTML = `
-                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60 text-center space-y-3">
-                        <div class="text-amber-400 text-xs font-medium">
-                            ⚠️ Сайт НовГУ блокирует автоматическое скачивание из других стран (через прокси).
-                        </div>
-                        <div class="text-slate-300 text-xs leading-relaxed">
-                            1. Нажмите кнопку <b>«🌐 Скачать файл замен с portal.novsu.ru»</b> внизу.<br>
-                            2. Нажмите на зелёную кнопку <b>«📁 Файл .docx»</b> вверху и выберите скачанный файл — замены сразу появятся здесь!
-                        </div>
+                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60 text-center space-y-2">
+                        <div class="text-amber-400 text-xs">⚠️ Не удалось получить данные через сервер: ${e.message}</div>
+                        <div class="text-slate-300 text-xs">Воспользуйся кнопкой <b>«📁 Файл .docx»</b>, чтобы загрузить файл вручную.</div>
                     </div>
                 `;
-            }
-        }
-
-        function renderPortalFilesButtons() {
-            const block = document.getElementById('portalFilesContainer');
-            const list = document.getElementById('portalFilesList');
-            list.innerHTML = '';
-            if (!changesData.portalFiles || changesData.portalFiles.length === 0) {
-                block.classList.add('hidden');
-                return;
-            }
-            block.classList.remove('hidden');
-            changesData.portalFiles.forEach(f => {
-                const isActive = changesData.fileName === f.title;
-                const cls = isActive ? "bg-indigo-600 text-white border-indigo-400" : "bg-slate-900 text-indigo-300 border-slate-700";
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = `px-3 py-1.5 rounded-xl border text-xs font-medium transition ${cls}`;
-                btn.textContent = `📄 ${f.title}`;
-                btn.onclick = () => loadPortalChangesFile(f.url, f.title);
-                list.appendChild(btn);
-            });
-        }
-
-        async function loadPortalChangesFile(url, title) {
-            const statusEl = document.getElementById('changesStatusText');
-            const listEl = document.getElementById('changesList');
-            statusEl.innerText = `⏳ Загружаем ${title}...`;
-            listEl.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Читаем документ замен...</div>';
-            try {
-                const buf = await fetchWithCorsFallback(url, true);
-                await parseChangesBuffer(buf, title);
-            } catch (e) {
-                statusEl.innerText = `Откройте ${title} через «📁 Файл .docx»`;
-                listEl.innerHTML = `<div class="bg-slate-800 p-4 rounded-2xl text-center text-xs text-amber-300">Не удалось скачать файл напрямую. <a href="${url}" target="_blank" class="underline text-indigo-400 font-bold">Нажмите сюда, чтобы скачать ${title}</a>, и откройте его зеленой кнопкой <b>«📁 Файл .docx»</b>.</div>`;
             }
         }
 
@@ -446,14 +347,10 @@
                 items.push({ groupRaw: groupRaw || '—', groups, pair: c1 || '—', oldLesson: c2 || '—', newLesson: c3 || '', aud: c4 || '' });
             }
 
-            changesData.dateTitle = dateTitle;
-            changesData.fileName = fileName;
-            changesData.items = items;
+            changesData = { dateTitle, fileName, items };
             localStorage.setItem(STORAGE_CHANGES_KEY, JSON.stringify(changesData));
 
-            document.getElementById('changesHeaderTitle').innerText = `⚡ ${dateTitle}`;
-            document.getElementById('changesStatusText').innerText = `Загружен: ${fileName} (замен: ${items.length})`;
-            renderPortalFilesButtons();
+            document.getElementById('changesStatusText').innerText = `Загружено: ${fileName} (замен: ${items.length})`;
             renderChangesGroupFilter();
             renderChangesList();
         }
@@ -482,7 +379,7 @@
                 container.innerHTML = `
                     <div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 text-center space-y-2">
                         <div class="text-slate-300 text-sm font-medium">Замены ещё не загружены</div>
-                        <div class="text-slate-400 text-xs">Скачайте свежий файл <b>.docx</b> с сайта НовГУ по кнопке ниже и выберите его зелёной кнопкой <b>«📁 Файл .docx»</b></div>
+                        <div class="text-slate-400 text-xs">Нажми кнопку <b>«🔄 С сайта»</b> выше или выбери файл <b>.docx</b></div>
                     </div>
                 `;
                 return;
@@ -496,7 +393,7 @@
             });
 
             if (filtered.length === 0) {
-                container.innerHTML = `<div class="bg-slate-800/50 p-6 rounded-2xl text-center text-slate-300 text-sm border border-slate-700/40">🎉 Для группы <b>${activeChangesGroupFilter}</b> в файле <b>${changesData.fileName}</b> замен нет!</div>`;
+                container.innerHTML = `<div class="bg-slate-800/50 p-6 rounded-2xl text-center text-slate-300 text-sm border border-slate-700/40">🎉 Для группы <b>${activeChangesGroupFilter}</b> замен нет!</div>`;
                 return;
             }
 
