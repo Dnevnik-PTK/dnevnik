@@ -3,15 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Мой Дневник</title>
+    <title>Мой Дневник ПТК</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Telegram Web App SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- PapaParse: профессиональный парсер CSV, который не ломается от переносов строк -->
+    <!-- PapaParse для CSV (оценки) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- SheetJS (xlsx) для чтения Excel-файлов расписания прямо на устройстве -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen p-4 select-none">
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 select-none pb-24">
 
     <div class="max-w-md mx-auto space-y-4">
         <!-- Шапка -->
@@ -19,16 +21,25 @@
             <div class="flex items-center gap-2">
                 <span class="text-xl">📊</span>
                 <h1 class="text-lg font-bold tracking-tight">Дневник ПТК</h1>
-                <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono">v2.0</span>
+                <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono">v2.3</span>
             </div>
             <button onclick="hardReset()" class="text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-xl transition">
                 Сброс
             </button>
         </div>
 
-        <!-- ЭКРАН 1: СПИСОК ПРЕДМЕТОВ И ОЦЕНОК -->
-        <div id="mainScreen" class="space-y-4 hidden">
-            <!-- Переключатель предметов (таблиц) -->
+        <!-- Переключатель основных разделов (Оценки / Расписание) -->
+        <div id="mainNav" class="grid grid-cols-2 gap-2">
+            <button onclick="switchSection('marks')" id="navMarksBtn" class="bg-indigo-600 text-white py-2.5 rounded-xl font-medium text-xs transition shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5">
+                <span>📊</span> Оценки
+            </button>
+            <button onclick="switchSection('schedule')" id="navScheduleBtn" class="bg-slate-800 text-slate-400 border border-slate-700 py-2.5 rounded-xl font-medium text-xs transition flex items-center justify-center gap-1.5 hover:text-slate-200">
+                <span>📅</span> Расписание
+            </button>
+        </div>
+
+        <!-- РАЗДЕЛ 1: ОЦЕНКИ -->
+        <div id="marksSection" class="space-y-4">
             <div class="space-y-2">
                 <div class="flex justify-between items-center px-1">
                     <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Мои предметы</span>
@@ -41,7 +52,6 @@
                 </div>
             </div>
 
-            <!-- Карточка студента -->
             <div class="bg-slate-800 p-4 rounded-2xl flex justify-between items-center shadow-lg border border-slate-700/50">
                 <div>
                     <div id="studentDisplay" class="font-bold text-base text-white">ФИО Студента</div>
@@ -52,16 +62,44 @@
                 </button>
             </div>
 
-            <!-- Список оценок -->
-            <div id="marksList" class="space-y-2.5 pb-8">
-                <!-- Оценки рендерятся сюда -->
+            <div id="marksList" class="space-y-2.5">
+                <!-- Оценки -->
             </div>
         </div>
 
-        <!-- ЭКРАН 2: ДОБАВЛЕНИЕ НОВОЙ ТАБЛИЦЫ / НАСТРОЙКА -->
-        <div id="setupScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 border border-slate-700/50">
+        <!-- РАЗДЕЛ 2: РАСПИСАНИЕ -->
+        <div id="scheduleSection" class="space-y-4 hidden">
+            <div class="space-y-2">
+                <div class="flex justify-between items-center px-1">
+                    <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Мои группы расписания</span>
+                    <button onclick="openAddSchedule()" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1">
+                        📁 Загрузить файл расписания
+                    </button>
+                </div>
+                <div id="scheduleTabs" class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                    <!-- Кнопки расписаний -->
+                </div>
+            </div>
+
+            <div class="bg-slate-800 p-4 rounded-2xl shadow-lg border border-slate-700/50 flex justify-between items-center">
+                <div>
+                    <div id="schedHeaderInfo" class="font-bold text-sm text-white">Расписание не выбрано</div>
+                    <div id="schedSubInfo" class="text-xs text-slate-400 mt-0.5">Загрузите файл расписания выше</div>
+                </div>
+                <button onclick="loadScheduleForActive()" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white px-3.5 py-2 rounded-xl text-xs font-medium transition">
+                    🔄 Обновить
+                </button>
+            </div>
+
+            <div id="scheduleList" class="space-y-3">
+                <div class="text-slate-400 text-center py-8 bg-slate-800/40 rounded-2xl text-sm">Загрузите файл расписания (.xls / .xlsx) с сайта НовГУ</div>
+            </div>
+        </div>
+
+        <!-- ЭКРАН НАСТРОЙКИ ПРЕДМЕТА (ОЦЕНКИ) -->
+        <div id="setupScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 border border-slate-700/50 hidden">
             <div class="flex justify-between items-center">
-                <h2 class="font-bold text-base">Подключение предмета</h2>
+                <h2 class="font-bold text-base">Подключение предмета (оценки)</h2>
                 <button id="cancelAddBtn" onclick="showMainScreen()" class="text-xs text-slate-400 hover:text-white hidden">Отмена</button>
             </div>
 
@@ -76,17 +114,15 @@
             </div>
 
             <div>
-                <label class="block text-xs text-slate-400 mb-1">Номер группы (название вкладки внизу)</label>
+                <label class="block text-xs text-slate-400 mb-1">Номер группы (название вкладки)</label>
                 <div class="flex gap-2">
                     <input type="text" id="groupNameInput" placeholder="Например: 5953" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
                     <button id="findGroupBtn" onclick="fetchGroupAndStudents()" class="bg-indigo-600 hover:bg-indigo-500 px-4 rounded-xl text-sm font-medium shrink-0 transition">
                         Найти
                     </button>
                 </div>
-                <!-- Быстрые кнопки популярных групп -->
             </div>
 
-            <!-- Блок выбора ФИО (появляется после загрузки вкладки) -->
             <div id="studentSelectBlock" class="hidden space-y-3 pt-3 border-t border-slate-700">
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">Выбери своё ФИО из списка:</label>
@@ -95,9 +131,31 @@
                     </select>
                 </div>
                 <button onclick="saveSubjectProfile()" class="w-full bg-emerald-600 hover:bg-emerald-500 font-medium py-3 rounded-xl transition shadow-lg shadow-emerald-600/20">
-                    ✅ Сохранить и открыть оценки
+                    ✅ Сохранить предмет
                 </button>
             </div>
+        </div>
+
+        <!-- ЭКРАН НАСТРОЙКИ РАСПИСАНИЯ (ЗАГРУЗКА ФАЙЛА) -->
+        <div id="setupScheduleScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 border border-slate-700/50 hidden">
+            <div class="flex justify-between items-center">
+                <h2 class="font-bold text-base">Загрузка файла расписания</h2>
+                <button onclick="switchSection('schedule')" class="text-xs text-slate-400 hover:text-white">Отмена</button>
+            </div>
+
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Выберите файл расписания (.xls / .xlsx)</label>
+                <input type="file" id="excelFileInput" accept=".xls, .xlsx" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500">
+            </div>
+
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Номер вашей группы</label>
+                <input type="text" id="schedGroupInput" placeholder="Например: 5993" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
+            </div>
+
+            <button onclick="saveScheduleFile()" class="w-full bg-emerald-600 hover:bg-emerald-500 font-medium py-3 rounded-xl transition shadow-lg shadow-emerald-600/20">
+                ✅ Сохранить расписание
+            </button>
         </div>
     </div>
 
@@ -105,37 +163,56 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        const STORAGE_KEY = 'ptk_diary_subjects_v2';
+        const STORAGE_MARKS_KEY = 'ptk_diary_subjects_v2';
+        const STORAGE_SCHED_KEY = 'ptk_diary_schedules_v2';
+        
         let subjects = [];
         let activeSubjectIndex = 0;
 
-        // Временные данные при настройке
+        let schedules = [];
+        let activeScheduleIndex = 0;
+
         let tempParsedMatrix = [];
-        let tempHeaderRowIdx = 0;
-        let tempNameColIdx = 1;
+        let firstStudentRow = 1;
+        let nameColIdx = 1;
 
         window.onload = function() {
-            // Очищаем старый сломанный кэш v1
-            localStorage.removeItem('user_profile');
+            const savedMarks = localStorage.getItem(STORAGE_MARKS_KEY);
+            if (savedMarks) { try { subjects = JSON.parse(savedMarks); } catch(e){} }
 
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
-                try {
-                    subjects = JSON.parse(saved);
-                    if (subjects.length > 0) {
-                        showMainScreen();
-                        return;
-                    }
-                } catch (e) {
-                    console.error(e);
-                }
+            const savedSched = localStorage.getItem(STORAGE_SCHED_KEY);
+            if (savedSched) { try { schedules = JSON.parse(savedSched); } catch(e){} }
+
+            if (subjects.length > 0) {
+                showMainScreen();
+            } else {
+                openAddSubject();
             }
-            openAddSubject();
         };
 
-        function quickGroup(name) {
-            document.getElementById('groupNameInput').value = name;
-            fetchGroupAndStudents();
+        function switchSection(section) {
+            document.getElementById('mainNav').classList.remove('hidden');
+            document.getElementById('setupScreen').classList.add('hidden');
+            document.getElementById('setupScheduleScreen').classList.add('hidden');
+
+            const marksBtn = document.getElementById('navMarksBtn');
+            const schedBtn = document.getElementById('navScheduleBtn');
+            const marksSec = document.getElementById('marksSection');
+            const schedSec = document.getElementById('scheduleSection');
+
+            if (section === 'marks') {
+                marksBtn.className = "bg-indigo-600 text-white py-2.5 rounded-xl font-medium text-xs transition shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5";
+                schedBtn.className = "bg-slate-800 text-slate-400 border border-slate-700 py-2.5 rounded-xl font-medium text-xs transition flex items-center justify-center gap-1.5 hover:text-slate-200";
+                marksSec.classList.remove('hidden');
+                schedSec.classList.add('hidden');
+            } else {
+                schedBtn.className = "bg-indigo-600 text-white py-2.5 rounded-xl font-medium text-xs transition shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5";
+                marksBtn.className = "bg-slate-800 text-slate-400 border border-slate-700 py-2.5 rounded-xl font-medium text-xs transition flex items-center justify-center gap-1.5 hover:text-slate-200";
+                schedSec.classList.remove('hidden');
+                marksSec.classList.add('hidden');
+                renderScheduleTabs();
+                loadScheduleForActive();
+            }
         }
 
         function extractSheetId(link) {
@@ -143,7 +220,6 @@
             return match ? match[1] : null;
         }
 
-        // Скачиваем CSV как 2D-матрицу через PapaParse (не ломается от \n внутри ячеек!)
         async function fetchCSVMatrix(sheetId, groupName) {
             const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(groupName)}&_t=${Date.now()}`;
             const response = await fetch(url);
@@ -157,29 +233,22 @@
             return new Promise((resolve, reject) => {
                 Papa.parse(csvText, {
                     skipEmptyLines: true,
-                    complete: function(results) {
-                        resolve(results.data);
-                    },
-                    error: function(err) {
-                        reject(err);
-                    }
+                    complete: function(results) { resolve(results.data); },
+                    error: function(err) { reject(err); }
                 });
             });
         }
 
-        // Автоматический поиск столбца с ФИО и строки заголовков в 2D-матрице
         function analyzeMatrix(matrix) {
             let bestCol = 1;
             let maxNamesCount = 0;
-
             const maxCols = Math.min(10, matrix[0] ? matrix[0].length : 0);
 
             for (let col = 0; col < maxCols; col++) {
                 let namesCount = 0;
                 for (let row = 0; row < matrix.length; row++) {
                     let cell = (matrix[row][col] || '').toString().trim();
-                    // ФИО: содержит кириллицу, пробел (Фамилия Имя), минимум 5 символов, не содержит служебных слов
-                    if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(cell) && !/(задание|лекция|практика|модуль|вопрос|итог|экзамен|диктант|работа)/i.test(cell)) {
+                    if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(cell) && !/(задание|лекция|практика|модуль|вопрос|итог|экзамен)/i.test(cell)) {
                         namesCount++;
                     }
                 }
@@ -189,17 +258,15 @@
                 }
             }
 
-            // Находим первую строку, где начинается первое ФИО студента
-            let firstStudentRow = 1;
+            let firstStudRow = 1;
             for (let row = 0; row < matrix.length; row++) {
                 let cell = (matrix[row][bestCol] || '').toString().trim();
-                if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(cell) && !/(фио|студент|фамилия|имя)/i.test(cell)) {
-                    firstStudentRow = row;
+                if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(cell) && !/(фио|студент|фамилия)/i.test(cell)) {
+                    firstStudRow = row;
                     break;
                 }
             }
-
-            return { nameColIdx: bestCol, firstStudentRow: firstStudentRow };
+            return { nameColIdx: bestCol, firstStudentRow: firstStudRow };
         }
 
         async function fetchGroupAndStudents() {
@@ -207,14 +274,8 @@
             const groupName = document.getElementById('groupNameInput').value.trim();
             const sheetId = extractSheetId(link);
 
-            if (!sheetId) {
-                alert("Сначала вставь корректную ссылку на Google Таблицу!");
-                return;
-            }
-            if (!groupName) {
-                alert("Введи номер группы (например: 5953)");
-                return;
-            }
+            if (!sheetId) { alert("Вставь ссылку на Google Таблицу!"); return; }
+            if (!groupName) { alert("Введи номер группы!"); return; }
 
             const btn = document.getElementById('findGroupBtn');
             const oldText = btn.innerText;
@@ -222,14 +283,10 @@
 
             try {
                 const matrix = await fetchCSVMatrix(sheetId, groupName);
-                if (!matrix || matrix.length < 2) {
-                    throw new Error("Вкладка пуста");
-                }
-
-                const { nameColIdx, firstStudentRow } = analyzeMatrix(matrix);
+                const analysis = analyzeMatrix(matrix);
                 tempParsedMatrix = matrix;
-                tempNameColIdx = nameColIdx;
-                tempHeaderRowIdx = Math.max(0, firstStudentRow - 1);
+                nameColIdx = analysis.nameColIdx;
+                firstStudentRow = analysis.firstStudentRow;
 
                 const select = document.getElementById('studentSelect');
                 select.innerHTML = '<option value="">-- Выбери своё ФИО --</option>';
@@ -237,17 +294,13 @@
                 let added = 0;
                 for (let r = firstStudentRow; r < matrix.length; r++) {
                     let nameVal = (matrix[r][nameColIdx] || '').toString().trim();
-                    // Отсекаем цифры и пустые строки
                     if (nameVal && /[а-яёА-ЯЁ]/.test(nameVal) && isNaN(nameVal)) {
                         select.innerHTML += `<option value="${nameVal}">${nameVal}</option>`;
                         added++;
                     }
                 }
 
-                if (added === 0) {
-                    throw new Error("Не удалось найти список студентов в этой вкладке");
-                }
-
+                if (added === 0) throw new Error("Не удалось найти студентов в этой вкладке");
                 document.getElementById('studentSelectBlock').classList.remove('hidden');
             } catch (e) {
                 alert("Ошибка: " + e.message);
@@ -262,38 +315,29 @@
             const groupName = document.getElementById('groupNameInput').value.trim();
             const studentName = document.getElementById('studentSelect').value;
 
-            if (!studentName) {
-                alert("Выбери своё ФИО из выпадающего списка!");
-                return;
-            }
-            if (!subjName) {
-                subjName = "Предмет " + (subjects.length + 1);
-            }
+            if (!studentName) { alert("Выбери своё ФИО!"); return; }
+            if (!subjName) subjName = "Предмет " + (subjects.length + 1);
 
             const sheetId = extractSheetId(link);
+            subjects.push({ subjectName: subjName, sheetId, groupName, studentName });
 
-            subjects.push({
-                subjectName: subjName,
-                sheetId: sheetId,
-                groupName: groupName,
-                studentName: studentName
-            });
-
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(subjects));
+            localStorage.setItem(STORAGE_MARKS_KEY, JSON.stringify(subjects));
             activeSubjectIndex = subjects.length - 1;
             showMainScreen();
         }
 
         function openAddSubject() {
-            document.getElementById('mainScreen').classList.add('hidden');
+            document.getElementById('mainNav').classList.add('hidden');
+            document.getElementById('marksSection').classList.add('hidden');
+            document.getElementById('scheduleSection').classList.add('hidden');
             document.getElementById('setupScreen').classList.remove('hidden');
+            document.getElementById('setupScheduleScreen').classList.add('hidden');
             document.getElementById('studentSelectBlock').classList.add('hidden');
             document.getElementById('subjectNameInput').value = '';
             document.getElementById('sheetLinkInput').value = '';
             
             if (subjects.length > 0) {
                 document.getElementById('cancelAddBtn').classList.remove('hidden');
-                // Подставляем группу из прошлого предмета для удобства
                 document.getElementById('groupNameInput').value = subjects[subjects.length - 1].groupName;
             } else {
                 document.getElementById('cancelAddBtn').classList.add('hidden');
@@ -302,7 +346,9 @@
 
         function showMainScreen() {
             document.getElementById('setupScreen').classList.add('hidden');
-            document.getElementById('mainScreen').classList.remove('hidden');
+            document.getElementById('setupScheduleScreen').classList.add('hidden');
+            document.getElementById('mainNav').classList.remove('hidden');
+            switchSection('marks');
             renderSubjectTabs();
             loadMarksForActiveSubject();
         }
@@ -336,13 +382,8 @@
             event.stopPropagation();
             if (confirm(`Удалить предмет «${subjects[idx].subjectName}»?`)) {
                 subjects.splice(idx, 1);
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(subjects));
-                if (subjects.length === 0) {
-                    openAddSubject();
-                } else {
-                    activeSubjectIndex = 0;
-                    showMainScreen();
-                }
+                localStorage.setItem(STORAGE_MARKS_KEY, JSON.stringify(subjects));
+                if (subjects.length === 0) { openAddSubject(); } else { activeSubjectIndex = 0; showMainScreen(); }
             }
         }
 
@@ -354,13 +395,12 @@
             document.getElementById('groupDisplay').innerText = `Группа: ${current.groupName} • ${current.subjectName}`;
 
             const container = document.getElementById('marksList');
-            container.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Загружаем актуальные оценки из таблицы...</div>';
+            container.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Загружаем оценки...</div>';
 
             try {
                 const matrix = await fetchCSVMatrix(current.sheetId, current.groupName);
                 const { nameColIdx, firstStudentRow } = analyzeMatrix(matrix);
 
-                // Ищем строку студента
                 let studentRow = null;
                 for (let r = firstStudentRow; r < matrix.length; r++) {
                     if ((matrix[r][nameColIdx] || '').toString().trim() === current.studentName) {
@@ -370,20 +410,16 @@
                 }
 
                 if (!studentRow) {
-                    container.innerHTML = '<div class="text-red-400 text-center py-6 text-sm bg-slate-800 rounded-2xl">Студент не найден в таблице</div>';
+                    container.innerHTML = '<div class="text-red-400 text-center py-6 text-sm bg-slate-800 rounded-2xl">Студент не найден</div>';
                     return;
                 }
 
-                // Собираем заголовки (если шапка многострочная — склеиваем строки выше первого студента)
                 const headers = [];
-                const numCols = studentRow.length;
-                for (let c = 0; c < numCols; c++) {
+                for (let c = 0; c < studentRow.length; c++) {
                     let parts = [];
                     for (let r = 0; r < firstStudentRow; r++) {
                         let cell = (matrix[r][c] || '').toString().replace(/\s+/g, ' ').trim();
-                        if (cell && !parts.includes(cell)) {
-                            parts.push(cell);
-                        }
+                        if (cell && !parts.includes(cell)) parts.push(cell);
                     }
                     headers[c] = parts.join(' / ') || `Колонка ${c + 1}`;
                 }
@@ -391,19 +427,13 @@
                 let html = '';
                 let count = 0;
 
-                for (let c = 0; c < numCols; c++) {
-                    if (c === nameColIdx) continue; // Пропускаем само ФИО
-
+                for (let c = 0; c < studentRow.length; c++) {
+                    if (c === nameColIdx) continue;
                     let rawHeader = headers[c];
                     let val = (studentRow[c] || '').toString().trim();
 
-                    // Пропускаем пустые ячейки и прочерки
                     if (!val || val === '—' || val === '-') continue;
-
-                    // Пропускаем столбец порядкового номера (№ п/п)
-                    if (/^(№|п\/п|№\s*п\/п|№\s*\/\s*п\/п)$/i.test(rawHeader) || c === 0) continue;
-
-                    // Оставляем только те колонки, где в заголовке есть русские буквы
+                    if (/^(№|п\/п|№\s*п\/п)$/i.test(rawHeader) || c === 0) continue;
                     if (!/[а-яёА-ЯЁ]/.test(rawHeader)) continue;
 
                     html += `
@@ -416,17 +446,198 @@
                 }
 
                 if (count === 0) {
-                    html = '<div class="text-slate-400 text-center py-8 bg-slate-800/50 rounded-2xl text-sm">По этому предмету пока нет выставленных оценок</div>';
+                    html = '<div class="text-slate-400 text-center py-8 bg-slate-800/50 rounded-2xl text-sm">Пока нет оценок</div>';
+                }
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Ошибка: ${e.message}</div>`;
+            }
+        }
+
+        // --- РАСПИСАНИЕ ИЗ ЗАГРУЖЕННОГО EXCEL-ФАЙЛА ---
+        function openAddSchedule() {
+            document.getElementById('mainNav').classList.add('hidden');
+            document.getElementById('marksSection').classList.add('hidden');
+            document.getElementById('scheduleSection').classList.add('hidden');
+            document.getElementById('setupScreen').classList.add('hidden');
+            document.getElementById('setupScheduleScreen').classList.remove('hidden');
+            document.getElementById('excelFileInput').value = '';
+            document.getElementById('schedGroupInput').value = '';
+        }
+
+        function renderScheduleTabs() {
+            const container = document.getElementById('scheduleTabs');
+            container.innerHTML = '';
+
+            if (schedules.length === 0) {
+                container.innerHTML = `<button onclick="openAddSchedule()" class="text-xs bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 px-3 py-2 rounded-xl">➕ Добавить расписание</button>`;
+                return;
+            }
+
+            schedules.forEach((sch, idx) => {
+                const isActive = idx === activeScheduleIndex;
+                const btnClass = isActive 
+                    ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/20" 
+                    : "bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200";
+
+                container.innerHTML += `
+                    <div class="flex items-center rounded-xl border ${btnClass} px-3 py-2 text-xs font-medium shrink-0 transition cursor-pointer" onclick="switchSchedule(${idx})">
+                        <span>Группа ${sch.groupName}</span>
+                        <button onclick="deleteSchedule(event, ${idx})" class="ml-2 text-slate-300 hover:text-red-400">✕</button>
+                    </div>
+                `;
+            });
+        }
+
+        function switchSchedule(idx) {
+            activeScheduleIndex = idx;
+            renderScheduleTabs();
+            loadScheduleForActive();
+        }
+
+        function deleteSchedule(event, idx) {
+            event.stopPropagation();
+            if (confirm(`Удалить расписание группы ${schedules[idx].groupName}?`)) {
+                schedules.splice(idx, 1);
+                localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
+                if (schedules.length === 0) {
+                    openAddSchedule();
+                } else {
+                    activeScheduleIndex = 0;
+                    renderScheduleTabs();
+                    loadScheduleForActive();
+                }
+            }
+        }
+
+        async function saveScheduleFile() {
+            const fileInput = document.getElementById('excelFileInput');
+            const groupName = document.getElementById('schedGroupInput').value.trim();
+
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert("Выберите Excel-файл расписания!");
+                return;
+            }
+            if (!groupName) {
+                alert("Введите номер группы!");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Сохраняем распарсенные данные прямо в localStorage телефона, чтобы файл не заново грузить каждый раз
+                    const firstSheetName = workbook.SheetNames[0];
+                    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName], { header: 1 });
+
+                    schedules.push({ groupName: groupName, rawRows: rows, fileName: file.name });
+                    localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
+                    
+                    activeScheduleIndex = schedules.length - 1;
+                    switchSection('schedule');
+                } catch (err) {
+                    alert("Ошибка чтения Excel-файла: " + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function loadScheduleForActive() {
+            const current = schedules[activeScheduleIndex];
+            const container = document.getElementById('scheduleList');
+            const headerInfo = document.getElementById('schedHeaderInfo');
+            const subInfo = document.getElementById('schedSubInfo');
+
+            if (!current || !current.rawRows) {
+                headerInfo.innerText = "Расписание не настроено";
+                subInfo.innerText = "Загрузите файл расписания";
+                container.innerHTML = '';
+                return;
+            }
+
+            headerInfo.innerText = `Группа: ${current.groupName}`;
+            subInfo.innerText = `Файл: ${current.fileName || 'Excel'}`;
+
+            try {
+                const rows = current.rawRows;
+                let groupColIdx = -1;
+                let headerRowIdx = -1;
+
+                for (let r = 0; r < Math.min(15, rows.length); r++) {
+                    for (let c = 0; c < rows[r].length; c++) {
+                        let cell = (rows[r][c] || '').toString().trim();
+                        if (cell === current.groupName) {
+                            groupColIdx = c;
+                            headerRowIdx = r;
+                            break;
+                        }
+                    }
+                    if (groupColIdx !== -1) break;
+                }
+
+                if (groupColIdx === -1) {
+                    container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Группа ${current.groupName} не найдена в загруженном файле</div>`;
+                    return;
+                }
+
+                let daysSchedule = {};
+                let currentDay = "Разное";
+
+                for (let r = headerRowIdx + 1; r < rows.length; r++) {
+                    let row = rows[r];
+                    if (!row) continue;
+
+                    for (let c = 0; c < Math.min(3, row.length); c++) {
+                        let val = (row[c] || '').toString().trim().toLowerCase();
+                        if (/понедельник|вторник|среда|четверг|пятница|суббота/.test(val)) {
+                            currentDay = val.charAt(0).toUpperCase() + val.slice(1);
+                        }
+                    }
+
+                    let timeVal = (row[groupColIdx - 1] || row[1] || '').toString().trim();
+                    let lessonVal = (row[groupColIdx] || '').toString().trim();
+
+                    if (lessonVal && lessonVal !== '-' && lessonVal !== '—') {
+                        if (!daysSchedule[currentDay]) daysSchedule[currentDay] = [];
+                        daysSchedule[currentDay].push({ time: timeVal, lesson: lessonVal });
+                    }
+                }
+
+                let html = '';
+                for (let [day, lessons] of Object.entries(daysSchedule)) {
+                    html += `
+                        <div class="bg-slate-800 p-4 rounded-2xl shadow border border-slate-700/40 space-y-2">
+                            <h3 class="font-bold text-indigo-400 text-sm border-b border-slate-700/60 pb-1.5">${day}</h3>
+                            <div class="space-y-1.5">
+                    `;
+                    lessons.forEach(l => {
+                        html += `
+                            <div class="text-xs flex gap-2 items-start bg-slate-900/40 p-2 rounded-xl">
+                                <span class="font-mono text-slate-400 shrink-0">${l.time || 'Пара'}</span>
+                                <span class="text-slate-200 leading-snug">${l.lesson}</span>
+                            </div>
+                        `;
+                    });
+                    html += `</div></div>`;
+                }
+
+                if (!html) {
+                    html = '<div class="text-slate-400 text-center py-8 bg-slate-800/50 rounded-2xl text-sm">Пар для этой группы не найдено</div>';
                 }
 
                 container.innerHTML = html;
             } catch (e) {
-                container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Ошибка загрузки: ${e.message}</div>`;
+                container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Ошибка обработки: ${e.message}</div>`;
             }
         }
 
         function hardReset() {
-            if (confirm("Сбросить все сохраненные предметы и профили?")) {
+            if (confirm("Сбросить все данные и настройки?")) {
                 localStorage.clear();
                 location.reload();
             }
