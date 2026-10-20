@@ -9,15 +9,17 @@ app.use((req, res, next) => {
     next();
 });
 
-// 1. Эндпоинт для замен (.docx)
+// Эндпоинт для замен (.docx)
 app.get('/api/changes', async (req, res) => {
     try {
         const pageRes = await fetch('https://portal.novsu.ru/univer/timetable/spo/i.1473214//?id=2445999');
         const html = await pageRes.text();
-        const match = html.match(/href="([^"]+\.docx)"/i);
-        if (!match) return res.status(404).send('Файл замен не найден');
         
-        let docxUrl = match[1];
+        // Ищем любую ссылку, заканчивающуюся на .docx
+        const matches = html.match(/href="([^"]+\.docx(\?[^"]*)?)"/i);
+        if (!matches) return res.status(404).send('Файл замен (.docx) на странице не найден');
+        
+        let docxUrl = matches[1];
         if (docxUrl.startsWith('/')) docxUrl = 'https://portal.novsu.ru' + docxUrl;
 
         const docxRes = await fetch(docxUrl);
@@ -29,23 +31,31 @@ app.get('/api/changes', async (req, res) => {
     }
 });
 
-// 2. Эндпоинт для расписания (автоматически качает свежий .xlsx с сайта НовГУ)
+// Эндпоинт для расписания (.xlsx)
 app.get('/api/schedule/:group', async (req, res) => {
     try {
         const targetGroup = req.params.group;
-        
-        // Страница расписания ПТК на портале НовГУ (или общая страница расписаний)
         const pageRes = await fetch('https://portal.novsu.ru/univer/timetable/spo/');
         const html = await pageRes.text();
         
-        // Ищем ссылку на актуальный файл расписания (.xlsx) на странице
-        const match = html.match(/href="([^"]+\.xlsx)"/i);
-        if (!match) return res.status(404).json({ error: 'Ссылка на файл расписания на сайте не найдена' });
+        // Собираем все ссылки на .xlsx файлы на странице
+        const regex = /href="([^"]+\.xlsx(\?[^"]*)?)"/gi;
+        let match;
+        let excelUrl = '';
 
-        let excelUrl = match[1];
-        if (excelUrl.startsWith('/')) excelUrl = 'https://portal.novsu.ru' + excelUrl;
+        while ((match = regex.exec(html)) !== null) {
+            let link = match[1];
+            if (link.startsWith('/')) link = 'https://portal.novsu.ru' + link;
+            // Ищем файл, который похож на расписание
+            if (/rasp|schedule|ПТК|spo/i.test(link) || excelUrl === '') {
+                excelUrl = link; // берем наиболее подходящую или первую попавшуюся
+            }
+        }
 
-        // Скачиваем свежий Excel-файл расписания с сайта
+        if (!excelUrl) {
+            return res.status(404).json({ error: 'Ссылка на Excel-файл расписания не найдена на портале' });
+        }
+
         const excelRes = await fetch(excelUrl);
         const arrayBuffer = await excelRes.arrayBuffer();
         const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
@@ -58,8 +68,8 @@ app.get('/api/schedule/:group', async (req, res) => {
             const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
             const merges = sheet['!merges'] || [];
 
-            for (let r = 0; r < Math.min(15, rows.length); r++) {
-                for (let c = 0; c < rows[r].length; c++) {
+            for (let r = 0; r < rows.length; r++) {
+                for (let c = 0; c < (rows[r] || []).length; c++) {
                     let val = String(rows[r][c] || '').trim();
                     if (val === targetGroup) {
                         foundData = { rows, merges, groupColIdx: c, headerRowIdx: r };
@@ -70,12 +80,12 @@ app.get('/api/schedule/:group', async (req, res) => {
         });
 
         if (!foundData) {
-            return res.status(404).json({ error: `Группа ${targetGroup} не найдена в текущем расписании вуза` });
+            return res.status(404).json({ error: `Группа ${targetGroup} не найдена в таблице расписания` });
         }
 
         res.json({ group: targetGroup, sheet: sheetNameFound, ...foundData });
     } catch (error) {
-        res.status(500).json({ error: 'Ошибка получения расписания: ' + error.message });
+        res.status(500).json({ error: 'Ошибка сервера: ' + error.message });
     }
 });
 
