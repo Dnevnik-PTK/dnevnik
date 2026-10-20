@@ -8,9 +8,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Telegram Web App SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- PapaParse для CSV (оценки) -->
+    <!-- PapaParse для CSV -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <!-- SheetJS (xlsx) для чтения Excel -->
+    <!-- SheetJS (xlsx) для чтения Google Таблиц (.xlsx) и файлов расписания -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen p-4 select-none pb-24">
@@ -21,7 +21,7 @@
             <div class="flex items-center gap-2">
                 <span class="text-xl">📊</span>
                 <h1 class="text-lg font-bold tracking-tight">Дневник ПТК</h1>
-                <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono">v2.6</span>
+                <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono">v2.7</span>
             </div>
             <button onclick="hardReset()" class="text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-xl transition">
                 Сброс
@@ -109,38 +109,32 @@
             </div>
 
             <div>
-                <label class="block text-xs text-slate-400 mb-1">Название предмета</label>
+                <label class="block text-xs text-slate-400 mb-1">1. Название предмета</label>
                 <input type="text" id="subjectNameInput" placeholder="Например: Дискретная математика" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
             </div>
 
             <div>
-                <label class="block text-xs text-slate-400 mb-1">Ссылка на Google Таблицу</label>
+                <label class="block text-xs text-slate-400 mb-1">2. Ссылка на Google Таблицу</label>
                 <div class="flex gap-2">
                     <input type="text" id="sheetLinkInput" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
-                    <button id="scanTabsBtn" onclick="fetchGroupsList()" class="bg-indigo-600 hover:bg-indigo-500 px-3.5 rounded-xl text-xs font-medium shrink-0 transition">
-                        Найти вкладки
+                    <button id="scanTabsBtn" onclick="fetchGroupsList()" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 px-4 rounded-xl text-xs font-semibold shrink-0 transition shadow-md shadow-indigo-600/20">
+                        Найти группы
                     </button>
                 </div>
             </div>
 
-            <!-- Блок выбора вкладки (группы) кнопками или вводом -->
-            <div id="groupSelectBlock" class="space-y-2.5 pt-2 border-t border-slate-700/60">
-                <label class="block text-xs text-slate-400">Выберите вкладку группы кнопкой или введите:</label>
-                <div id="groupsButtonsContainer" class="flex flex-wrap gap-1.5">
-                    <!-- Сюда рендерятся найденные вкладки и быстрые кнопки -->
-                </div>
-                <div class="flex gap-2 pt-1">
-                    <input type="text" id="manualGroupInput" placeholder="Или введите название вкладки..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-indigo-500">
-                    <button id="loadStudentsBtn" onclick="selectGroupForMarks(document.getElementById('manualGroupInput').value.trim())" class="bg-slate-700 hover:bg-indigo-600 px-4 rounded-xl text-xs font-medium shrink-0 transition">
-                        Открыть
-                    </button>
+            <!-- Блок с кнопками найденных в таблице групп -->
+            <div id="groupSelectBlock" class="hidden space-y-2.5 pt-3 border-t border-slate-700/60">
+                <label class="block text-xs text-emerald-400 font-medium">3. Выберите вашу группу (вкладку таблицы):</label>
+                <div id="groupsButtonsContainer" class="flex flex-wrap gap-2">
+                    <!-- Сюда автоматически рендерятся кнопки всех листов таблицы -->
                 </div>
             </div>
 
             <!-- Блок выбора студента -->
             <div id="studentSelectBlock" class="hidden space-y-3 pt-3 border-t border-slate-700">
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">Выбери своё ФИО из списка:</label>
+                    <label class="block text-xs text-slate-400 mb-1">4. Выберите своё ФИО из списка:</label>
                     <select id="studentSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
                         <option value="">Выбери фамилию...</option>
                     </select>
@@ -151,7 +145,7 @@
             </div>
         </div>
 
-        <!-- ЭКРАН НАСТРОЙКИ РАСПИСАНИЯ (С АВТОКНОПКАМИ ГРУПП ИЗ ФАЙЛА) -->
+        <!-- ЭКРАН НАСТРОЙКИ РАСПИСАНИЯ -->
         <div id="setupScheduleScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 border border-slate-700/50 hidden">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base">Загрузка файла расписания</h2>
@@ -163,7 +157,6 @@
                 <input type="file" id="excelFileInput" accept=".xls, .xlsx" onchange="handleExcelFileSelect(event)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500">
             </div>
 
-            <!-- Контейнер с кнопками групп, найденных внутри Excel файла -->
             <div id="excelGroupsBlock" class="hidden space-y-2 pt-2 border-t border-slate-700">
                 <label class="block text-xs text-emerald-400 font-medium">2. Выберите вашу группу (найдены в файле):</label>
                 <div id="excelGroupsButtons" class="flex flex-wrap gap-2"></div>
@@ -185,7 +178,8 @@
         let currentSelectedWeek = 'upper';
         let selectedGroupForMarks = '';
 
-        // Временное хранилище при загрузке Excel
+        // Кэш скачанной книги Google Таблицы при настройке
+        let tempMarksWorkbook = null;
         let tempExcelData = null;
 
         window.onload = function() {
@@ -265,27 +259,13 @@
             return match ? match[1] : null;
         }
 
-        // --- ОЦЕНКИ: ПОИСК ВКЛАДОК (ГРУПП) И СТУДЕНТОВ ---
-        function renderQuickGroupButtons(extraTabs = []) {
-            const container = document.getElementById('groupsButtonsContainer');
-            container.innerHTML = '';
-
-            // Собираем все известные пользователю группы + стандартные названия вкладок
-            const knownGroups = new Set(['Группа', 'Лист1', ...extraTabs]);
-            subjects.forEach(s => { if (s.groupName) knownGroups.add(s.groupName); });
-            schedules.forEach(s => { if (s.groupName) knownGroups.add(s.groupName); });
-
-            knownGroups.forEach(g => {
-                const isSelected = selectedGroupForMarks === g;
-                const btnStyle = isSelected
-                    ? "bg-indigo-600 border-indigo-400 text-white shadow"
-                    : "bg-slate-900 hover:bg-indigo-600/40 border-slate-700 text-slate-200";
-                container.innerHTML += `
-                    <button onclick="selectGroupForMarks('${g.replace(/'/g, "\\'")}')" class="px-3 py-1.5 border rounded-xl text-xs font-medium transition ${btnStyle}">
-                        ${g}
-                    </button>
-                `;
-            });
+        // --- ОЦЕНКИ: ПРЯМОЕ СКАЧИВАНИЕ ВСЕХ ВКЛАДОК ТАБЛИЦЫ ЧЕРЕЗ XLSX ---
+        async function fetchWorkbookFromGoogle(sheetId) {
+            const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`;
+            const res = await fetch(exportUrl);
+            if (!res.ok) throw new Error("Не удалось загрузить таблицу. Проверьте доступ по ссылке.");
+            const arrayBuffer = await res.arrayBuffer();
+            return XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
         }
 
         async function fetchGroupsList() {
@@ -294,41 +274,44 @@
             if (!sheetId) { alert("Сначала вставьте ссылку на Google Таблицу!"); return; }
 
             const btn = document.getElementById('scanTabsBtn');
-            btn.innerText = "⏳ Поиск...";
+            btn.innerText = "⏳ Ищем...";
+            document.getElementById('groupSelectBlock').classList.add('hidden');
+            document.getElementById('studentSelectBlock').classList.add('hidden');
 
             try {
-                // Парсим названия вкладок из публичной веб-версии Google Таблицы
-                const htmlUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/htmlview`;
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(htmlUrl)}`;
-                const res = await fetch(proxyUrl);
-                const data = await res.json();
-                const html = data.contents || '';
+                // Скачиваем всю книгу Google Таблицы напрямую и достаем реальный список всех листов (групп)
+                const workbook = await fetchWorkbookFromGoogle(sheetId);
+                tempMarksWorkbook = workbook;
 
-                const foundTabs = [];
-                // Ищем имена листов в верстке Google Sheets
-                const regex = /items\.push\(\{name:\s*"([^"]+)"/g;
-                let m;
-                while ((m = regex.exec(html)) !== null) {
-                    foundTabs.push(m[1]);
-                }
+                const tabs = workbook.SheetNames || [];
+                if (tabs.length === 0) throw new Error("В таблице не найдено вкладок");
 
-                if (foundTabs.length === 0) {
-                    const doc = new DOMParser().parseFromString(html, 'text/html');
-                    doc.querySelectorAll('#sheet-menu li a').forEach(el => {
-                        const t = el.textContent.trim();
-                        if (t) foundTabs.push(t);
-                    });
-                }
-
-                renderQuickGroupButtons(foundTabs);
-                if (foundTabs.length === 0) {
-                    alert("Не удалось автоматически вытащить список всех вкладок — выберите кнопку ниже или впишите название вкладки вручную.");
-                }
+                renderSheetGroupButtons(tabs);
+                document.getElementById('groupSelectBlock').classList.remove('hidden');
             } catch (e) {
-                renderQuickGroupButtons();
+                alert("Ошибка чтения групп: " + e.message);
             } finally {
-                btn.innerText = "Найти вкладки";
+                btn.innerText = "Найти группы";
             }
+        }
+
+        function renderSheetGroupButtons(tabs) {
+            const container = document.getElementById('groupsButtonsContainer');
+            container.innerHTML = '';
+
+            tabs.forEach(tabName => {
+                const isSelected = selectedGroupForMarks === tabName;
+                const btnStyle = isSelected
+                    ? "bg-indigo-600 border-indigo-400 text-white shadow-md shadow-indigo-600/30"
+                    : "bg-slate-900 hover:bg-indigo-600/30 border-slate-700 text-slate-200";
+
+                const safeName = tabName.replace(/'/g, "\\'");
+                container.innerHTML += `
+                    <button onclick="selectGroupForMarks('${safeName}')" class="px-3.5 py-2 border rounded-xl text-xs font-bold transition active:scale-95 ${btnStyle}">
+                        👥 ${tabName}
+                    </button>
+                `;
+            });
         }
 
         function analyzeMatrix(matrix) {
@@ -340,7 +323,7 @@
                 let namesCount = 0;
                 for (let row = 0; row < matrix.length; row++) {
                     let cell = (matrix[row][col] || '').toString().trim();
-                    if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(cell) && !/(задание|лекция|практика|модуль|вопрос|итог|экзамен|дисциплина)/i.test(cell)) {
+                    if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(cell) && !/(задание|лекция|практика|модуль|вопрос|итог|экзамен|дисциплина|фамилия)/i.test(cell)) {
                         namesCount++;
                     }
                 }
@@ -362,56 +345,47 @@
         }
 
         async function selectGroupForMarks(groupName) {
-            if (!groupName) { alert("Выберите или введите название вкладки (группы)!"); return; }
-            const link = document.getElementById('sheetLinkInput').value.trim();
-            const sheetId = extractSheetId(link);
-            if (!sheetId) { alert("Сначала вставьте ссылку на Google Таблицу!"); return; }
-
+            if (!groupName) return;
             selectedGroupForMarks = groupName;
-            document.getElementById('manualGroupInput').value = groupName;
-            renderQuickGroupButtons([groupName]);
 
-            const btn = document.getElementById('loadStudentsBtn');
-            btn.innerText = "⏳...";
+            if (tempMarksWorkbook) {
+                renderSheetGroupButtons(tempMarksWorkbook.SheetNames);
+            }
 
             try {
-                const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(groupName)}&_t=${Date.now()}`;
-                const res = await fetch(url);
-                const csvText = await res.text();
-
-                if (csvText.includes("<!DOCTYPE html>") || csvText.includes("<html")) {
-                    throw new Error(`Вкладка «${groupName}» не найдена или таблица закрыта`);
+                let matrix = [];
+                if (tempMarksWorkbook && tempMarksWorkbook.Sheets[groupName]) {
+                    matrix = XLSX.utils.sheet_to_json(tempMarksWorkbook.Sheets[groupName], { header: 1, defval: "", raw: false });
+                } else {
+                    const link = document.getElementById('sheetLinkInput').value.trim();
+                    const sheetId = extractSheetId(link);
+                    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(groupName)}&_t=${Date.now()}`;
+                    const res = await fetch(url);
+                    const csvText = await res.text();
+                    const parsed = Papa.parse(csvText, { skipEmptyLines: true });
+                    matrix = parsed.data;
                 }
 
-                Papa.parse(csvText, {
-                    skipEmptyLines: true,
-                    complete: function(results) {
-                        const matrix = results.data;
-                        const { nameColIdx, firstStudentRow } = analyzeMatrix(matrix);
+                const { nameColIdx, firstStudentRow } = analyzeMatrix(matrix);
+                const select = document.getElementById('studentSelect');
+                select.innerHTML = '<option value="">-- Выберите своё ФИО --</option>';
 
-                        const select = document.getElementById('studentSelect');
-                        select.innerHTML = '<option value="">-- Выберите своё ФИО --</option>';
-
-                        let count = 0;
-                        for (let r = firstStudentRow; r < matrix.length; r++) {
-                            let name = (matrix[r][nameColIdx] || '').toString().trim();
-                            if (name && /[а-яёА-ЯЁ]/.test(name) && isNaN(name)) {
-                                select.innerHTML += `<option value="${name}">${name}</option>`;
-                                count++;
-                            }
-                        }
-
-                        if (count === 0) {
-                            alert("В этой вкладке не найден список студентов. Проверьте название вкладки.");
-                            return;
-                        }
-                        document.getElementById('studentSelectBlock').classList.remove('hidden');
+                let count = 0;
+                for (let r = firstStudentRow; r < matrix.length; r++) {
+                    let name = (matrix[r][nameColIdx] || '').toString().trim();
+                    if (name && /[а-яёА-ЯЁ]{2,}/.test(name) && isNaN(name) && !/(фамилия|фио|студент)/i.test(name)) {
+                        select.innerHTML += `<option value="${name}">${name}</option>`;
+                        count++;
                     }
-                });
+                }
+
+                if (count === 0) {
+                    alert("В этой вкладке не найден список студентов.");
+                    return;
+                }
+                document.getElementById('studentSelectBlock').classList.remove('hidden');
             } catch (err) {
-                alert("Ошибка: " + err.message);
-            } finally {
-                btn.innerText = "Открыть";
+                alert("Ошибка открытия группы: " + err.message);
             }
         }
 
@@ -435,12 +409,12 @@
             document.getElementById('scheduleSection').classList.add('hidden');
             document.getElementById('setupScreen').classList.remove('hidden');
             document.getElementById('setupScheduleScreen').classList.add('hidden');
+            document.getElementById('groupSelectBlock').classList.add('hidden');
             document.getElementById('studentSelectBlock').classList.add('hidden');
             document.getElementById('subjectNameInput').value = '';
             document.getElementById('sheetLinkInput').value = '';
-            document.getElementById('manualGroupInput').value = '';
             selectedGroupForMarks = '';
-            renderQuickGroupButtons();
+            tempMarksWorkbook = null;
             document.getElementById('cancelAddBtn').classList.toggle('hidden', subjects.length === 0);
         }
 
@@ -483,10 +457,11 @@
                 return;
             }
             document.getElementById('studentDisplay').innerText = current.studentName;
-            document.getElementById('groupDisplay').innerText = `Вкладка: ${current.groupName} • ${current.subjectName}`;
+            document.getElementById('groupDisplay').innerText = `Группа: ${current.groupName} • ${current.subjectName}`;
             container.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Загружаем оценки...</div>';
 
             try {
+                // Загружаем данные вкладки через CSV или XLSX
                 const url = `https://docs.google.com/spreadsheets/d/${current.sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(current.groupName)}&_t=${Date.now()}`;
                 const res = await fetch(url);
                 const csvText = await res.text();
@@ -510,7 +485,6 @@
                             return;
                         }
 
-                        // Собираем красивые заголовки колонок из шапки таблицы
                         const headers = [];
                         for (let c = 0; c < studentRow.length; c++) {
                             let parts = [];
@@ -518,7 +492,7 @@
                                 let cell = (matrix[r][c] || '').toString().replace(/\s+/g, ' ').trim();
                                 if (cell && !parts.includes(cell)) parts.push(cell);
                             }
-                            headers[c] = parts.join(' / ') || `Колонка ${c + 1}`;
+                            headers[c] = parts.join(' • ') || `Колонка ${c + 1}`;
                         }
 
                         let html = '', count = 0;
@@ -526,7 +500,8 @@
                             if (c === nameColIdx) continue;
                             let rawHeader = headers[c];
                             let val = (studentRow[c] || '').toString().trim();
-                            if (!val || val === '—' || val === '-') continue;
+                            // Фильтруем пустые ячейки и ошибки деления на ноль (#DIV/0!)
+                            if (!val || val === '—' || val === '-' || /#(DIV|ДЕЛ|VALUE|ЗНАЧ|REF|Н\/Д)/i.test(val)) continue;
                             if (/^(№|п\/п|№\s*п\/п)$/i.test(rawHeader) || c === 0) continue;
 
                             html += `
@@ -545,7 +520,7 @@
             }
         }
 
-        // --- РАСПИСАНИЕ (С ТОЧНЫМ РАЗДЕЛЕНИЕМ ВЕРХНЕЙ И НИЖНЕЙ НЕДЕЛИ ПО ЯЧЕЙКАМ EXCEL) ---
+        // --- РАСПИСАНИЕ ---
         function openAddSchedule() {
             document.getElementById('mainNav').classList.add('hidden');
             document.getElementById('marksSection').classList.add('hidden');
@@ -576,7 +551,6 @@
                         const merges = sheet['!merges'] || [];
                         allSheetsData[sheetName] = { rows, merges };
 
-                        // Ищем номера групп (например 5991, 5992, 5993, 5994) в первых 15 строках
                         for (let r = 0; r < Math.min(15, rows.length); r++) {
                             for (let c = 0; c < rows[r].length; c++) {
                                 let val = (rows[r][c] || '').toString().trim();
@@ -593,7 +567,7 @@
                     btnContainer.innerHTML = '';
 
                     if (foundGroups.length === 0) {
-                        alert("В этом файле не найдены 4-значные номера групп.");
+                        alert("В этом файле не найдены номера групп.");
                         return;
                     }
 
@@ -657,7 +631,6 @@
             }
         }
 
-        // Проверяем, объединена ли ячейка (r, c) по вертикали со следующей строкой (r + 1)
         function isCellMergedVertically(merges, r, c) {
             if (!merges) return false;
             for (let m of merges) {
@@ -709,37 +682,31 @@
                     let row = rows[r];
                     if (!row) continue;
 
-                    // Определяем день недели (в колонке дня группы или в колонке 0)
                     let dayCandidate = ((row[dayColIdx] || row[0] || '')).toString().trim().toLowerCase();
                     if (/^(понедельник|вторник|среда|четверг|пятница|суббота)$/.test(dayCandidate)) {
                         currentDay = dayCandidate.charAt(0).toUpperCase() + dayCandidate.slice(1);
                     }
 
-                    // Проверяем, начинается ли здесь временной слот пары (например "8.30-10.10")
                     let timeVal = (row[timeColIdx] || row[1] || '').toString().trim();
                     if (!/\d{1,2}[\.:]\d{2}\s*-\s*\d{1,2}[\.:]\d{2}/.test(timeVal)) {
-                        continue; // Пропускаем вторые подстроки, т.к. мы их обрабатываем вместе с первой строкой времени
+                        continue;
                     }
 
                     let upperVal = (rows[r][groupColIdx] || '').toString().trim();
                     let nextRow = rows[r + 1] || [];
                     let lowerVal = (nextRow[groupColIdx] || '').toString().trim();
 
-                    // Проверяем, не является ли следующая строка уже новым временем (если слот в конце дня из 1 строки)
                     let nextTimeVal = (nextRow[timeColIdx] || nextRow[1] || '').toString().trim();
                     let hasSecondRow = !(/\d{1,2}[\.:]\d{2}\s*-\s*\d{1,2}[\.:]\d{2}/.test(nextTimeVal));
 
-                    // Проверяем объединение ячейки предмета по вертикали
                     let isMerged = isCellMergedVertically(merges, r, groupColIdx);
 
-                    // Если ячейка объединена на 2 строки ИЛИ это одиночная строка в самом конце дня — пара идет каждую неделю
                     if (isMerged || !hasSecondRow) {
                         lowerVal = upperVal;
                     }
 
                     let chosenLesson = currentSelectedWeek === 'upper' ? upperVal : lowerVal;
 
-                    // Очищаем прочерки и подписи замдиректора
                     if (chosenLesson && chosenLesson !== '-' && chosenLesson !== '—' && !/Зам\.\s*директора/i.test(chosenLesson)) {
                         if (!daysSchedule[currentDay]) daysSchedule[currentDay] = [];
                         daysSchedule[currentDay].push({
