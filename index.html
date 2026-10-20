@@ -21,14 +21,14 @@
             <div class="flex items-center gap-2">
                 <span class="text-xl">📊</span>
                 <h1 class="text-lg font-bold tracking-tight">Дневник ПТК</h1>
-                <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono">v2.4</span>
+                <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono">v2.5</span>
             </div>
             <button onclick="hardReset()" class="text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-xl transition">
                 Сброс
             </button>
         </div>
 
-        <!-- Переключатель основных разделов (Оценки / Расписание) -->
+        <!-- Переключатель основных разделов -->
         <div id="mainNav" class="grid grid-cols-2 gap-2">
             <button onclick="switchSection('marks')" id="navMarksBtn" class="bg-indigo-600 text-white py-2.5 rounded-xl font-medium text-xs transition shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5">
                 <span>📊</span> Оценки
@@ -75,7 +75,6 @@
                 <div id="scheduleTabs" class="flex gap-2 overflow-x-auto pb-1 no-scrollbar"></div>
             </div>
 
-            <!-- Плашка группы и переключатель недель -->
             <div class="bg-slate-800 p-4 rounded-2xl shadow-lg border border-slate-700/50 space-y-3">
                 <div class="flex justify-between items-center">
                     <div>
@@ -87,7 +86,6 @@
                     </button>
                 </div>
 
-                <!-- Переключатель Верхняя / Нижняя неделя -->
                 <div class="grid grid-cols-2 gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-700/60">
                     <button onclick="setWeekType('upper')" id="btnUpperWeek" class="py-1.5 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow">
                         ⬆️ Верхняя неделя
@@ -103,7 +101,7 @@
             </div>
         </div>
 
-        <!-- ЭКРАН НАСТРОЙКИ ПРЕДМЕТА (ОЦЕНКИ) -->
+        <!-- ЭКРАН НАСТРОЙКИ ПРЕДМЕТА (ОЦЕНКИ) С АВТООБНАРУЖЕНИЕМ ГРУПП -->
         <div id="setupScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 border border-slate-700/50 hidden">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base">Подключение предмета (оценки)</h2>
@@ -117,19 +115,21 @@
 
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Ссылка на Google Таблицу</label>
-                <input type="text" id="sheetLinkInput" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
-            </div>
-
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">Номер группы (название вкладки)</label>
                 <div class="flex gap-2">
-                    <input type="text" id="groupNameInput" placeholder="Например: 5953" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
-                    <button id="findGroupBtn" onclick="fetchGroupAndStudents()" class="bg-indigo-600 hover:bg-indigo-500 px-4 rounded-xl text-sm font-medium shrink-0 transition">
-                        Найти
+                    <input type="text" id="sheetLinkInput" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
+                    <button onclick="fetchGroupsList()" class="bg-indigo-600 hover:bg-indigo-500 px-4 rounded-xl text-sm font-medium shrink-0 transition">
+                        Найти группы
                     </button>
                 </div>
             </div>
 
+            <!-- Блок выбора группы кнопками -->
+            <div id="groupSelectBlock" class="hidden space-y-2">
+                <label class="block text-xs text-slate-400">Выберите вашу группу:</label>
+                <div id="groupsButtonsContainer" class="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 bg-slate-900 rounded-xl border border-slate-700"></div>
+            </div>
+
+            <!-- Блок выбора студента -->
             <div id="studentSelectBlock" class="hidden space-y-3 pt-3 border-t border-slate-700">
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">Выбери своё ФИО из списка:</label>
@@ -170,15 +170,15 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        const STORAGE_MARKS_KEY = 'ptk_diary_subjects_v2';
-        const STORAGE_SCHED_KEY = 'ptk_diary_schedules_v3';
+        const STORAGE_MARKS_KEY = 'ptk_diary_subjects_v3';
+        const STORAGE_SCHED_KEY = 'ptk_diary_schedules_v4';
         
         let subjects = [];
         let activeSubjectIndex = 0;
-
         let schedules = [];
         let activeScheduleIndex = 0;
-        let currentSelectedWeek = 'upper'; // 'upper' или 'lower'
+        let currentSelectedWeek = 'upper';
+        let selectedGroupForMarks = '';
 
         window.onload = function() {
             const savedMarks = localStorage.getItem(STORAGE_MARKS_KEY);
@@ -187,7 +187,6 @@
             const savedSched = localStorage.getItem(STORAGE_SCHED_KEY);
             if (savedSched) { try { schedules = JSON.parse(savedSched); } catch(e){} }
 
-            // Автоматически определяем текущую неделю (четная/нечетная от 1 сентября)
             currentSelectedWeek = getInitialWeekType();
             updateWeekButtonsUI();
 
@@ -201,11 +200,9 @@
         function getInitialWeekType() {
             const now = new Date();
             const year = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
-            const septFirst = new Date(year, 8, 1); // 1 сентября
-            const diffTime = Math.abs(now - septFirst);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            const weekNumber = Math.ceil(diffDays / 7);
-            return weekNumber % 2 !== 0 ? 'upper' : 'lower';
+            const septFirst = new Date(year, 8, 1);
+            const diffDays = Math.ceil(Math.abs(now - septFirst) / (1000 * 60 * 60 * 24));
+            return (Math.ceil(diffDays / 7) % 2 !== 0) ? 'upper' : 'lower';
         }
 
         function setWeekType(type) {
@@ -256,73 +253,101 @@
             return match ? match[1] : null;
         }
 
-        async function fetchCSVMatrix(sheetId, groupName) {
-            const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(groupName)}&_t=${Date.now()}`;
-            const response = await fetch(url);
-            if (!response.ok) throw new Error("Не удалось подключиться к таблице");
-            const csvText = await response.text();
-            return new Promise((resolve, reject) => {
+        // Автопоиск названий вкладок (групп) в Google Таблице через экспорт JSON
+        async function fetchGroupsList() {
+            const link = document.getElementById('sheetLinkInput').value.trim();
+            const sheetId = extractSheetId(link);
+            if (!sheetId) { alert("Вставьте ссылку на Google Таблицу!"); return; }
+
+            try {
+                // Запрашиваем публичный список листов таблиц Google
+                const res = await fetch(`https://spreadsheets.google.com/feeds/worksheets/${sheetId}/public/full?alt=json`);
+                const data = await res.json();
+                const entries = data.feed.entry || [];
+                
+                const groups = entries.map(e => e.title.$t);
+                const container = document.getElementById('groupsButtonsContainer');
+                container.innerHTML = '';
+
+                groups.forEach(g => {
+                    container.innerHTML += `
+                        <button onclick="selectGroupForMarks('${g}')" class="px-3 py-1.5 bg-slate-800 hover:bg-indigo-600 border border-slate-700 rounded-xl text-xs font-medium transition text-white">
+                            ${g}
+                        </button>
+                    `;
+                });
+
+                document.getElementById('groupSelectBlock').classList.remove('hidden');
+            } catch (e) {
+                // Если API не ответило, дадим ввести вручную
+                let manual = prompt("Не удалось автоматически прочитать группы. Введите номер группы вручную:");
+                if (manual) selectGroupForMarks(manual);
+            }
+        }
+
+        async function selectGroupForMarks(groupName) {
+            selectedGroupForMarks = groupName;
+            document.getElementById('groupSelectBlock').classList.add('hidden');
+            
+            const link = document.getElementById('sheetLinkInput').value.trim();
+            const sheetId = extractSheetId(link);
+
+            try {
+                const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(groupName)}&_t=${Date.now()}`;
+                const res = await fetch(url);
+                const csvText = await res.text();
+
                 Papa.parse(csvText, {
                     skipEmptyLines: true,
-                    complete: function(results) { resolve(results.data); },
-                    error: function(err) { reject(err); }
-                });
-            });
-        }
+                    complete: function(results) {
+                        const matrix = results.data;
+                        let nameCol = 1, firstRow = 1;
 
-        function analyzeMatrix(matrix) {
-            let bestCol = 1;
-            let maxNamesCount = 0;
-            const maxCols = Math.min(10, matrix[0] ? matrix[0].length : 0);
-            for (let col = 0; col < maxCols; col++) {
-                let namesCount = 0;
-                for (let row = 0; row < matrix.length; row++) {
-                    let cell = (matrix[row][col] || '').toString().trim();
-                    if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(cell) && !/(задание|лекция|практика|модуль)/i.test(cell)) namesCount++;
-                }
-                if (namesCount > maxNamesCount) { maxNamesCount = namesCount; bestCol = col; }
-            }
-            let firstStudRow = 1;
-            for (let row = 0; row < matrix.length; row++) {
-                let cell = (matrix[row][bestCol] || '').toString().trim();
-                if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(cell) && !/(фио|студент)/i.test(cell)) { firstStudRow = row; break; }
-            }
-            return { nameColIdx: bestCol, firstStudentRow: firstStudRow };
-        }
+                        // Ищем колонку с ФИО
+                        for (let c = 0; c < Math.min(5, matrix[0].length); c++) {
+                            let count = 0;
+                            for (let r = 0; r < matrix.length; r++) {
+                                if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(matrix[r][c] || '')) count++;
+                            }
+                            if (count > 2) { nameCol = c; break; }
+                        }
 
-        async function fetchGroupAndStudents() {
-            const link = document.getElementById('sheetLinkInput').value.trim();
-            const groupName = document.getElementById('groupNameInput').value.trim();
-            const sheetId = extractSheetId(link);
-            if (!sheetId || !groupName) { alert("Заполните ссылку и группу!"); return; }
+                        for (let r = 0; r < matrix.length; r++) {
+                            if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(matrix[r][nameCol] || '') && !/(фио|студент)/i.test(matrix[r][nameCol])) {
+                                firstRow = r; break;
+                            }
+                        }
 
-            const btn = document.getElementById('findGroupBtn');
-            btn.innerText = "⏳...";
-            try {
-                const matrix = await fetchCSVMatrix(sheetId, groupName);
-                const analysis = analyzeMatrix(matrix);
-                const select = document.getElementById('studentSelect');
-                select.innerHTML = '<option value="">-- Выбери своё ФИО --</option>';
-                for (let r = analysis.firstStudentRow; r < matrix.length; r++) {
-                    let nameVal = (matrix[r][analysis.nameColIdx] || '').toString().trim();
-                    if (nameVal && /[а-яёА-ЯЁ]/.test(nameVal) && isNaN(nameVal)) {
-                        select.innerHTML += `<option value="${nameVal}">${nameVal}</option>`;
+                        window.tempMatrix = matrix;
+                        window.tempNameCol = nameCol;
+                        window.tempFirstRow = firstRow;
+
+                        const select = document.getElementById('studentSelect');
+                        select.innerHTML = '<option value="">-- Выберите своё ФИО --</option>';
+
+                        for (let r = firstRow; r < matrix.length; r++) {
+                            let name = (matrix[r][nameCol] || '').toString().trim();
+                            if (name && /[а-яёА-ЯЁ]/.test(name) && isNaN(name)) {
+                                select.innerHTML += `<option value="${name}">${name}</option>`;
+                            }
+                        }
+                        document.getElementById('studentSelectBlock').classList.remove('hidden');
                     }
-                }
-                document.getElementById('studentSelectBlock').classList.remove('hidden');
-            } catch (e) { alert("Ошибка: " + e.message); }
-            finally { btn.innerText = "Найти"; }
+                });
+            } catch (err) {
+                alert("Ошибка загрузки группы: " + err.message);
+            }
         }
 
         function saveSubjectProfile() {
             let subjName = document.getElementById('subjectNameInput').value.trim();
             const link = document.getElementById('sheetLinkInput').value.trim();
-            const groupName = document.getElementById('groupNameInput').value.trim();
             const studentName = document.getElementById('studentSelect').value;
-            if (!studentName) { alert("Выбери своё ФИО!"); return; }
+
+            if (!studentName) { alert("Выберите своё ФИО!"); return; }
             if (!subjName) subjName = "Предмет " + (subjects.length + 1);
 
-            subjects.push({ subjectName: subjName, sheetId: extractSheetId(link), groupName, studentName });
+            subjects.push({ subjectName: subjName, sheetId: extractSheetId(link), groupName: selectedGroupForMarks, studentName });
             localStorage.setItem(STORAGE_MARKS_KEY, JSON.stringify(subjects));
             activeSubjectIndex = subjects.length - 1;
             showMainScreen();
@@ -334,11 +359,11 @@
             document.getElementById('scheduleSection').classList.add('hidden');
             document.getElementById('setupScreen').classList.remove('hidden');
             document.getElementById('setupScheduleScreen').classList.add('hidden');
+            document.getElementById('groupSelectBlock').classList.add('hidden');
             document.getElementById('studentSelectBlock').classList.add('hidden');
             document.getElementById('subjectNameInput').value = '';
             document.getElementById('sheetLinkInput').value = '';
             document.getElementById('cancelAddBtn').classList.toggle('hidden', subjects.length === 0);
-            if (subjects.length > 0) document.getElementById('groupNameInput').value = subjects[subjects.length - 1].groupName;
         }
 
         function showMainScreen() {
@@ -383,31 +408,38 @@
             container.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Загружаем оценки...</div>';
 
             try {
-                const matrix = await fetchCSVMatrix(current.sheetId, current.groupName);
-                const analysis = analyzeMatrix(matrix);
-                let studentRow = null;
-                for (let r = analysis.firstStudentRow; r < matrix.length; r++) {
-                    if ((matrix[r][analysis.nameColIdx] || '').toString().trim() === current.studentName) {
-                        studentRow = matrix[r]; break;
-                    }
-                }
-                if (!studentRow) { container.innerHTML = '<div class="text-red-400 text-center py-6 text-sm bg-slate-800 rounded-2xl">Студент не найден</div>'; return; }
+                const url = `https://docs.google.com/spreadsheets/d/${current.sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(current.groupName)}&_t=${Date.now()}`;
+                const res = await fetch(url);
+                const csvText = await res.text();
 
-                let html = '';
-                let count = 0;
-                for (let c = 0; c < studentRow.length; c++) {
-                    if (c === analysis.nameColIdx) continue;
-                    let val = (studentRow[c] || '').toString().trim();
-                    if (!val || val === '—' || val === '-') continue;
-                    html += `
-                        <div class="bg-slate-800 p-3.5 rounded-xl flex justify-between items-center shadow border border-slate-700/40">
-                            <span class="text-xs sm:text-sm text-slate-200 pr-3">Колонка ${c}</span>
-                            <span class="bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 font-bold px-3 py-1 rounded-lg text-sm">${val}</span>
-                        </div>
-                    `;
-                    count++;
-                }
-                container.innerHTML = count === 0 ? '<div class="text-slate-400 text-center py-8 bg-slate-800/50 rounded-2xl text-sm">Пока нет оценок</div>' : html;
+                Papa.parse(csvText, {
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        const matrix = results.data;
+                        let nameCol = 1, firstRow = 1;
+                        for (let r = 0; r < matrix.length; r++) {
+                            if ((matrix[r][nameCol] || '').toString().trim() === current.studentName) {
+                                var studentRow = matrix[r]; break;
+                            }
+                        }
+
+                        if (!studentRow) { container.innerHTML = '<div class="text-red-400 text-center py-6 text-sm bg-slate-800 rounded-2xl">Студент не найден</div>'; return; }
+
+                        let html = '', count = 0;
+                        for (let c = 0; c < studentRow.length; c++) {
+                            let val = (studentRow[c] || '').toString().trim();
+                            if (!val || val === '—' || val === '-') continue;
+                            html += `
+                                <div class="bg-slate-800 p-3.5 rounded-xl flex justify-between items-center shadow border border-slate-700/40">
+                                    <span class="text-xs sm:text-sm text-slate-200 pr-3">Колонка ${c}</span>
+                                    <span class="bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 font-bold px-3 py-1 rounded-lg text-sm">${val}</span>
+                                </div>
+                            `;
+                            count++;
+                        }
+                        container.innerHTML = count === 0 ? '<div class="text-slate-400 text-center py-8 bg-slate-800/50 rounded-2xl text-sm">Пока нет оценок</div>' : html;
+                    }
+                });
             } catch (e) { container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Ошибка: ${e.message}</div>`; }
         }
 
@@ -487,7 +519,8 @@
                 let groupColIdx = -1, headerRowIdx = -1;
                 for (let r = 0; r < Math.min(15, rows.length); r++) {
                     for (let c = 0; c < rows[r].length; c++) {
-                        if ((rows[r][c] || '').toString().trim() === current.groupName) {
+                        let val = (rows[r][c] || '').toString().trim();
+                        if (val.includes(current.groupName)) {
                             groupColIdx = c; headerRowIdx = r; break;
                         }
                     }
@@ -516,12 +549,12 @@
                     let lessonVal = (row[groupColIdx] || '').toString().trim();
 
                     if (lessonVal && lessonVal !== '-' && lessonVal !== '—') {
-                        // Проверка на верхнюю/нижнюю неделю в тексте пары
-                        let isLower = /низ|знам|\(н\)/i.test(lessonVal);
-                        let isUpper = /верх|числ|\(в\)/i.test(lessonVal);
+                        // Улучшенный фильтр под верхнюю/нижнюю неделю в текстах НовГУ
+                        let isLower = /низ|знам|\(н\)|2\s*нед/i.test(lessonVal);
+                        let isUpper = /верх|числ|\(в\)|1\s*нед/i.test(lessonVal);
 
-                        if (currentSelectedWeek === 'upper' && isLower) continue;
-                        if (currentSelectedWeek === 'lower' && isUpper) continue;
+                        if (currentSelectedWeek === 'upper' && isLower && !isUpper) continue;
+                        if (currentSelectedWeek === 'lower' && isUpper && !isLower) continue;
 
                         if (!daysSchedule[currentDay]) daysSchedule[currentDay] = [];
                         daysSchedule[currentDay].push({ time: timeVal, lesson: lessonVal });
