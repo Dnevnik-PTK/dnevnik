@@ -2,102 +2,148 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Мой Дневник</title>
-    <!-- Подключаем Tailwind CSS -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Подключаем Telegram Web App JS SDK -->
+    <!-- Telegram Web App SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- PapaParse: профессиональный парсер CSV, который не ломается от переносов строк -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen p-4">
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 select-none">
 
-    <div class="max-w-md mx-auto">
+    <div class="max-w-md mx-auto space-y-4">
         <!-- Шапка -->
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-xl font-bold">📊 Дневник оценок</h1>
-            <button id="settingsBtn" onclick="resetSettings()" class="text-xs bg-slate-800 px-3 py-1.5 rounded-lg text-slate-400 hover:text-white hidden">Сменить профиль</button>
-        </div>
-
-        <!-- Шаг 1: Ввод ссылки на таблицу -->
-        <div id="setupScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4">
-            <h2 class="font-semibold text-lg">Подключение таблицы</h2>
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">Ссылка на Google Таблицу</label>
-                <input type="text" id="sheetLink" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
+        <div class="flex justify-between items-center bg-slate-800/60 p-3.5 rounded-2xl border border-slate-700/50">
+            <div class="flex items-center gap-2">
+                <span class="text-xl">📊</span>
+                <h1 class="text-lg font-bold tracking-tight">Дневник ПТК</h1>
+                <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono">v2.0</span>
             </div>
-            <button onclick="loadSheet()" class="w-full bg-indigo-600 hover:bg-indigo-500 font-medium py-3 rounded-xl transition">Далее</button>
+            <button onclick="hardReset()" class="text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-xl transition">
+                Сброс
+            </button>
         </div>
 
-        <!-- Шаг 2: Ввод группы, выбор колонки с ФИО и самого ФИО -->
-        <div id="authScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 hidden">
-            <h2 class="font-semibold text-lg">Настройка профиля</h2>
-            
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">Название группы (вкладки внизу таблицы)</label>
-                <div class="flex gap-2">
-                    <input type="text" id="groupNameInput" placeholder="например: 5953" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
-                    <button onclick="loadColumns()" class="bg-indigo-600 hover:bg-indigo-500 px-4 rounded-xl text-sm font-medium transition">Загрузить</button>
+        <!-- ЭКРАН 1: СПИСОК ПРЕДМЕТОВ И ОЦЕНОК -->
+        <div id="mainScreen" class="space-y-4 hidden">
+            <!-- Переключатель предметов (таблиц) -->
+            <div class="space-y-2">
+                <div class="flex justify-between items-center px-1">
+                    <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Мои предметы</span>
+                    <button onclick="openAddSubject()" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1">
+                        ➕ Добавить предмет
+                    </button>
+                </div>
+                <div id="subjectsTabs" class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                    <!-- Кнопки предметов -->
                 </div>
             </div>
 
-            <!-- Шаг 2.1: Выбор колонки с именами -->
-            <div id="columnBlock" class="hidden space-y-2 pt-2 border-t border-slate-700">
-                <label class="block text-xs text-slate-400 mb-1">Где в таблице написаны фамилии (какой столбец)?</label>
-                <select id="columnSelect" onchange="loadStudentsFromColumn()" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
-                    <option value="">Выбери столбец с именами...</option>
-                </select>
-            </div>
-
-            <!-- Шаг 2.2: Выбор конкретного ФИО -->
-            <div id="studentBlock" class="hidden space-y-3 pt-2 border-t border-slate-700">
-                <label class="block text-xs text-slate-400 mb-1">Выбери своё ФИО:</label>
-                <select id="studentSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
-                    <option value="">Выбери фамилию...</option>
-                </select>
-                <button onclick="saveProfile()" class="w-full bg-indigo-600 hover:bg-indigo-500 font-medium py-3 rounded-xl transition">Сохранить и войти</button>
-            </div>
-        </div>
-
-        <!-- Шаг 3: Экран оценок -->
-        <div id="marksScreen" class="space-y-4 hidden">
-            <div class="bg-slate-800 p-4 rounded-2xl flex justify-between items-center shadow-lg">
+            <!-- Карточка студента -->
+            <div class="bg-slate-800 p-4 rounded-2xl flex justify-between items-center shadow-lg border border-slate-700/50">
                 <div>
-                    <div id="studentDisplay" class="font-bold text-base">Имя студента</div>
-                    <div id="groupDisplay" class="text-xs text-slate-400">Группа</div>
+                    <div id="studentDisplay" class="font-bold text-base text-white">ФИО Студента</div>
+                    <div id="groupDisplay" class="text-xs text-slate-400 mt-0.5">Группа</div>
                 </div>
-                <button onclick="fetchMarks()" class="bg-slate-700 hover:bg-slate-600 p-2.5 rounded-xl text-xs flex items-center gap-1 transition">
+                <button onclick="loadMarksForActiveSubject()" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white px-3.5 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition shadow-lg shadow-indigo-600/20">
                     🔄 Обновить
                 </button>
             </div>
 
-            <div id="marksList" class="space-y-2">
-                <!-- Оценки -->
+            <!-- Список оценок -->
+            <div id="marksList" class="space-y-2.5 pb-8">
+                <!-- Оценки рендерятся сюда -->
+            </div>
+        </div>
+
+        <!-- ЭКРАН 2: ДОБАВЛЕНИЕ НОВОЙ ТАБЛИЦЫ / НАСТРОЙКА -->
+        <div id="setupScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 border border-slate-700/50">
+            <div class="flex justify-between items-center">
+                <h2 class="font-bold text-base">Подключение предмета</h2>
+                <button id="cancelAddBtn" onclick="showMainScreen()" class="text-xs text-slate-400 hover:text-white hidden">Отмена</button>
+            </div>
+
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Название предмета</label>
+                <input type="text" id="subjectNameInput" placeholder="Например: Дискретная математика" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
+            </div>
+
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Ссылка на Google Таблицу</label>
+                <input type="text" id="sheetLinkInput" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
+            </div>
+
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Номер группы (название вкладки внизу)</label>
+                <div class="flex gap-2">
+                    <input type="text" id="groupNameInput" placeholder="Например: 5953" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
+                    <button id="findGroupBtn" onclick="fetchGroupAndStudents()" class="bg-indigo-600 hover:bg-indigo-500 px-4 rounded-xl text-sm font-medium shrink-0 transition">
+                        Найти
+                    </button>
+                </div>
+                <!-- Быстрые кнопки популярных групп -->
+                <div class="flex flex-wrap gap-1.5 mt-2">
+                    <button onclick="quickGroup('5953')" class="text-xs bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-slate-300">5953</button>
+                    <button onclick="quickGroup('5992')" class="text-xs bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-slate-300">5992</button>
+                    <button onclick="quickGroup('4993')" class="text-xs bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-slate-300">4993</button>
+                    <button onclick="quickGroup('5951')" class="text-xs bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-slate-300">5951</button>
+                    <button onclick="quickGroup('5952')" class="text-xs bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-slate-300">5952</button>
+                    <button onclick="quickGroup('5991')" class="text-xs bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-slate-300">5991</button>
+                </div>
+            </div>
+
+            <!-- Блок выбора ФИО (появляется после загрузки вкладки) -->
+            <div id="studentSelectBlock" class="hidden space-y-3 pt-3 border-t border-slate-700">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Выбери своё ФИО из списка:</label>
+                    <select id="studentSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        <option value="">Выбери фамилию...</option>
+                    </select>
+                </div>
+                <button onclick="saveSubjectProfile()" class="w-full bg-emerald-600 hover:bg-emerald-500 font-medium py-3 rounded-xl transition shadow-lg shadow-emerald-600/20">
+                    ✅ Сохранить и открыть оценки
+                </button>
             </div>
         </div>
     </div>
 
     <script>
-        let sheetId = "";
-        let currentGroupName = "";
-        let cachedRows = [];
-        let chosenNameKey = "";
-
         const tg = window.Telegram.WebApp;
         tg.expand();
 
+        const STORAGE_KEY = 'ptk_diary_subjects_v2';
+        let subjects = [];
+        let activeSubjectIndex = 0;
+
+        // Временные данные при настройке
+        let tempParsedMatrix = [];
+        let tempHeaderRowIdx = 0;
+        let tempNameColIdx = 1;
+
         window.onload = function() {
-            const saved = localStorage.getItem('user_profile');
+            // Очищаем старый сломанный кэш v1
+            localStorage.removeItem('user_profile');
+
+            const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
-                const profile = JSON.parse(saved);
-                sheetId = profile.sheetId;
-                chosenNameKey = profile.nameKey;
-                document.getElementById('setupScreen').classList.add('hidden');
-                document.getElementById('settingsBtn').classList.remove('hidden');
-                document.getElementById('studentDisplay').innerText = profile.studentName;
-                document.getElementById('groupDisplay').innerText = `Группа: ${profile.groupName}`;
-                document.getElementById('marksScreen').classList.remove('hidden');
-                fetchMarks();
+                try {
+                    subjects = JSON.parse(saved);
+                    if (subjects.length > 0) {
+                        showMainScreen();
+                        return;
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
             }
+            openAddSubject();
+        };
+
+        function quickGroup(name) {
+            document.getElementById('groupNameInput').value = name;
+            fetchGroupAndStudents();
         }
 
         function extractSheetId(link) {
@@ -105,171 +151,291 @@
             return match ? match[1] : null;
         }
 
-        function loadSheet() {
-            const link = document.getElementById('sheetLink').value.trim();
-            sheetId = extractSheetId(link);
-            if (!sheetId) {
-                alert('Неверная ссылка на Google Таблицу');
-                return;
+        // Скачиваем CSV как 2D-матрицу через PapaParse (не ломается от \n внутри ячеек!)
+        async function fetchCSVMatrix(sheetId, groupName) {
+            const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(groupName)}&_t=${Date.now()}`;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Не удалось подключиться к таблице");
+            
+            const csvText = await response.text();
+            if (csvText.includes("<!DOCTYPE html>") || csvText.includes("<html")) {
+                throw new Error("Таблица закрыта или вкладка группы не найдена");
             }
 
-            document.getElementById('setupScreen').classList.add('hidden');
-            document.getElementById('authScreen').classList.remove('hidden');
+            return new Promise((resolve, reject) => {
+                Papa.parse(csvText, {
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        resolve(results.data);
+                    },
+                    error: function(err) {
+                        reject(err);
+                    }
+                });
+            });
         }
 
-        async function loadColumns() {
+        // Автоматический поиск столбца с ФИО и строки заголовков в 2D-матрице
+        function analyzeMatrix(matrix) {
+            let bestCol = 1;
+            let maxNamesCount = 0;
+
+            const maxCols = Math.min(10, matrix[0] ? matrix[0].length : 0);
+
+            for (let col = 0; col < maxCols; col++) {
+                let namesCount = 0;
+                for (let row = 0; row < matrix.length; row++) {
+                    let cell = (matrix[row][col] || '').toString().trim();
+                    // ФИО: содержит кириллицу, пробел (Фамилия Имя), минимум 5 символов, не содержит служебных слов
+                    if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(cell) && !/(задание|лекция|практика|модуль|вопрос|итог|экзамен|диктант|работа)/i.test(cell)) {
+                        namesCount++;
+                    }
+                }
+                if (namesCount > maxNamesCount) {
+                    maxNamesCount = namesCount;
+                    bestCol = col;
+                }
+            }
+
+            // Находим первую строку, где начинается первое ФИО студента
+            let firstStudentRow = 1;
+            for (let row = 0; row < matrix.length; row++) {
+                let cell = (matrix[row][bestCol] || '').toString().trim();
+                if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(cell) && !/(фио|студент|фамилия|имя)/i.test(cell)) {
+                    firstStudentRow = row;
+                    break;
+                }
+            }
+
+            return { nameColIdx: bestCol, firstStudentRow: firstStudentRow };
+        }
+
+        async function fetchGroupAndStudents() {
+            const link = document.getElementById('sheetLinkInput').value.trim();
             const groupName = document.getElementById('groupNameInput').value.trim();
-            if (!groupName) {
-                alert('Введите название группы');
+            const sheetId = extractSheetId(link);
+
+            if (!sheetId) {
+                alert("Сначала вставь корректную ссылку на Google Таблицу!");
                 return;
             }
-            currentGroupName = groupName;
+            if (!groupName) {
+                alert("Введи номер группы (например: 5953)");
+                return;
+            }
 
-            const btn = event.target;
+            const btn = document.getElementById('findGroupBtn');
             const oldText = btn.innerText;
-            btn.innerText = "Загрузка...";
+            btn.innerText = "⏳...";
 
             try {
-                const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(groupName)}`;
-                const response = await fetch(url);
-                
-                if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
-                
-                const text = await response.text();
-                if (text.includes("<!DOCTYPE html>") || text.includes("<html")) {
-                    throw new Error("Таблица не найдена или вкладка не существует.");
+                const matrix = await fetchCSVMatrix(sheetId, groupName);
+                if (!matrix || matrix.length < 2) {
+                    throw new Error("Вкладка пуста");
                 }
 
-                cachedRows = parseCSV(text);
-                if (cachedRows.length === 0) throw new Error('В этой группе нет данных');
+                const { nameColIdx, firstStudentRow } = analyzeMatrix(matrix);
+                tempParsedMatrix = matrix;
+                tempNameColIdx = nameColIdx;
+                tempHeaderRowIdx = Math.max(0, firstStudentRow - 1);
 
-                const keys = Object.keys(cachedRows[0]);
-                const colSelect = document.getElementById('columnSelect');
-                colSelect.innerHTML = '<option value="">Выбери столбец с фамилиями...</option>';
+                const select = document.getElementById('studentSelect');
+                select.innerHTML = '<option value="">-- Выбери своё ФИО --</option>';
 
-                keys.forEach((key) => {
-                    const sample = cachedRows[0][key] || '';
-                    colSelect.innerHTML += `<option value="${key}">${key} (пример: ${sample})</option>`;
-                });
+                let added = 0;
+                for (let r = firstStudentRow; r < matrix.length; r++) {
+                    let nameVal = (matrix[r][nameColIdx] || '').toString().trim();
+                    // Отсекаем цифры и пустые строки
+                    if (nameVal && /[а-яёА-ЯЁ]/.test(nameVal) && isNaN(nameVal)) {
+                        select.innerHTML += `<option value="${nameVal}">${nameVal}</option>`;
+                        added++;
+                    }
+                }
 
-                document.getElementById('columnBlock').classList.remove('hidden');
+                if (added === 0) {
+                    throw new Error("Не удалось найти список студентов в этой вкладке");
+                }
+
+                document.getElementById('studentSelectBlock').classList.remove('hidden');
             } catch (e) {
-                alert('Ошибка: ' + e.message);
+                alert("Ошибка: " + e.message);
             } finally {
                 btn.innerText = oldText;
             }
         }
 
-        function loadStudentsFromColumn() {
-            chosenNameKey = document.getElementById('columnSelect').value;
-            if (!chosenNameKey) return;
+        function saveSubjectProfile() {
+            let subjName = document.getElementById('subjectNameInput').value.trim();
+            const link = document.getElementById('sheetLinkInput').value.trim();
+            const groupName = document.getElementById('groupNameInput').value.trim();
+            const studentName = document.getElementById('studentSelect').value;
 
-            const select = document.getElementById('studentSelect');
-            select.innerHTML = '<option value="">Выбери свое ФИО</option>';
-
-            cachedRows.forEach((row, idx) => {
-                let nameVal = row[chosenNameKey];
-                if (nameVal && nameVal.trim() !== '') {
-                    select.innerHTML += `<option value="${idx}" data-name="${nameVal}">${nameVal}</option>`;
-                }
-            });
-
-            document.getElementById('studentBlock').classList.remove('hidden');
-        }
-
-        function saveProfile() {
-            const select = document.getElementById('studentSelect');
-            const opt = select.options[select.selectedIndex];
-            const studentName = opt ? opt.getAttribute('data-name') : null;
-            
             if (!studentName) {
-                alert('Выберите свое ФИО из списка');
+                alert("Выбери своё ФИО из выпадающего списка!");
                 return;
             }
+            if (!subjName) {
+                subjName = "Предмет " + (subjects.length + 1);
+            }
 
-            const profile = { sheetId, groupName: currentGroupName, studentName, nameKey: chosenNameKey };
-            localStorage.setItem('user_profile', JSON.stringify(profile));
+            const sheetId = extractSheetId(link);
 
-            document.getElementById('authScreen').classList.add('hidden');
-            document.getElementById('settingsBtn').classList.remove('hidden');
-            document.getElementById('studentDisplay').innerText = studentName;
-            document.getElementById('groupDisplay').innerText = `Группа: ${currentGroupName}`;
-            document.getElementById('marksScreen').classList.remove('hidden');
-            fetchMarks();
+            subjects.push({
+                subjectName: subjName,
+                sheetId: sheetId,
+                groupName: groupName,
+                studentName: studentName
+            });
+
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(subjects));
+            activeSubjectIndex = subjects.length - 1;
+            showMainScreen();
         }
 
-        async function fetchMarks() {
-            const profile = JSON.parse(localStorage.getItem('user_profile'));
+        function openAddSubject() {
+            document.getElementById('mainScreen').classList.add('hidden');
+            document.getElementById('setupScreen').classList.remove('hidden');
+            document.getElementById('studentSelectBlock').classList.add('hidden');
+            document.getElementById('subjectNameInput').value = '';
+            document.getElementById('sheetLinkInput').value = '';
+            
+            if (subjects.length > 0) {
+                document.getElementById('cancelAddBtn').classList.remove('hidden');
+                // Подставляем группу из прошлого предмета для удобства
+                document.getElementById('groupNameInput').value = subjects[subjects.length - 1].groupName;
+            } else {
+                document.getElementById('cancelAddBtn').classList.add('hidden');
+            }
+        }
+
+        function showMainScreen() {
+            document.getElementById('setupScreen').classList.add('hidden');
+            document.getElementById('mainScreen').classList.remove('hidden');
+            renderSubjectTabs();
+            loadMarksForActiveSubject();
+        }
+
+        function renderSubjectTabs() {
+            const container = document.getElementById('subjectsTabs');
+            container.innerHTML = '';
+
+            subjects.forEach((subj, idx) => {
+                const isActive = idx === activeSubjectIndex;
+                const btnClass = isActive 
+                    ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/20" 
+                    : "bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200";
+
+                container.innerHTML += `
+                    <div class="flex items-center rounded-xl border ${btnClass} px-3 py-2 text-xs font-medium shrink-0 transition cursor-pointer" onclick="switchSubject(${idx})">
+                        <span>${subj.subjectName}</span>
+                        ${subjects.length > 1 ? `<button onclick="deleteSubject(event, ${idx})" class="ml-2 text-slate-300 hover:text-red-400">✕</button>` : ''}
+                    </div>
+                `;
+            });
+        }
+
+        function switchSubject(idx) {
+            activeSubjectIndex = idx;
+            renderSubjectTabs();
+            loadMarksForActiveSubject();
+        }
+
+        function deleteSubject(event, idx) {
+            event.stopPropagation();
+            if (confirm(`Удалить предмет «${subjects[idx].subjectName}»?`)) {
+                subjects.splice(idx, 1);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(subjects));
+                if (subjects.length === 0) {
+                    openAddSubject();
+                } else {
+                    activeSubjectIndex = 0;
+                    showMainScreen();
+                }
+            }
+        }
+
+        async function loadMarksForActiveSubject() {
+            const current = subjects[activeSubjectIndex];
+            if (!current) return;
+
+            document.getElementById('studentDisplay').innerText = current.studentName;
+            document.getElementById('groupDisplay').innerText = `Группа: ${current.groupName} • ${current.subjectName}`;
+
             const container = document.getElementById('marksList');
-            container.innerHTML = '<div class="text-center text-slate-400 py-6">Загрузка оценок...</div>';
+            container.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Загружаем актуальные оценки из таблицы...</div>';
 
             try {
-                const url = `https://docs.google.com/spreadsheets/d/${profile.sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(profile.groupName)}`;
-                const response = await fetch(url);
-                const text = await response.text();
-                const rows = parseCSV(text);
+                const matrix = await fetchCSVMatrix(current.sheetId, current.groupName);
+                const { nameColIdx, firstStudentRow } = analyzeMatrix(matrix);
 
-                const nameKey = profile.nameKey;
-                const row = rows.find(r => r[nameKey] === profile.studentName);
-                
-                if (!row) {
-                    container.innerHTML = '<div class="text-red-400 text-center py-6">Данные студента не найдены</div>';
+                // Ищем строку студента
+                let studentRow = null;
+                for (let r = firstStudentRow; r < matrix.length; r++) {
+                    if ((matrix[r][nameColIdx] || '').toString().trim() === current.studentName) {
+                        studentRow = matrix[r];
+                        break;
+                    }
+                }
+
+                if (!studentRow) {
+                    container.innerHTML = '<div class="text-red-400 text-center py-6 text-sm bg-slate-800 rounded-2xl">Студент не найден в таблице</div>';
                     return;
+                }
+
+                // Собираем заголовки (если шапка многострочная — склеиваем строки выше первого студента)
+                const headers = [];
+                const numCols = studentRow.length;
+                for (let c = 0; c < numCols; c++) {
+                    let parts = [];
+                    for (let r = 0; r < firstStudentRow; r++) {
+                        let cell = (matrix[r][c] || '').toString().replace(/\s+/g, ' ').trim();
+                        if (cell && !parts.includes(cell)) {
+                            parts.push(cell);
+                        }
+                    }
+                    headers[c] = parts.join(' / ') || `Колонка ${c + 1}`;
                 }
 
                 let html = '';
                 let count = 0;
 
-                for (let [key, val] of Object.entries(row)) {
-                    if (key === nameKey) continue;
-                    if (!val || val.trim() === '' || val.trim() === '—' || val.trim() === '-') continue;
-                    if (/Unnamed|№ п\/п/i.test(key)) continue;
+                for (let c = 0; c < numCols; c++) {
+                    if (c === nameColIdx) continue; // Пропускаем само ФИО
+
+                    let rawHeader = headers[c];
+                    let val = (studentRow[c] || '').toString().trim();
+
+                    // Пропускаем пустые ячейки и прочерки
+                    if (!val || val === '—' || val === '-') continue;
+
+                    // Пропускаем столбец порядкового номера (№ п/п)
+                    if (/^(№|п\/п|№\s*п\/п|№\s*\/\s*п\/п)$/i.test(rawHeader) || c === 0) continue;
+
+                    // Оставляем только те колонки, где в заголовке есть русские буквы
+                    if (!/[а-яёА-ЯЁ]/.test(rawHeader)) continue;
 
                     html += `
-                        <div class="bg-slate-800 p-3.5 rounded-xl flex justify-between items-center shadow">
-                            <span class="text-sm text-slate-300 pr-2">${key}</span>
-                            <span class="bg-indigo-600/30 text-indigo-300 font-bold px-3 py-1 rounded-lg text-sm">${val}</span>
+                        <div class="bg-slate-800 p-3.5 rounded-xl flex justify-between items-center shadow border border-slate-700/40">
+                            <span class="text-xs sm:text-sm text-slate-200 pr-3 leading-snug">${rawHeader}</span>
+                            <span class="bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 font-bold px-3 py-1 rounded-lg text-sm shrink-0">${val}</span>
                         </div>
                     `;
                     count++;
                 }
 
                 if (count === 0) {
-                    html = '<div class="text-slate-400 text-center py-6">Пока нет выставленных оценок</div>';
+                    html = '<div class="text-slate-400 text-center py-8 bg-slate-800/50 rounded-2xl text-sm">По этому предмету пока нет выставленных оценок</div>';
                 }
 
                 container.innerHTML = html;
             } catch (e) {
-                container.innerHTML = '<div class="text-red-400 text-center py-6">Ошибка соединения с таблицей</div>';
+                container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Ошибка загрузки: ${e.message}</div>`;
             }
         }
 
-        function parseCSV(text) {
-            let lines = text.split("\n");
-            if (lines.length === 0) return [];
-
-            let firstLine = lines[0];
-            let delimiter = firstLine.includes(';') ? ';' : ',';
-
-            let headers = firstLine.split(delimiter).map(h => h.replace(/^"|"$/g, '').trim());
-            let result = [];
-
-            for (let i = 1; i < lines.length; i++) {
-                if (!lines[i].trim()) continue;
-                let currentline = lines[i].split(delimiter);
-                let obj = {};
-                for (let j = 0; j < headers.length; j++) {
-                    let val = currentline[j] ? currentline[j].replace(/^"|"$/g, '').trim() : "";
-                    obj[headers[j]] = val;
-                }
-                result.push(obj);
-            }
-            return result;
-        }
-
-        function resetSettings() {
-            if (confirm("Сбросить настройки профиля?")) {
-                localStorage.removeItem('user_profile');
+        function hardReset() {
+            if (confirm("Сбросить все сохраненные предметы и профили?")) {
+                localStorage.clear();
                 location.reload();
             }
         }
