@@ -9,24 +9,36 @@ app.use((req, res, next) => {
     next();
 });
 
-// Эндпоинт для замен (.docx)
+// Эндпоинт для замен: автоматически находит и скачивает самый свежий .docx с сайта НовГУ
 app.get('/api/changes', async (req, res) => {
     try {
+        // Заходим на страницу замен СПО НовГУ
         const pageRes = await fetch('https://portal.novsu.ru/univer/timetable/spo/i.1473214//?id=2445999');
         const html = await pageRes.text();
         
-        const matches = html.match(/href="([^"]+\.docx(\?[^"]*)?)"/i);
-        if (!matches) return res.status(404).send('Файл замен (.docx) не найден');
-        
-        let docxUrl = matches[1];
-        if (docxUrl.startsWith('/')) docxUrl = 'https://portal.novsu.ru' + docxUrl;
+        // Ищем абсолютно любую ссылку на .docx файл на странице
+        const regex = /href="([^"]+\.docx(\?[^"]*)?)"/gi;
+        let match;
+        let docxUrl = '';
 
+        while ((match = regex.exec(html)) !== null) {
+            let link = match[1];
+            if (link.startsWith('/')) link = 'https://portal.novsu.ru' + link;
+            docxUrl = link; // Берем найденную ссылку (обычно актуальная идет первой или последней)
+        }
+
+        if (!docxUrl) {
+            return res.status(404).send('На странице замен НовГУ не найдено ни одного файла .docx');
+        }
+
+        // Скачиваем свежий файл замен
         const docxRes = await fetch(docxUrl);
         const buffer = await docxRes.buffer();
+
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         res.send(buffer);
     } catch (error) {
-        res.status(500).send('Ошибка сервера: ' + error.message);
+        res.status(500).send('Ошибка сервера при получении замен: ' + error.message);
     }
 });
 
@@ -34,12 +46,9 @@ app.get('/api/changes', async (req, res) => {
 app.get('/api/schedule/:group', async (req, res) => {
     try {
         const targetGroup = req.params.group;
-        
-        // 1. Пробуем получить страницу расписаний СПО НовГУ
         const pageRes = await fetch('https://portal.novsu.ru/univer/timetable/spo/');
         const html = await pageRes.text();
         
-        // Ищем все ссылки на .xlsx файлы
         const regex = /href="([^"]+\.xlsx(\?[^"]*)?)"/gi;
         let match;
         let excelUrls = [];
@@ -50,15 +59,13 @@ app.get('/api/schedule/:group', async (req, res) => {
             excelUrls.push(link);
         }
 
-        // Если на странице ничего не нашлось, используем прямой поиск по известным путям или заглушку
         if (excelUrls.length === 0) {
-            return res.status(404).json({ error: 'На странице НовГУ не найдены файлы расписания (.xlsx)' });
+            return res.status(404).json({ error: 'Ссылки на расписание (.xlsx) не найдены' });
         }
 
         let foundData = null;
         let sheetNameFound = '';
 
-        // Проходим по найденным экселькам с сайта (обычно свежий файл первый или содержит ключевые слова)
         for (let excelUrl of excelUrls) {
             try {
                 const excelRes = await fetch(excelUrl);
@@ -82,14 +89,12 @@ app.get('/api/schedule/:group', async (req, res) => {
                     }
                 });
 
-                if (foundData) break; // Нашли группу — прекращаем перебор файлов
-            } catch (err) {
-                // Пропускаем битые ссылки и идем дальше
-            }
+                if (foundData) break;
+            } catch (err) {}
         }
 
         if (!foundData) {
-            return res.status(404).json({ error: `Группа ${targetGroup} не найдена ни в одном файле расписания НовГУ` });
+            return res.status(404).json({ error: `Группа ${targetGroup} не найдена в расписании` });
         }
 
         res.json({ group: targetGroup, sheet: sheetNameFound, ...foundData });
