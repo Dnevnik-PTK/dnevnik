@@ -10,7 +10,7 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <!-- PapaParse для CSV (оценки) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <!-- SheetJS (xlsx) для чтения Excel-файлов расписания прямо на устройстве -->
+    <!-- SheetJS (xlsx) для чтения Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen p-4 select-none pb-24">
@@ -21,7 +21,7 @@
             <div class="flex items-center gap-2">
                 <span class="text-xl">📊</span>
                 <h1 class="text-lg font-bold tracking-tight">Дневник ПТК</h1>
-                <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono">v2.3</span>
+                <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono">v2.4</span>
             </div>
             <button onclick="hardReset()" class="text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-xl transition">
                 Сброс
@@ -47,9 +47,7 @@
                         ➕ Добавить предмет
                     </button>
                 </div>
-                <div id="subjectsTabs" class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                    <!-- Кнопки предметов -->
-                </div>
+                <div id="subjectsTabs" class="flex gap-2 overflow-x-auto pb-1 no-scrollbar"></div>
             </div>
 
             <div class="bg-slate-800 p-4 rounded-2xl flex justify-between items-center shadow-lg border border-slate-700/50">
@@ -62,9 +60,7 @@
                 </button>
             </div>
 
-            <div id="marksList" class="space-y-2.5">
-                <!-- Оценки -->
-            </div>
+            <div id="marksList" class="space-y-2.5"></div>
         </div>
 
         <!-- РАЗДЕЛ 2: РАСПИСАНИЕ -->
@@ -76,23 +72,34 @@
                         📁 Загрузить файл расписания
                     </button>
                 </div>
-                <div id="scheduleTabs" class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-                    <!-- Кнопки расписаний -->
-                </div>
+                <div id="scheduleTabs" class="flex gap-2 overflow-x-auto pb-1 no-scrollbar"></div>
             </div>
 
-            <div class="bg-slate-800 p-4 rounded-2xl shadow-lg border border-slate-700/50 flex justify-between items-center">
-                <div>
-                    <div id="schedHeaderInfo" class="font-bold text-sm text-white">Расписание не выбрано</div>
-                    <div id="schedSubInfo" class="text-xs text-slate-400 mt-0.5">Загрузите файл расписания выше</div>
+            <!-- Плашка группы и переключатель недель -->
+            <div class="bg-slate-800 p-4 rounded-2xl shadow-lg border border-slate-700/50 space-y-3">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <div id="schedHeaderInfo" class="font-bold text-sm text-white">Расписание не выбрано</div>
+                        <div id="schedSubInfo" class="text-xs text-slate-400 mt-0.5">Загрузите файл расписания</div>
+                    </div>
+                    <button onclick="loadScheduleForActive()" class="bg-slate-700 hover:bg-slate-600 text-white p-2 rounded-xl text-xs transition">
+                        🔄
+                    </button>
                 </div>
-                <button onclick="loadScheduleForActive()" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white px-3.5 py-2 rounded-xl text-xs font-medium transition">
-                    🔄 Обновить
-                </button>
+
+                <!-- Переключатель Верхняя / Нижняя неделя -->
+                <div class="grid grid-cols-2 gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-700/60">
+                    <button onclick="setWeekType('upper')" id="btnUpperWeek" class="py-1.5 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow">
+                        ⬆️ Верхняя неделя
+                    </button>
+                    <button onclick="setWeekType('lower')" id="btnLowerWeek" class="py-1.5 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white">
+                        ⬇️ Нижняя неделя
+                    </button>
+                </div>
             </div>
 
             <div id="scheduleList" class="space-y-3">
-                <div class="text-slate-400 text-center py-8 bg-slate-800/40 rounded-2xl text-sm">Загрузите файл расписания (.xls / .xlsx) с сайта НовГУ</div>
+                <div class="text-slate-400 text-center py-8 bg-slate-800/40 rounded-2xl text-sm">Загрузите файл расписания (.xls / .xlsx)</div>
             </div>
         </div>
 
@@ -136,7 +143,7 @@
             </div>
         </div>
 
-        <!-- ЭКРАН НАСТРОЙКИ РАСПИСАНИЯ (ЗАГРУЗКА ФАЙЛА) -->
+        <!-- ЭКРАН НАСТРОЙКИ РАСПИСАНИЯ -->
         <div id="setupScheduleScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 border border-slate-700/50 hidden">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base">Загрузка файла расписания</h2>
@@ -164,17 +171,14 @@
         tg.expand();
 
         const STORAGE_MARKS_KEY = 'ptk_diary_subjects_v2';
-        const STORAGE_SCHED_KEY = 'ptk_diary_schedules_v2';
+        const STORAGE_SCHED_KEY = 'ptk_diary_schedules_v3';
         
         let subjects = [];
         let activeSubjectIndex = 0;
 
         let schedules = [];
         let activeScheduleIndex = 0;
-
-        let tempParsedMatrix = [];
-        let firstStudentRow = 1;
-        let nameColIdx = 1;
+        let currentSelectedWeek = 'upper'; // 'upper' или 'lower'
 
         window.onload = function() {
             const savedMarks = localStorage.getItem(STORAGE_MARKS_KEY);
@@ -183,12 +187,44 @@
             const savedSched = localStorage.getItem(STORAGE_SCHED_KEY);
             if (savedSched) { try { schedules = JSON.parse(savedSched); } catch(e){} }
 
+            // Автоматически определяем текущую неделю (четная/нечетная от 1 сентября)
+            currentSelectedWeek = getInitialWeekType();
+            updateWeekButtonsUI();
+
             if (subjects.length > 0) {
                 showMainScreen();
             } else {
                 openAddSubject();
             }
         };
+
+        function getInitialWeekType() {
+            const now = new Date();
+            const year = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+            const septFirst = new Date(year, 8, 1); // 1 сентября
+            const diffTime = Math.abs(now - septFirst);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const weekNumber = Math.ceil(diffDays / 7);
+            return weekNumber % 2 !== 0 ? 'upper' : 'lower';
+        }
+
+        function setWeekType(type) {
+            currentSelectedWeek = type;
+            updateWeekButtonsUI();
+            loadScheduleForActive();
+        }
+
+        function updateWeekButtonsUI() {
+            const btnUpper = document.getElementById('btnUpperWeek');
+            const btnLower = document.getElementById('btnLowerWeek');
+            if (currentSelectedWeek === 'upper') {
+                btnUpper.className = "py-1.5 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow";
+                btnLower.className = "py-1.5 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white";
+            } else {
+                btnLower.className = "py-1.5 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow";
+                btnUpper.className = "py-1.5 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white";
+            }
+        }
 
         function switchSection(section) {
             document.getElementById('mainNav').classList.remove('hidden');
@@ -224,12 +260,7 @@
             const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(groupName)}&_t=${Date.now()}`;
             const response = await fetch(url);
             if (!response.ok) throw new Error("Не удалось подключиться к таблице");
-            
             const csvText = await response.text();
-            if (csvText.includes("<!DOCTYPE html>") || csvText.includes("<html")) {
-                throw new Error("Таблица закрыта или вкладка группы не найдена");
-            }
-
             return new Promise((resolve, reject) => {
                 Papa.parse(csvText, {
                     skipEmptyLines: true,
@@ -243,28 +274,18 @@
             let bestCol = 1;
             let maxNamesCount = 0;
             const maxCols = Math.min(10, matrix[0] ? matrix[0].length : 0);
-
             for (let col = 0; col < maxCols; col++) {
                 let namesCount = 0;
                 for (let row = 0; row < matrix.length; row++) {
                     let cell = (matrix[row][col] || '').toString().trim();
-                    if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(cell) && !/(задание|лекция|практика|модуль|вопрос|итог|экзамен)/i.test(cell)) {
-                        namesCount++;
-                    }
+                    if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(cell) && !/(задание|лекция|практика|модуль)/i.test(cell)) namesCount++;
                 }
-                if (namesCount > maxNamesCount) {
-                    maxNamesCount = namesCount;
-                    bestCol = col;
-                }
+                if (namesCount > maxNamesCount) { maxNamesCount = namesCount; bestCol = col; }
             }
-
             let firstStudRow = 1;
             for (let row = 0; row < matrix.length; row++) {
                 let cell = (matrix[row][bestCol] || '').toString().trim();
-                if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(cell) && !/(фио|студент|фамилия)/i.test(cell)) {
-                    firstStudRow = row;
-                    break;
-                }
+                if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(cell) && !/(фио|студент)/i.test(cell)) { firstStudRow = row; break; }
             }
             return { nameColIdx: bestCol, firstStudentRow: firstStudRow };
         }
@@ -273,40 +294,24 @@
             const link = document.getElementById('sheetLinkInput').value.trim();
             const groupName = document.getElementById('groupNameInput').value.trim();
             const sheetId = extractSheetId(link);
-
-            if (!sheetId) { alert("Вставь ссылку на Google Таблицу!"); return; }
-            if (!groupName) { alert("Введи номер группы!"); return; }
+            if (!sheetId || !groupName) { alert("Заполните ссылку и группу!"); return; }
 
             const btn = document.getElementById('findGroupBtn');
-            const oldText = btn.innerText;
             btn.innerText = "⏳...";
-
             try {
                 const matrix = await fetchCSVMatrix(sheetId, groupName);
                 const analysis = analyzeMatrix(matrix);
-                tempParsedMatrix = matrix;
-                nameColIdx = analysis.nameColIdx;
-                firstStudentRow = analysis.firstStudentRow;
-
                 const select = document.getElementById('studentSelect');
                 select.innerHTML = '<option value="">-- Выбери своё ФИО --</option>';
-
-                let added = 0;
-                for (let r = firstStudentRow; r < matrix.length; r++) {
-                    let nameVal = (matrix[r][nameColIdx] || '').toString().trim();
+                for (let r = analysis.firstStudentRow; r < matrix.length; r++) {
+                    let nameVal = (matrix[r][analysis.nameColIdx] || '').toString().trim();
                     if (nameVal && /[а-яёА-ЯЁ]/.test(nameVal) && isNaN(nameVal)) {
                         select.innerHTML += `<option value="${nameVal}">${nameVal}</option>`;
-                        added++;
                     }
                 }
-
-                if (added === 0) throw new Error("Не удалось найти студентов в этой вкладке");
                 document.getElementById('studentSelectBlock').classList.remove('hidden');
-            } catch (e) {
-                alert("Ошибка: " + e.message);
-            } finally {
-                btn.innerText = oldText;
-            }
+            } catch (e) { alert("Ошибка: " + e.message); }
+            finally { btn.innerText = "Найти"; }
         }
 
         function saveSubjectProfile() {
@@ -314,13 +319,10 @@
             const link = document.getElementById('sheetLinkInput').value.trim();
             const groupName = document.getElementById('groupNameInput').value.trim();
             const studentName = document.getElementById('studentSelect').value;
-
             if (!studentName) { alert("Выбери своё ФИО!"); return; }
             if (!subjName) subjName = "Предмет " + (subjects.length + 1);
 
-            const sheetId = extractSheetId(link);
-            subjects.push({ subjectName: subjName, sheetId, groupName, studentName });
-
+            subjects.push({ subjectName: subjName, sheetId: extractSheetId(link), groupName, studentName });
             localStorage.setItem(STORAGE_MARKS_KEY, JSON.stringify(subjects));
             activeSubjectIndex = subjects.length - 1;
             showMainScreen();
@@ -335,13 +337,8 @@
             document.getElementById('studentSelectBlock').classList.add('hidden');
             document.getElementById('subjectNameInput').value = '';
             document.getElementById('sheetLinkInput').value = '';
-            
-            if (subjects.length > 0) {
-                document.getElementById('cancelAddBtn').classList.remove('hidden');
-                document.getElementById('groupNameInput').value = subjects[subjects.length - 1].groupName;
-            } else {
-                document.getElementById('cancelAddBtn').classList.add('hidden');
-            }
+            document.getElementById('cancelAddBtn').classList.toggle('hidden', subjects.length === 0);
+            if (subjects.length > 0) document.getElementById('groupNameInput').value = subjects[subjects.length - 1].groupName;
         }
 
         function showMainScreen() {
@@ -356,15 +353,10 @@
         function renderSubjectTabs() {
             const container = document.getElementById('subjectsTabs');
             container.innerHTML = '';
-
             subjects.forEach((subj, idx) => {
                 const isActive = idx === activeSubjectIndex;
-                const btnClass = isActive 
-                    ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/20" 
-                    : "bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200";
-
                 container.innerHTML += `
-                    <div class="flex items-center rounded-xl border ${btnClass} px-3 py-2 text-xs font-medium shrink-0 transition cursor-pointer" onclick="switchSubject(${idx})">
+                    <div class="flex items-center rounded-xl border ${isActive ? "bg-indigo-600 text-white border-indigo-500 shadow-md" : "bg-slate-800 text-slate-400 border-slate-700"} px-3 py-2 text-xs font-medium shrink-0 cursor-pointer" onclick="switchSubject(${idx})">
                         <span>${subj.subjectName}</span>
                         ${subjects.length > 1 ? `<button onclick="deleteSubject(event, ${idx})" class="ml-2 text-slate-300 hover:text-red-400">✕</button>` : ''}
                     </div>
@@ -372,89 +364,54 @@
             });
         }
 
-        function switchSubject(idx) {
-            activeSubjectIndex = idx;
-            renderSubjectTabs();
-            loadMarksForActiveSubject();
-        }
-
+        function switchSubject(idx) { activeSubjectIndex = idx; renderSubjectTabs(); loadMarksForActiveSubject(); }
         function deleteSubject(event, idx) {
             event.stopPropagation();
-            if (confirm(`Удалить предмет «${subjects[idx].subjectName}»?`)) {
+            if (confirm(`Удалить предмет?`)) {
                 subjects.splice(idx, 1);
                 localStorage.setItem(STORAGE_MARKS_KEY, JSON.stringify(subjects));
-                if (subjects.length === 0) { openAddSubject(); } else { activeSubjectIndex = 0; showMainScreen(); }
+                if (subjects.length === 0) openAddSubject(); else { activeSubjectIndex = 0; showMainScreen(); }
             }
         }
 
         async function loadMarksForActiveSubject() {
             const current = subjects[activeSubjectIndex];
             if (!current) return;
-
             document.getElementById('studentDisplay').innerText = current.studentName;
             document.getElementById('groupDisplay').innerText = `Группа: ${current.groupName} • ${current.subjectName}`;
-
             const container = document.getElementById('marksList');
             container.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Загружаем оценки...</div>';
 
             try {
                 const matrix = await fetchCSVMatrix(current.sheetId, current.groupName);
-                const { nameColIdx, firstStudentRow } = analyzeMatrix(matrix);
-
+                const analysis = analyzeMatrix(matrix);
                 let studentRow = null;
-                for (let r = firstStudentRow; r < matrix.length; r++) {
-                    if ((matrix[r][nameColIdx] || '').toString().trim() === current.studentName) {
-                        studentRow = matrix[r];
-                        break;
+                for (let r = analysis.firstStudentRow; r < matrix.length; r++) {
+                    if ((matrix[r][analysis.nameColIdx] || '').toString().trim() === current.studentName) {
+                        studentRow = matrix[r]; break;
                     }
                 }
-
-                if (!studentRow) {
-                    container.innerHTML = '<div class="text-red-400 text-center py-6 text-sm bg-slate-800 rounded-2xl">Студент не найден</div>';
-                    return;
-                }
-
-                const headers = [];
-                for (let c = 0; c < studentRow.length; c++) {
-                    let parts = [];
-                    for (let r = 0; r < firstStudentRow; r++) {
-                        let cell = (matrix[r][c] || '').toString().replace(/\s+/g, ' ').trim();
-                        if (cell && !parts.includes(cell)) parts.push(cell);
-                    }
-                    headers[c] = parts.join(' / ') || `Колонка ${c + 1}`;
-                }
+                if (!studentRow) { container.innerHTML = '<div class="text-red-400 text-center py-6 text-sm bg-slate-800 rounded-2xl">Студент не найден</div>'; return; }
 
                 let html = '';
                 let count = 0;
-
                 for (let c = 0; c < studentRow.length; c++) {
-                    if (c === nameColIdx) continue;
-                    let rawHeader = headers[c];
+                    if (c === analysis.nameColIdx) continue;
                     let val = (studentRow[c] || '').toString().trim();
-
                     if (!val || val === '—' || val === '-') continue;
-                    if (/^(№|п\/п|№\s*п\/п)$/i.test(rawHeader) || c === 0) continue;
-                    if (!/[а-яёА-ЯЁ]/.test(rawHeader)) continue;
-
                     html += `
                         <div class="bg-slate-800 p-3.5 rounded-xl flex justify-between items-center shadow border border-slate-700/40">
-                            <span class="text-xs sm:text-sm text-slate-200 pr-3 leading-snug">${rawHeader}</span>
-                            <span class="bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 font-bold px-3 py-1 rounded-lg text-sm shrink-0">${val}</span>
+                            <span class="text-xs sm:text-sm text-slate-200 pr-3">Колонка ${c}</span>
+                            <span class="bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 font-bold px-3 py-1 rounded-lg text-sm">${val}</span>
                         </div>
                     `;
                     count++;
                 }
-
-                if (count === 0) {
-                    html = '<div class="text-slate-400 text-center py-8 bg-slate-800/50 rounded-2xl text-sm">Пока нет оценок</div>';
-                }
-                container.innerHTML = html;
-            } catch (e) {
-                container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Ошибка: ${e.message}</div>`;
-            }
+                container.innerHTML = count === 0 ? '<div class="text-slate-400 text-center py-8 bg-slate-800/50 rounded-2xl text-sm">Пока нет оценок</div>' : html;
+            } catch (e) { container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Ошибка: ${e.message}</div>`; }
         }
 
-        // --- РАСПИСАНИЕ ИЗ ЗАГРУЖЕННОГО EXCEL-ФАЙЛА ---
+        // --- РАСПИСАНИЕ ---
         function openAddSchedule() {
             document.getElementById('mainNav').classList.add('hidden');
             document.getElementById('marksSection').classList.add('hidden');
@@ -468,20 +425,14 @@
         function renderScheduleTabs() {
             const container = document.getElementById('scheduleTabs');
             container.innerHTML = '';
-
             if (schedules.length === 0) {
                 container.innerHTML = `<button onclick="openAddSchedule()" class="text-xs bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 px-3 py-2 rounded-xl">➕ Добавить расписание</button>`;
                 return;
             }
-
             schedules.forEach((sch, idx) => {
                 const isActive = idx === activeScheduleIndex;
-                const btnClass = isActive 
-                    ? "bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/20" 
-                    : "bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200";
-
                 container.innerHTML += `
-                    <div class="flex items-center rounded-xl border ${btnClass} px-3 py-2 text-xs font-medium shrink-0 transition cursor-pointer" onclick="switchSchedule(${idx})">
+                    <div class="flex items-center rounded-xl border ${isActive ? "bg-indigo-600 text-white border-indigo-500 shadow-md" : "bg-slate-800 text-slate-400 border-slate-700"} px-3 py-2 text-xs font-medium shrink-0 cursor-pointer" onclick="switchSchedule(${idx})">
                         <span>Группа ${sch.groupName}</span>
                         <button onclick="deleteSchedule(event, ${idx})" class="ml-2 text-slate-300 hover:text-red-400">✕</button>
                     </div>
@@ -489,60 +440,34 @@
             });
         }
 
-        function switchSchedule(idx) {
-            activeScheduleIndex = idx;
-            renderScheduleTabs();
-            loadScheduleForActive();
-        }
-
+        function switchSchedule(idx) { activeScheduleIndex = idx; renderScheduleTabs(); loadScheduleForActive(); }
         function deleteSchedule(event, idx) {
             event.stopPropagation();
-            if (confirm(`Удалить расписание группы ${schedules[idx].groupName}?`)) {
+            if (confirm(`Удалить расписание?`)) {
                 schedules.splice(idx, 1);
                 localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
-                if (schedules.length === 0) {
-                    openAddSchedule();
-                } else {
-                    activeScheduleIndex = 0;
-                    renderScheduleTabs();
-                    loadScheduleForActive();
-                }
+                if (schedules.length === 0) openAddSchedule(); else { activeScheduleIndex = 0; renderScheduleTabs(); loadScheduleForActive(); }
             }
         }
 
         async function saveScheduleFile() {
             const fileInput = document.getElementById('excelFileInput');
             const groupName = document.getElementById('schedGroupInput').value.trim();
-
-            if (!fileInput.files || fileInput.files.length === 0) {
-                alert("Выберите Excel-файл расписания!");
-                return;
-            }
-            if (!groupName) {
-                alert("Введите номер группы!");
-                return;
-            }
+            if (!fileInput.files.length || !groupName) { alert("Выберите файл и введите группу!"); return; }
 
             const file = fileInput.files[0];
             const reader = new FileReader();
-
             reader.onload = function(e) {
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    
-                    // Сохраняем распарсенные данные прямо в localStorage телефона, чтобы файл не заново грузить каждый раз
-                    const firstSheetName = workbook.SheetNames[0];
-                    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName], { header: 1 });
+                    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
 
-                    schedules.push({ groupName: groupName, rawRows: rows, fileName: file.name });
+                    schedules.push({ groupName, rawRows: rows, fileName: file.name });
                     localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
-                    
                     activeScheduleIndex = schedules.length - 1;
                     switchSection('schedule');
-                } catch (err) {
-                    alert("Ошибка чтения Excel-файла: " + err.message);
-                }
+                } catch (err) { alert("Ошибка чтения Excel: " + err.message); }
             };
             reader.readAsArrayBuffer(file);
         }
@@ -550,38 +475,27 @@
         function loadScheduleForActive() {
             const current = schedules[activeScheduleIndex];
             const container = document.getElementById('scheduleList');
-            const headerInfo = document.getElementById('schedHeaderInfo');
-            const subInfo = document.getElementById('schedSubInfo');
-
             if (!current || !current.rawRows) {
-                headerInfo.innerText = "Расписание не настроено";
-                subInfo.innerText = "Загрузите файл расписания";
-                container.innerHTML = '';
-                return;
+                document.getElementById('schedHeaderInfo').innerText = "Расписание не настроено";
+                container.innerHTML = ''; return;
             }
 
-            headerInfo.innerText = `Группа: ${current.groupName}`;
-            subInfo.innerText = `Файл: ${current.fileName || 'Excel'}`;
+            document.getElementById('schedHeaderInfo').innerText = `Группа: ${current.groupName} (${currentSelectedWeek === 'upper' ? 'Верхняя неделя' : 'Нижняя неделя'})`;
 
             try {
                 const rows = current.rawRows;
-                let groupColIdx = -1;
-                let headerRowIdx = -1;
-
+                let groupColIdx = -1, headerRowIdx = -1;
                 for (let r = 0; r < Math.min(15, rows.length); r++) {
                     for (let c = 0; c < rows[r].length; c++) {
-                        let cell = (rows[r][c] || '').toString().trim();
-                        if (cell === current.groupName) {
-                            groupColIdx = c;
-                            headerRowIdx = r;
-                            break;
+                        if ((rows[r][c] || '').toString().trim() === current.groupName) {
+                            groupColIdx = c; headerRowIdx = r; break;
                         }
                     }
                     if (groupColIdx !== -1) break;
                 }
 
                 if (groupColIdx === -1) {
-                    container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Группа ${current.groupName} не найдена в загруженном файле</div>`;
+                    container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Группа не найдена в файле</div>`;
                     return;
                 }
 
@@ -591,7 +505,6 @@
                 for (let r = headerRowIdx + 1; r < rows.length; r++) {
                     let row = rows[r];
                     if (!row) continue;
-
                     for (let c = 0; c < Math.min(3, row.length); c++) {
                         let val = (row[c] || '').toString().trim().toLowerCase();
                         if (/понедельник|вторник|среда|четверг|пятница|суббота/.test(val)) {
@@ -603,6 +516,13 @@
                     let lessonVal = (row[groupColIdx] || '').toString().trim();
 
                     if (lessonVal && lessonVal !== '-' && lessonVal !== '—') {
+                        // Проверка на верхнюю/нижнюю неделю в тексте пары
+                        let isLower = /низ|знам|\(н\)/i.test(lessonVal);
+                        let isUpper = /верх|числ|\(в\)/i.test(lessonVal);
+
+                        if (currentSelectedWeek === 'upper' && isLower) continue;
+                        if (currentSelectedWeek === 'lower' && isUpper) continue;
+
                         if (!daysSchedule[currentDay]) daysSchedule[currentDay] = [];
                         daysSchedule[currentDay].push({ time: timeVal, lesson: lessonVal });
                     }
@@ -626,22 +546,11 @@
                     html += `</div></div>`;
                 }
 
-                if (!html) {
-                    html = '<div class="text-slate-400 text-center py-8 bg-slate-800/50 rounded-2xl text-sm">Пар для этой группы не найдено</div>';
-                }
-
-                container.innerHTML = html;
-            } catch (e) {
-                container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Ошибка обработки: ${e.message}</div>`;
-            }
+                container.innerHTML = html || '<div class="text-slate-400 text-center py-8 bg-slate-800/50 rounded-2xl text-sm">Пар на эту неделю нет</div>';
+            } catch (e) { container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Ошибка: ${e.message}</div>`; }
         }
 
-        function hardReset() {
-            if (confirm("Сбросить все данные и настройки?")) {
-                localStorage.clear();
-                location.reload();
-            }
-        }
+        function hardReset() { if (confirm("Сбросить всё?")) { localStorage.clear(); location.reload(); } }
     </script>
 </body>
 </html>
