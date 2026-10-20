@@ -21,7 +21,7 @@
             <div class="flex items-center gap-2">
                 <span class="text-xl">📊</span>
                 <h1 class="text-lg font-bold tracking-tight">Дневник ПТК</h1>
-                <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono">v2.5</span>
+                <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono">v2.6</span>
             </div>
             <button onclick="hardReset()" class="text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-xl transition">
                 Сброс
@@ -52,8 +52,8 @@
 
             <div class="bg-slate-800 p-4 rounded-2xl flex justify-between items-center shadow-lg border border-slate-700/50">
                 <div>
-                    <div id="studentDisplay" class="font-bold text-base text-white">ФИО Студента</div>
-                    <div id="groupDisplay" class="text-xs text-slate-400 mt-0.5">Группа</div>
+                    <div id="studentDisplay" class="font-bold text-base text-white">Добавьте предмет</div>
+                    <div id="groupDisplay" class="text-xs text-slate-400 mt-0.5">Нажмите «Добавить предмет» выше</div>
                 </div>
                 <button onclick="loadMarksForActiveSubject()" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white px-3.5 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition shadow-lg shadow-indigo-600/20">
                     🔄 Обновить
@@ -69,7 +69,7 @@
                 <div class="flex justify-between items-center px-1">
                     <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Мои группы расписания</span>
                     <button onclick="openAddSchedule()" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1">
-                        📁 Загрузить файл расписания
+                        📁 Загрузить файл
                     </button>
                 </div>
                 <div id="scheduleTabs" class="flex gap-2 overflow-x-auto pb-1 no-scrollbar"></div>
@@ -79,7 +79,7 @@
                 <div class="flex justify-between items-center">
                     <div>
                         <div id="schedHeaderInfo" class="font-bold text-sm text-white">Расписание не выбрано</div>
-                        <div id="schedSubInfo" class="text-xs text-slate-400 mt-0.5">Загрузите файл расписания</div>
+                        <div id="schedSubInfo" class="text-xs text-slate-400 mt-0.5">Загрузите Excel-файл расписания</div>
                     </div>
                     <button onclick="loadScheduleForActive()" class="bg-slate-700 hover:bg-slate-600 text-white p-2 rounded-xl text-xs transition">
                         🔄
@@ -87,10 +87,10 @@
                 </div>
 
                 <div class="grid grid-cols-2 gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-700/60">
-                    <button onclick="setWeekType('upper')" id="btnUpperWeek" class="py-1.5 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow">
+                    <button onclick="setWeekType('upper')" id="btnUpperWeek" class="py-2 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow">
                         ⬆️ Верхняя неделя
                     </button>
-                    <button onclick="setWeekType('lower')" id="btnLowerWeek" class="py-1.5 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white">
+                    <button onclick="setWeekType('lower')" id="btnLowerWeek" class="py-2 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white">
                         ⬇️ Нижняя неделя
                     </button>
                 </div>
@@ -101,7 +101,7 @@
             </div>
         </div>
 
-        <!-- ЭКРАН НАСТРОЙКИ ПРЕДМЕТА (ОЦЕНКИ) С АВТООБНАРУЖЕНИЕМ ГРУПП -->
+        <!-- ЭКРАН НАСТРОЙКИ ПРЕДМЕТА (ОЦЕНКИ) -->
         <div id="setupScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 border border-slate-700/50 hidden">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base">Подключение предмета (оценки)</h2>
@@ -117,16 +117,24 @@
                 <label class="block text-xs text-slate-400 mb-1">Ссылка на Google Таблицу</label>
                 <div class="flex gap-2">
                     <input type="text" id="sheetLinkInput" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
-                    <button onclick="fetchGroupsList()" class="bg-indigo-600 hover:bg-indigo-500 px-4 rounded-xl text-sm font-medium shrink-0 transition">
-                        Найти группы
+                    <button id="scanTabsBtn" onclick="fetchGroupsList()" class="bg-indigo-600 hover:bg-indigo-500 px-3.5 rounded-xl text-xs font-medium shrink-0 transition">
+                        Найти вкладки
                     </button>
                 </div>
             </div>
 
-            <!-- Блок выбора группы кнопками -->
-            <div id="groupSelectBlock" class="hidden space-y-2">
-                <label class="block text-xs text-slate-400">Выберите вашу группу:</label>
-                <div id="groupsButtonsContainer" class="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 bg-slate-900 rounded-xl border border-slate-700"></div>
+            <!-- Блок выбора вкладки (группы) кнопками или вводом -->
+            <div id="groupSelectBlock" class="space-y-2.5 pt-2 border-t border-slate-700/60">
+                <label class="block text-xs text-slate-400">Выберите вкладку группы кнопкой или введите:</label>
+                <div id="groupsButtonsContainer" class="flex flex-wrap gap-1.5">
+                    <!-- Сюда рендерятся найденные вкладки и быстрые кнопки -->
+                </div>
+                <div class="flex gap-2 pt-1">
+                    <input type="text" id="manualGroupInput" placeholder="Или введите название вкладки..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                    <button id="loadStudentsBtn" onclick="selectGroupForMarks(document.getElementById('manualGroupInput').value.trim())" class="bg-slate-700 hover:bg-indigo-600 px-4 rounded-xl text-xs font-medium shrink-0 transition">
+                        Открыть
+                    </button>
+                </div>
             </div>
 
             <!-- Блок выбора студента -->
@@ -143,7 +151,7 @@
             </div>
         </div>
 
-        <!-- ЭКРАН НАСТРОЙКИ РАСПИСАНИЯ -->
+        <!-- ЭКРАН НАСТРОЙКИ РАСПИСАНИЯ (С АВТОКНОПКАМИ ГРУПП ИЗ ФАЙЛА) -->
         <div id="setupScheduleScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 border border-slate-700/50 hidden">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base">Загрузка файла расписания</h2>
@@ -151,18 +159,15 @@
             </div>
 
             <div>
-                <label class="block text-xs text-slate-400 mb-1">Выберите файл расписания (.xls / .xlsx)</label>
-                <input type="file" id="excelFileInput" accept=".xls, .xlsx" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500">
+                <label class="block text-xs text-slate-400 mb-1">1. Выберите файл расписания (.xls / .xlsx)</label>
+                <input type="file" id="excelFileInput" accept=".xls, .xlsx" onchange="handleExcelFileSelect(event)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500">
             </div>
 
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">Номер вашей группы</label>
-                <input type="text" id="schedGroupInput" placeholder="Например: 5993" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
+            <!-- Контейнер с кнопками групп, найденных внутри Excel файла -->
+            <div id="excelGroupsBlock" class="hidden space-y-2 pt-2 border-t border-slate-700">
+                <label class="block text-xs text-emerald-400 font-medium">2. Выберите вашу группу (найдены в файле):</label>
+                <div id="excelGroupsButtons" class="flex flex-wrap gap-2"></div>
             </div>
-
-            <button onclick="saveScheduleFile()" class="w-full bg-emerald-600 hover:bg-emerald-500 font-medium py-3 rounded-xl transition shadow-lg shadow-emerald-600/20">
-                ✅ Сохранить расписание
-            </button>
         </div>
     </div>
 
@@ -171,7 +176,7 @@
         tg.expand();
 
         const STORAGE_MARKS_KEY = 'ptk_diary_subjects_v3';
-        const STORAGE_SCHED_KEY = 'ptk_diary_schedules_v4';
+        const STORAGE_SCHED_KEY = 'ptk_diary_schedules_v6';
         
         let subjects = [];
         let activeSubjectIndex = 0;
@@ -179,6 +184,9 @@
         let activeScheduleIndex = 0;
         let currentSelectedWeek = 'upper';
         let selectedGroupForMarks = '';
+
+        // Временное хранилище при загрузке Excel
+        let tempExcelData = null;
 
         window.onload = function() {
             const savedMarks = localStorage.getItem(STORAGE_MARKS_KEY);
@@ -192,6 +200,8 @@
 
             if (subjects.length > 0) {
                 showMainScreen();
+            } else if (schedules.length > 0) {
+                switchSection('schedule');
             } else {
                 openAddSubject();
             }
@@ -215,11 +225,11 @@
             const btnUpper = document.getElementById('btnUpperWeek');
             const btnLower = document.getElementById('btnLowerWeek');
             if (currentSelectedWeek === 'upper') {
-                btnUpper.className = "py-1.5 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow";
-                btnLower.className = "py-1.5 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white";
+                btnUpper.className = "py-2 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow";
+                btnLower.className = "py-2 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white";
             } else {
-                btnLower.className = "py-1.5 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow";
-                btnUpper.className = "py-1.5 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white";
+                btnLower.className = "py-2 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow";
+                btnUpper.className = "py-2 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white";
             }
         }
 
@@ -238,6 +248,8 @@
                 schedBtn.className = "bg-slate-800 text-slate-400 border border-slate-700 py-2.5 rounded-xl font-medium text-xs transition flex items-center justify-center gap-1.5 hover:text-slate-200";
                 marksSec.classList.remove('hidden');
                 schedSec.classList.add('hidden');
+                renderSubjectTabs();
+                loadMarksForActiveSubject();
             } else {
                 schedBtn.className = "bg-indigo-600 text-white py-2.5 rounded-xl font-medium text-xs transition shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5";
                 marksBtn.className = "bg-slate-800 text-slate-400 border border-slate-700 py-2.5 rounded-xl font-medium text-xs transition flex items-center justify-center gap-1.5 hover:text-slate-200";
@@ -253,89 +265,153 @@
             return match ? match[1] : null;
         }
 
-        // Автопоиск названий вкладок (групп) в Google Таблице через экспорт JSON
+        // --- ОЦЕНКИ: ПОИСК ВКЛАДОК (ГРУПП) И СТУДЕНТОВ ---
+        function renderQuickGroupButtons(extraTabs = []) {
+            const container = document.getElementById('groupsButtonsContainer');
+            container.innerHTML = '';
+
+            // Собираем все известные пользователю группы + стандартные названия вкладок
+            const knownGroups = new Set(['Группа', 'Лист1', ...extraTabs]);
+            subjects.forEach(s => { if (s.groupName) knownGroups.add(s.groupName); });
+            schedules.forEach(s => { if (s.groupName) knownGroups.add(s.groupName); });
+
+            knownGroups.forEach(g => {
+                const isSelected = selectedGroupForMarks === g;
+                const btnStyle = isSelected
+                    ? "bg-indigo-600 border-indigo-400 text-white shadow"
+                    : "bg-slate-900 hover:bg-indigo-600/40 border-slate-700 text-slate-200";
+                container.innerHTML += `
+                    <button onclick="selectGroupForMarks('${g.replace(/'/g, "\\'")}')" class="px-3 py-1.5 border rounded-xl text-xs font-medium transition ${btnStyle}">
+                        ${g}
+                    </button>
+                `;
+            });
+        }
+
         async function fetchGroupsList() {
             const link = document.getElementById('sheetLinkInput').value.trim();
             const sheetId = extractSheetId(link);
-            if (!sheetId) { alert("Вставьте ссылку на Google Таблицу!"); return; }
+            if (!sheetId) { alert("Сначала вставьте ссылку на Google Таблицу!"); return; }
+
+            const btn = document.getElementById('scanTabsBtn');
+            btn.innerText = "⏳ Поиск...";
 
             try {
-                // Запрашиваем публичный список листов таблиц Google
-                const res = await fetch(`https://spreadsheets.google.com/feeds/worksheets/${sheetId}/public/full?alt=json`);
+                // Парсим названия вкладок из публичной веб-версии Google Таблицы
+                const htmlUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/htmlview`;
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(htmlUrl)}`;
+                const res = await fetch(proxyUrl);
                 const data = await res.json();
-                const entries = data.feed.entry || [];
-                
-                const groups = entries.map(e => e.title.$t);
-                const container = document.getElementById('groupsButtonsContainer');
-                container.innerHTML = '';
+                const html = data.contents || '';
 
-                groups.forEach(g => {
-                    container.innerHTML += `
-                        <button onclick="selectGroupForMarks('${g}')" class="px-3 py-1.5 bg-slate-800 hover:bg-indigo-600 border border-slate-700 rounded-xl text-xs font-medium transition text-white">
-                            ${g}
-                        </button>
-                    `;
-                });
+                const foundTabs = [];
+                // Ищем имена листов в верстке Google Sheets
+                const regex = /items\.push\(\{name:\s*"([^"]+)"/g;
+                let m;
+                while ((m = regex.exec(html)) !== null) {
+                    foundTabs.push(m[1]);
+                }
 
-                document.getElementById('groupSelectBlock').classList.remove('hidden');
+                if (foundTabs.length === 0) {
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    doc.querySelectorAll('#sheet-menu li a').forEach(el => {
+                        const t = el.textContent.trim();
+                        if (t) foundTabs.push(t);
+                    });
+                }
+
+                renderQuickGroupButtons(foundTabs);
+                if (foundTabs.length === 0) {
+                    alert("Не удалось автоматически вытащить список всех вкладок — выберите кнопку ниже или впишите название вкладки вручную.");
+                }
             } catch (e) {
-                // Если API не ответило, дадим ввести вручную
-                let manual = prompt("Не удалось автоматически прочитать группы. Введите номер группы вручную:");
-                if (manual) selectGroupForMarks(manual);
+                renderQuickGroupButtons();
+            } finally {
+                btn.innerText = "Найти вкладки";
             }
         }
 
+        function analyzeMatrix(matrix) {
+            let bestCol = 1;
+            let maxNamesCount = 0;
+            const maxCols = Math.min(10, matrix[0] ? matrix[0].length : 0);
+
+            for (let col = 0; col < maxCols; col++) {
+                let namesCount = 0;
+                for (let row = 0; row < matrix.length; row++) {
+                    let cell = (matrix[row][col] || '').toString().trim();
+                    if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(cell) && !/(задание|лекция|практика|модуль|вопрос|итог|экзамен|дисциплина)/i.test(cell)) {
+                        namesCount++;
+                    }
+                }
+                if (namesCount > maxNamesCount) {
+                    maxNamesCount = namesCount;
+                    bestCol = col;
+                }
+            }
+
+            let firstStudRow = 1;
+            for (let row = 0; row < matrix.length; row++) {
+                let cell = (matrix[row][bestCol] || '').toString().trim();
+                if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(cell) && !/(фио|студент|фамилия|список)/i.test(cell)) {
+                    firstStudRow = row;
+                    break;
+                }
+            }
+            return { nameColIdx: bestCol, firstStudentRow: firstStudRow };
+        }
+
         async function selectGroupForMarks(groupName) {
-            selectedGroupForMarks = groupName;
-            document.getElementById('groupSelectBlock').classList.add('hidden');
-            
+            if (!groupName) { alert("Выберите или введите название вкладки (группы)!"); return; }
             const link = document.getElementById('sheetLinkInput').value.trim();
             const sheetId = extractSheetId(link);
+            if (!sheetId) { alert("Сначала вставьте ссылку на Google Таблицу!"); return; }
+
+            selectedGroupForMarks = groupName;
+            document.getElementById('manualGroupInput').value = groupName;
+            renderQuickGroupButtons([groupName]);
+
+            const btn = document.getElementById('loadStudentsBtn');
+            btn.innerText = "⏳...";
 
             try {
                 const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(groupName)}&_t=${Date.now()}`;
                 const res = await fetch(url);
                 const csvText = await res.text();
 
+                if (csvText.includes("<!DOCTYPE html>") || csvText.includes("<html")) {
+                    throw new Error(`Вкладка «${groupName}» не найдена или таблица закрыта`);
+                }
+
                 Papa.parse(csvText, {
                     skipEmptyLines: true,
                     complete: function(results) {
                         const matrix = results.data;
-                        let nameCol = 1, firstRow = 1;
-
-                        // Ищем колонку с ФИО
-                        for (let c = 0; c < Math.min(5, matrix[0].length); c++) {
-                            let count = 0;
-                            for (let r = 0; r < matrix.length; r++) {
-                                if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(matrix[r][c] || '')) count++;
-                            }
-                            if (count > 2) { nameCol = c; break; }
-                        }
-
-                        for (let r = 0; r < matrix.length; r++) {
-                            if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(matrix[r][nameCol] || '') && !/(фио|студент)/i.test(matrix[r][nameCol])) {
-                                firstRow = r; break;
-                            }
-                        }
-
-                        window.tempMatrix = matrix;
-                        window.tempNameCol = nameCol;
-                        window.tempFirstRow = firstRow;
+                        const { nameColIdx, firstStudentRow } = analyzeMatrix(matrix);
 
                         const select = document.getElementById('studentSelect');
                         select.innerHTML = '<option value="">-- Выберите своё ФИО --</option>';
 
-                        for (let r = firstRow; r < matrix.length; r++) {
-                            let name = (matrix[r][nameCol] || '').toString().trim();
+                        let count = 0;
+                        for (let r = firstStudentRow; r < matrix.length; r++) {
+                            let name = (matrix[r][nameColIdx] || '').toString().trim();
                             if (name && /[а-яёА-ЯЁ]/.test(name) && isNaN(name)) {
                                 select.innerHTML += `<option value="${name}">${name}</option>`;
+                                count++;
                             }
+                        }
+
+                        if (count === 0) {
+                            alert("В этой вкладке не найден список студентов. Проверьте название вкладки.");
+                            return;
                         }
                         document.getElementById('studentSelectBlock').classList.remove('hidden');
                     }
                 });
             } catch (err) {
-                alert("Ошибка загрузки группы: " + err.message);
+                alert("Ошибка: " + err.message);
+            } finally {
+                btn.innerText = "Открыть";
             }
         }
 
@@ -359,10 +435,12 @@
             document.getElementById('scheduleSection').classList.add('hidden');
             document.getElementById('setupScreen').classList.remove('hidden');
             document.getElementById('setupScheduleScreen').classList.add('hidden');
-            document.getElementById('groupSelectBlock').classList.add('hidden');
             document.getElementById('studentSelectBlock').classList.add('hidden');
             document.getElementById('subjectNameInput').value = '';
             document.getElementById('sheetLinkInput').value = '';
+            document.getElementById('manualGroupInput').value = '';
+            selectedGroupForMarks = '';
+            renderQuickGroupButtons();
             document.getElementById('cancelAddBtn').classList.toggle('hidden', subjects.length === 0);
         }
 
@@ -371,8 +449,6 @@
             document.getElementById('setupScheduleScreen').classList.add('hidden');
             document.getElementById('mainNav').classList.remove('hidden');
             switchSection('marks');
-            renderSubjectTabs();
-            loadMarksForActiveSubject();
         }
 
         function renderSubjectTabs() {
@@ -383,7 +459,7 @@
                 container.innerHTML += `
                     <div class="flex items-center rounded-xl border ${isActive ? "bg-indigo-600 text-white border-indigo-500 shadow-md" : "bg-slate-800 text-slate-400 border-slate-700"} px-3 py-2 text-xs font-medium shrink-0 cursor-pointer" onclick="switchSubject(${idx})">
                         <span>${subj.subjectName}</span>
-                        ${subjects.length > 1 ? `<button onclick="deleteSubject(event, ${idx})" class="ml-2 text-slate-300 hover:text-red-400">✕</button>` : ''}
+                        <button onclick="deleteSubject(event, ${idx})" class="ml-2 text-slate-300 hover:text-red-400">✕</button>
                     </div>
                 `;
             });
@@ -392,7 +468,7 @@
         function switchSubject(idx) { activeSubjectIndex = idx; renderSubjectTabs(); loadMarksForActiveSubject(); }
         function deleteSubject(event, idx) {
             event.stopPropagation();
-            if (confirm(`Удалить предмет?`)) {
+            if (confirm(`Удалить предмет «${subjects[idx].subjectName}»?`)) {
                 subjects.splice(idx, 1);
                 localStorage.setItem(STORAGE_MARKS_KEY, JSON.stringify(subjects));
                 if (subjects.length === 0) openAddSubject(); else { activeSubjectIndex = 0; showMainScreen(); }
@@ -401,10 +477,13 @@
 
         async function loadMarksForActiveSubject() {
             const current = subjects[activeSubjectIndex];
-            if (!current) return;
-            document.getElementById('studentDisplay').innerText = current.studentName;
-            document.getElementById('groupDisplay').innerText = `Группа: ${current.groupName} • ${current.subjectName}`;
             const container = document.getElementById('marksList');
+            if (!current) {
+                container.innerHTML = '';
+                return;
+            }
+            document.getElementById('studentDisplay').innerText = current.studentName;
+            document.getElementById('groupDisplay').innerText = `Вкладка: ${current.groupName} • ${current.subjectName}`;
             container.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Загружаем оценки...</div>';
 
             try {
@@ -416,23 +495,44 @@
                     skipEmptyLines: true,
                     complete: function(results) {
                         const matrix = results.data;
-                        let nameCol = 1, firstRow = 1;
-                        for (let r = 0; r < matrix.length; r++) {
-                            if ((matrix[r][nameCol] || '').toString().trim() === current.studentName) {
-                                var studentRow = matrix[r]; break;
+                        const { nameColIdx, firstStudentRow } = analyzeMatrix(matrix);
+
+                        let studentRow = null;
+                        for (let r = firstStudentRow; r < matrix.length; r++) {
+                            if ((matrix[r][nameColIdx] || '').toString().trim() === current.studentName) {
+                                studentRow = matrix[r];
+                                break;
                             }
                         }
 
-                        if (!studentRow) { container.innerHTML = '<div class="text-red-400 text-center py-6 text-sm bg-slate-800 rounded-2xl">Студент не найден</div>'; return; }
+                        if (!studentRow) {
+                            container.innerHTML = '<div class="text-red-400 text-center py-6 text-sm bg-slate-800 rounded-2xl">Студент не найден</div>';
+                            return;
+                        }
+
+                        // Собираем красивые заголовки колонок из шапки таблицы
+                        const headers = [];
+                        for (let c = 0; c < studentRow.length; c++) {
+                            let parts = [];
+                            for (let r = 0; r < firstStudentRow; r++) {
+                                let cell = (matrix[r][c] || '').toString().replace(/\s+/g, ' ').trim();
+                                if (cell && !parts.includes(cell)) parts.push(cell);
+                            }
+                            headers[c] = parts.join(' / ') || `Колонка ${c + 1}`;
+                        }
 
                         let html = '', count = 0;
                         for (let c = 0; c < studentRow.length; c++) {
+                            if (c === nameColIdx) continue;
+                            let rawHeader = headers[c];
                             let val = (studentRow[c] || '').toString().trim();
                             if (!val || val === '—' || val === '-') continue;
+                            if (/^(№|п\/п|№\s*п\/п)$/i.test(rawHeader) || c === 0) continue;
+
                             html += `
                                 <div class="bg-slate-800 p-3.5 rounded-xl flex justify-between items-center shadow border border-slate-700/40">
-                                    <span class="text-xs sm:text-sm text-slate-200 pr-3">Колонка ${c}</span>
-                                    <span class="bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 font-bold px-3 py-1 rounded-lg text-sm">${val}</span>
+                                    <span class="text-xs sm:text-sm text-slate-200 pr-3 leading-snug">${rawHeader}</span>
+                                    <span class="bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 font-bold px-3 py-1 rounded-lg text-sm shrink-0">${val}</span>
                                 </div>
                             `;
                             count++;
@@ -440,10 +540,12 @@
                         container.innerHTML = count === 0 ? '<div class="text-slate-400 text-center py-8 bg-slate-800/50 rounded-2xl text-sm">Пока нет оценок</div>' : html;
                     }
                 });
-            } catch (e) { container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Ошибка: ${e.message}</div>`; }
+            } catch (e) {
+                container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Ошибка: ${e.message}</div>`;
+            }
         }
 
-        // --- РАСПИСАНИЕ ---
+        // --- РАСПИСАНИЕ (С ТОЧНЫМ РАЗДЕЛЕНИЕМ ВЕРХНЕЙ И НИЖНЕЙ НЕДЕЛИ ПО ЯЧЕЙКАМ EXCEL) ---
         function openAddSchedule() {
             document.getElementById('mainNav').classList.add('hidden');
             document.getElementById('marksSection').classList.add('hidden');
@@ -451,7 +553,80 @@
             document.getElementById('setupScreen').classList.add('hidden');
             document.getElementById('setupScheduleScreen').classList.remove('hidden');
             document.getElementById('excelFileInput').value = '';
-            document.getElementById('schedGroupInput').value = '';
+            document.getElementById('excelGroupsBlock').classList.add('hidden');
+            tempExcelData = null;
+        }
+
+        function handleExcelFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+
+                    let foundGroups = [];
+                    let allSheetsData = {};
+
+                    workbook.SheetNames.forEach(sheetName => {
+                        const sheet = workbook.Sheets[sheetName];
+                        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+                        const merges = sheet['!merges'] || [];
+                        allSheetsData[sheetName] = { rows, merges };
+
+                        // Ищем номера групп (например 5991, 5992, 5993, 5994) в первых 15 строках
+                        for (let r = 0; r < Math.min(15, rows.length); r++) {
+                            for (let c = 0; c < rows[r].length; c++) {
+                                let val = (rows[r][c] || '').toString().trim();
+                                if (/^\d{4}[а-яa-z]*$/i.test(val) && !/^202\d$/.test(val)) {
+                                    foundGroups.push({ groupName: val, sheetName: sheetName });
+                                }
+                            }
+                        }
+                    });
+
+                    tempExcelData = { fileName: file.name, sheets: allSheetsData };
+
+                    const btnContainer = document.getElementById('excelGroupsButtons');
+                    btnContainer.innerHTML = '';
+
+                    if (foundGroups.length === 0) {
+                        alert("В этом файле не найдены 4-значные номера групп.");
+                        return;
+                    }
+
+                    foundGroups.forEach(g => {
+                        btnContainer.innerHTML += `
+                            <button onclick="saveScheduleGroup('${g.groupName}', '${g.sheetName}')" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow transition">
+                                👥 Группа ${g.groupName}
+                            </button>
+                        `;
+                    });
+
+                    document.getElementById('excelGroupsBlock').classList.remove('hidden');
+                } catch (err) {
+                    alert("Ошибка чтения Excel: " + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function saveScheduleGroup(groupName, sheetName) {
+            if (!tempExcelData) return;
+            const sheetObj = tempExcelData.sheets[sheetName];
+
+            schedules.push({
+                groupName: groupName,
+                fileName: tempExcelData.fileName,
+                rawRows: sheetObj.rows,
+                merges: sheetObj.merges || []
+            });
+
+            localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
+            activeScheduleIndex = schedules.length - 1;
+            switchSection('schedule');
         }
 
         function renderScheduleTabs() {
@@ -475,52 +650,45 @@
         function switchSchedule(idx) { activeScheduleIndex = idx; renderScheduleTabs(); loadScheduleForActive(); }
         function deleteSchedule(event, idx) {
             event.stopPropagation();
-            if (confirm(`Удалить расписание?`)) {
+            if (confirm(`Удалить расписание группы ${schedules[idx].groupName}?`)) {
                 schedules.splice(idx, 1);
                 localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
                 if (schedules.length === 0) openAddSchedule(); else { activeScheduleIndex = 0; renderScheduleTabs(); loadScheduleForActive(); }
             }
         }
 
-        async function saveScheduleFile() {
-            const fileInput = document.getElementById('excelFileInput');
-            const groupName = document.getElementById('schedGroupInput').value.trim();
-            if (!fileInput.files.length || !groupName) { alert("Выберите файл и введите группу!"); return; }
-
-            const file = fileInput.files[0];
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
-
-                    schedules.push({ groupName, rawRows: rows, fileName: file.name });
-                    localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
-                    activeScheduleIndex = schedules.length - 1;
-                    switchSection('schedule');
-                } catch (err) { alert("Ошибка чтения Excel: " + err.message); }
-            };
-            reader.readAsArrayBuffer(file);
+        // Проверяем, объединена ли ячейка (r, c) по вертикали со следующей строкой (r + 1)
+        function isCellMergedVertically(merges, r, c) {
+            if (!merges) return false;
+            for (let m of merges) {
+                if (m.s.r === r && m.e.r > r && c >= m.s.c && c <= m.e.c) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         function loadScheduleForActive() {
             const current = schedules[activeScheduleIndex];
             const container = document.getElementById('scheduleList');
             if (!current || !current.rawRows) {
-                document.getElementById('schedHeaderInfo').innerText = "Расписание не настроено";
-                container.innerHTML = ''; return;
+                document.getElementById('schedHeaderInfo').innerText = "Расписание не выбрано";
+                document.getElementById('schedSubInfo').innerText = "Загрузите файл расписания выше";
+                container.innerHTML = '<div class="text-slate-400 text-center py-8 bg-slate-800/40 rounded-2xl text-sm">Нажмите «Загрузить файл» вверху</div>';
+                return;
             }
 
             document.getElementById('schedHeaderInfo').innerText = `Группа: ${current.groupName} (${currentSelectedWeek === 'upper' ? 'Верхняя неделя' : 'Нижняя неделя'})`;
+            document.getElementById('schedSubInfo').innerText = `Файл: ${current.fileName || 'Excel'}`;
 
             try {
                 const rows = current.rawRows;
+                const merges = current.merges || [];
                 let groupColIdx = -1, headerRowIdx = -1;
+
                 for (let r = 0; r < Math.min(15, rows.length); r++) {
                     for (let c = 0; c < rows[r].length; c++) {
-                        let val = (rows[r][c] || '').toString().trim();
-                        if (val.includes(current.groupName)) {
+                        if ((rows[r][c] || '').toString().trim() === current.groupName) {
                             groupColIdx = c; headerRowIdx = r; break;
                         }
                     }
@@ -528,36 +696,57 @@
                 }
 
                 if (groupColIdx === -1) {
-                    container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Группа не найдена в файле</div>`;
+                    container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Группа ${current.groupName} не найдена в файле</div>`;
                     return;
                 }
 
+                const timeColIdx = groupColIdx - 1;
+                const dayColIdx = groupColIdx - 2;
                 let daysSchedule = {};
-                let currentDay = "Разное";
+                let currentDay = "Понедельник";
 
                 for (let r = headerRowIdx + 1; r < rows.length; r++) {
                     let row = rows[r];
                     if (!row) continue;
-                    for (let c = 0; c < Math.min(3, row.length); c++) {
-                        let val = (row[c] || '').toString().trim().toLowerCase();
-                        if (/понедельник|вторник|среда|четверг|пятница|суббота/.test(val)) {
-                            currentDay = val.charAt(0).toUpperCase() + val.slice(1);
-                        }
+
+                    // Определяем день недели (в колонке дня группы или в колонке 0)
+                    let dayCandidate = ((row[dayColIdx] || row[0] || '')).toString().trim().toLowerCase();
+                    if (/^(понедельник|вторник|среда|четверг|пятница|суббота)$/.test(dayCandidate)) {
+                        currentDay = dayCandidate.charAt(0).toUpperCase() + dayCandidate.slice(1);
                     }
 
-                    let timeVal = (row[groupColIdx - 1] || row[1] || '').toString().trim();
-                    let lessonVal = (row[groupColIdx] || '').toString().trim();
+                    // Проверяем, начинается ли здесь временной слот пары (например "8.30-10.10")
+                    let timeVal = (row[timeColIdx] || row[1] || '').toString().trim();
+                    if (!/\d{1,2}[\.:]\d{2}\s*-\s*\d{1,2}[\.:]\d{2}/.test(timeVal)) {
+                        continue; // Пропускаем вторые подстроки, т.к. мы их обрабатываем вместе с первой строкой времени
+                    }
 
-                    if (lessonVal && lessonVal !== '-' && lessonVal !== '—') {
-                        // Улучшенный фильтр под верхнюю/нижнюю неделю в текстах НовГУ
-                        let isLower = /низ|знам|\(н\)|2\s*нед/i.test(lessonVal);
-                        let isUpper = /верх|числ|\(в\)|1\s*нед/i.test(lessonVal);
+                    let upperVal = (rows[r][groupColIdx] || '').toString().trim();
+                    let nextRow = rows[r + 1] || [];
+                    let lowerVal = (nextRow[groupColIdx] || '').toString().trim();
 
-                        if (currentSelectedWeek === 'upper' && isLower && !isUpper) continue;
-                        if (currentSelectedWeek === 'lower' && isUpper && !isLower) continue;
+                    // Проверяем, не является ли следующая строка уже новым временем (если слот в конце дня из 1 строки)
+                    let nextTimeVal = (nextRow[timeColIdx] || nextRow[1] || '').toString().trim();
+                    let hasSecondRow = !(/\d{1,2}[\.:]\d{2}\s*-\s*\d{1,2}[\.:]\d{2}/.test(nextTimeVal));
 
+                    // Проверяем объединение ячейки предмета по вертикали
+                    let isMerged = isCellMergedVertically(merges, r, groupColIdx);
+
+                    // Если ячейка объединена на 2 строки ИЛИ это одиночная строка в самом конце дня — пара идет каждую неделю
+                    if (isMerged || !hasSecondRow) {
+                        lowerVal = upperVal;
+                    }
+
+                    let chosenLesson = currentSelectedWeek === 'upper' ? upperVal : lowerVal;
+
+                    // Очищаем прочерки и подписи замдиректора
+                    if (chosenLesson && chosenLesson !== '-' && chosenLesson !== '—' && !/Зам\.\s*директора/i.test(chosenLesson)) {
                         if (!daysSchedule[currentDay]) daysSchedule[currentDay] = [];
-                        daysSchedule[currentDay].push({ time: timeVal, lesson: lessonVal });
+                        daysSchedule[currentDay].push({
+                            time: timeVal,
+                            lesson: chosenLesson,
+                            onlyThisWeek: (!isMerged && hasSecondRow && upperVal !== lowerVal)
+                        });
                     }
                 }
 
@@ -569,21 +758,26 @@
                             <div class="space-y-1.5">
                     `;
                     lessons.forEach(l => {
+                        const badge = l.onlyThisWeek
+                            ? `<span class="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded ml-1">${currentSelectedWeek === 'upper' ? 'верх' : 'низ'}</span>`
+                            : '';
                         html += `
-                            <div class="text-xs flex gap-2 items-start bg-slate-900/40 p-2 rounded-xl">
-                                <span class="font-mono text-slate-400 shrink-0">${l.time || 'Пара'}</span>
-                                <span class="text-slate-200 leading-snug">${l.lesson}</span>
+                            <div class="text-xs flex gap-2.5 items-start bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/30">
+                                <span class="font-mono text-indigo-300 font-semibold shrink-0 pt-0.5">${l.time}</span>
+                                <div class="text-slate-200 leading-snug">${l.lesson} ${badge}</div>
                             </div>
                         `;
                     });
                     html += `</div></div>`;
                 }
 
-                container.innerHTML = html || '<div class="text-slate-400 text-center py-8 bg-slate-800/50 rounded-2xl text-sm">Пар на эту неделю нет</div>';
-            } catch (e) { container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Ошибка: ${e.message}</div>`; }
+                container.innerHTML = html || '<div class="text-slate-400 text-center py-8 bg-slate-800/50 rounded-2xl text-sm">Пар на этой неделе нет</div>';
+            } catch (e) {
+                container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Ошибка: ${e.message}</div>`;
+            }
         }
 
-        function hardReset() { if (confirm("Сбросить всё?")) { localStorage.clear(); location.reload(); } }
+        function hardReset() { if (confirm("Сбросить все оценки и расписания?")) { localStorage.clear(); location.reload(); } }
     </script>
 </body>
 </html>
