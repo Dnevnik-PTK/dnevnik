@@ -18,7 +18,7 @@
             <div class="flex items-center gap-2">
                 <span class="text-xl">📊</span>
                 <h1 class="text-lg font-bold tracking-tight">Дневник ПТК</h1>
-                <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono">v3.1</span>
+                <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono">v3.2</span>
             </div>
             <button type="button" onclick="hardReset()" class="text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-xl transition">
                 Сброс
@@ -95,21 +95,21 @@
                 <div class="flex justify-between items-start gap-2">
                     <div>
                         <div id="changesHeaderTitle" class="font-bold text-sm text-white">⚡ Изменения в расписании</div>
-                        <div id="changesStatusText" class="text-xs text-indigo-300 mt-0.5">Нажмите «С сайта» или выберите .docx</div>
+                        <div id="changesStatusText" class="text-xs text-indigo-300 mt-0.5">Выберите файл .docx или обновите с сайта</div>
                     </div>
                     <div class="flex gap-1.5 shrink-0">
-                        <label class="cursor-pointer bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-2 rounded-xl text-xs font-medium transition">
-                            📁 Файл
-                            <input type="file" accept=".docx,.xls,.xlsx" onchange="handleManualChangesFile(event)" class="hidden">
+                        <label class="cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl text-xs font-semibold transition shadow-md">
+                            📁 Файл .docx
+                            <input type="file" accept=".docx,.doc,.xls,.xlsx" onchange="handleManualChangesFile(event)" class="hidden">
                         </label>
-                        <button type="button" onclick="fetchChangesFromPortal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-xl text-xs font-medium transition shadow-md">
+                        <button type="button" onclick="fetchChangesFromPortal()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-2 rounded-xl text-xs font-medium transition">
                             🔄 С сайта
                         </button>
                     </div>
                 </div>
 
                 <div id="portalFilesContainer" class="hidden space-y-1.5 pt-2 border-t border-slate-700/60">
-                    <div class="text-[11px] text-slate-400">Файлы замен на сайте НовГУ:</div>
+                    <div class="text-[11px] text-slate-400">Найденные замены на сайте НовГУ:</div>
                     <div id="portalFilesList" class="flex flex-wrap gap-1.5"></div>
                 </div>
 
@@ -122,8 +122,8 @@
             <div id="changesList" class="space-y-2.5"></div>
 
             <div class="text-center pt-1">
-                <a href="https://portal.novsu.ru/univer/timetable/spo/i.1473214//?id=2445999" target="_blank" class="text-xs text-indigo-400 hover:underline">
-                    🌐 Открыть страницу замен на portal.novsu.ru ↗
+                <a href="https://portal.novsu.ru/univer/timetable/spo/i.1473214//?id=2445999" target="_blank" class="inline-block bg-slate-800 hover:bg-slate-700 border border-slate-700 text-indigo-400 px-4 py-2.5 rounded-xl text-xs font-medium transition">
+                    🌐 Скачать файл замен с portal.novsu.ru ↗
                 </a>
             </div>
         </div>
@@ -185,7 +185,7 @@
         const STORAGE_MARKS_KEY = 'ptk_diary_subjects_v3';
         const STORAGE_SCHED_KEY = 'ptk_diary_schedules_v6';
         const STORAGE_CHANGES_KEY = 'ptk_diary_changes_v2';
-        const NOVSU_CHANGES_URL = 'https://portal.novsu.ru/univer/timetable/spo/i.1473214//?id=2445999';
+        const NOVSU_CHANGES_URL = 'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999';
 
         let subjects = [], activeSubjectIndex = 0;
         let schedules = [], activeScheduleIndex = 0;
@@ -263,17 +263,30 @@
                 renderPortalFilesButtons();
                 renderChangesGroupFilter();
                 renderChangesList();
-                if (!changesData.items || changesData.items.length === 0) fetchChangesFromPortal();
             }
         }
 
         // ================= ЗАМЕНЫ (.DOCX / ПОРТАЛ НОВГУ) =================
         async function fetchWithCorsFallback(targetUrl, asArrayBuffer) {
+            // 1. Сначала пробуем JSON-обертку AllOrigins (она лучше всего проходит защиту)
+            if (!asArrayBuffer) {
+                try {
+                    const r = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
+                    if (r.ok) {
+                        const j = await r.json();
+                        if (j && j.contents) return j.contents;
+                    }
+                } catch (e) {}
+            }
+
+            // 2. Прямые прокси для текста и бинарных файлов (.docx)
             const proxies = [
-                u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+                u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+                u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
                 u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-                u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
+                u => `https://thingproxy.freeboard.io/fetch/${u}`
             ];
+
             for (let i = 0; i < proxies.length; i++) {
                 try {
                     const res = await fetch(proxies[i](targetUrl));
@@ -281,14 +294,14 @@
                     return asArrayBuffer ? await res.arrayBuffer() : await res.text();
                 } catch (e) {}
             }
-            throw new Error("Не удалось подключиться к сайту НовГУ через прокси");
+            throw new Error("Сервер НовГУ отклонил запрос прокси");
         }
 
         async function fetchChangesFromPortal() {
             const statusEl = document.getElementById('changesStatusText');
             const listEl = document.getElementById('changesList');
-            statusEl.innerText = "⏳ Поиск замен на portal.novsu.ru...";
-            listEl.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Ищем свежие файлы замен...</div>';
+            statusEl.innerText = "⏳ Подключаемся к portal.novsu.ru...";
+            listEl.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Пробуем обойти блокировку сайта НовГУ...</div>';
 
             try {
                 const html = await fetchWithCorsFallback(NOVSU_CHANGES_URL, false);
@@ -298,7 +311,8 @@
                 doc.querySelectorAll('a[href]').forEach(a => {
                     const href = a.getAttribute('href') || '';
                     const text = (a.textContent || '').replace(/\s+/g, ' ').trim();
-                    if (/\.(docx?|xlsx?)\b/i.test(href) || /\d{2}\.\d{2}\.\d{2,4}/.test(text)) {
+                    // Ищем даты типа 21.10.2026 или ссылки на файлы замен
+                    if (/\.(docx?|xlsx?)\b/i.test(href) || /\d{2}\.\d{2}\.\d{2,4}/.test(text) || /file|download/i.test(href)) {
                         const fullUrl = new URL(href, 'https://portal.novsu.ru').href;
                         if (!fileLinks.some(f => f.url === fullUrl)) {
                             fileLinks.push({ title: text || href.split('/').pop(), url: fullUrl });
@@ -313,11 +327,21 @@
                     const target = fileLinks[fileLinks.length - 1];
                     await loadPortalChangesFile(target.url, target.title);
                 } else {
-                    throw new Error("Файлы замен не найдены");
+                    throw new Error("Ссылки на файлы не найдены");
                 }
             } catch (e) {
-                statusEl.innerText = "Откройте скачанный файл замен кнопкой «📁 Файл»";
-                listEl.innerHTML = `<div class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60 text-center space-y-2"><div class="text-amber-400 text-xs">⚠️ Автозагрузка с сайта заблокирована браузером (${e.message}).</div><div class="text-slate-300 text-xs">Скачайте файл замен (например <b>21.10.2026.docx</b>) по ссылке внизу и выберите его кнопкой <b>«📁 Файл»</b>!</div></div>`;
+                statusEl.innerText = "Используйте кнопку «📁 Файл .docx» справа";
+                listEl.innerHTML = `
+                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60 text-center space-y-3">
+                        <div class="text-amber-400 text-xs font-medium">
+                            ⚠️ Сайт НовГУ блокирует автоматическое скачивание из других стран (через прокси).
+                        </div>
+                        <div class="text-slate-300 text-xs leading-relaxed">
+                            1. Нажмите кнопку <b>«🌐 Скачать файл замен с portal.novsu.ru»</b> внизу.<br>
+                            2. Нажмите на зелёную кнопку <b>«📁 Файл .docx»</b> вверху и выберите скачанный файл — замены сразу появятся здесь!
+                        </div>
+                    </div>
+                `;
             }
         }
 
@@ -330,7 +354,7 @@
                 return;
             }
             block.classList.remove('hidden');
-            changesData.portalFiles.forEach((f, idx) => {
+            changesData.portalFiles.forEach(f => {
                 const isActive = changesData.fileName === f.title;
                 const cls = isActive ? "bg-indigo-600 text-white border-indigo-400" : "bg-slate-900 text-indigo-300 border-slate-700";
                 const btn = document.createElement('button');
@@ -351,8 +375,8 @@
                 const buf = await fetchWithCorsFallback(url, true);
                 await parseChangesBuffer(buf, title);
             } catch (e) {
-                statusEl.innerText = `Ошибка скачивания ${title}`;
-                listEl.innerHTML = `<div class="bg-slate-800 p-4 rounded-2xl text-center text-xs text-red-400">Скачайте файл <b>${title}</b> по ссылке ниже и выберите его через «📁 Файл».</div>`;
+                statusEl.innerText = `Откройте ${title} через «📁 Файл .docx»`;
+                listEl.innerHTML = `<div class="bg-slate-800 p-4 rounded-2xl text-center text-xs text-amber-300">Не удалось скачать файл напрямую. <a href="${url}" target="_blank" class="underline text-indigo-400 font-bold">Нажмите сюда, чтобы скачать ${title}</a>, и откройте его зеленой кнопкой <b>«📁 Файл .docx»</b>.</div>`;
             }
         }
 
@@ -428,7 +452,7 @@
             localStorage.setItem(STORAGE_CHANGES_KEY, JSON.stringify(changesData));
 
             document.getElementById('changesHeaderTitle').innerText = `⚡ ${dateTitle}`;
-            document.getElementById('changesStatusText').innerText = `Файл: ${fileName} (записей: ${items.length})`;
+            document.getElementById('changesStatusText').innerText = `Загружен: ${fileName} (замен: ${items.length})`;
             renderPortalFilesButtons();
             renderChangesGroupFilter();
             renderChangesList();
@@ -455,7 +479,12 @@
         function renderChangesList() {
             const container = document.getElementById('changesList');
             if (!changesData.items || changesData.items.length === 0) {
-                container.innerHTML = `<div class="text-slate-400 text-center py-8 bg-slate-800/40 rounded-2xl text-sm">Нажмите «🔄 С сайта» или откройте файл <b>.docx</b> кнопкой «📁 Файл»</div>`;
+                container.innerHTML = `
+                    <div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 text-center space-y-2">
+                        <div class="text-slate-300 text-sm font-medium">Замены ещё не загружены</div>
+                        <div class="text-slate-400 text-xs">Скачайте свежий файл <b>.docx</b> с сайта НовГУ по кнопке ниже и выберите его зелёной кнопкой <b>«📁 Файл .docx»</b></div>
+                    </div>
+                `;
                 return;
             }
 
@@ -467,7 +496,7 @@
             });
 
             if (filtered.length === 0) {
-                container.innerHTML = `<div class="bg-slate-800/50 p-6 rounded-2xl text-center text-slate-300 text-sm border border-slate-700/40">🎉 Для группы <b>${activeChangesGroupFilter}</b> замен нет!</div>`;
+                container.innerHTML = `<div class="bg-slate-800/50 p-6 rounded-2xl text-center text-slate-300 text-sm border border-slate-700/40">🎉 Для группы <b>${activeChangesGroupFilter}</b> в файле <b>${changesData.fileName}</b> замен нет!</div>`;
                 return;
             }
 
