@@ -107,64 +107,28 @@
 
         // Умный поиск колонки с именами
         function findNameKey(keys, rows) {
-            let found = keys.find(k => /name|фио|студент|ф\.и\.о\.|фамилия/i.test(k));
+            // Железобетонный поиск правильной колонки с именами
+        function findNameKey(keys, rows) {
+            // 1. Ищем явное совпадение по названию заголовка
+            let found = keys.find(k => /(name|фио|студент|ф\.и\.о\.|фамилия)/i.test(k));
             if (found) return found;
 
-            for (let k of keys) {
-                const sample = rows[0] && rows[0][k];
-                if (sample && isNaN(sample) && sample.trim().includes(' ')) {
+            // 2. Проверяем колонки по порядку, начиная со второй (индекс 1), так как первая часто номера
+            for (let i = 1; i < keys.length; i++) {
+                let k = keys[i];
+                if (/п\/п|№|id|порядковый|дата/i.test(k)) continue;
+                
+                // Проверяем, есть ли в этой колонке текст с пробелом и русскими буквами (признак ФИО)
+                let sample = rows[0] && rows[0][k];
+                if (sample && isNaN(sample) && sample.trim().includes(' ') && /[а-яё]/i.test(sample)) {
                     return k;
                 }
             }
+            
+            // 3. Если не нашли по фильтру, берем вторую колонку по умолчанию (обычно там фамилии)
             return keys[1] || keys[0];
         }
-
-        async function loadStudents() {
-            const groupName = document.getElementById('groupNameInput').value.trim();
-            if (!groupName) {
-                alert('Введите название группы');
-                return;
-            }
-            currentGroupName = groupName;
-
-            const btn = event.target;
-            const oldText = btn.innerText;
-            btn.innerText = "Ищем...";
-
-            try {
-                const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(groupName)}`;
-                const response = await fetch(url);
-                
-                if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
-                
-                const text = await response.text();
-                if (text.includes("<!DOCTYPE html>") || text.includes("<html")) {
-                    throw new Error("Таблица не найдена или вкладка не существует.");
-                }
-
-                const rows = parseCSV(text);
-                if (rows.length === 0) throw new Error('В этой группе нет данных');
-
-                const keys = Object.keys(rows[0]);
-                let nameKey = findNameKey(keys, rows);
-
-                const select = document.getElementById('studentSelect');
-                select.innerHTML = '<option value="">Выбери свое ФИО</option>';
-                rows.forEach((row, idx) => {
-                    let nameVal = row[nameKey];
-                    if (nameVal && isNaN(nameVal)) {
-                        select.innerHTML += `<option value="${idx}" data-name="${nameVal}">${nameVal}</option>`;
-                    }
-                });
-
-                document.getElementById('studentBlock').classList.remove('hidden');
-            } catch (e) {
-                alert('Ошибка: ' + e.message);
-            } finally {
-                btn.innerText = oldText;
-            }
-        }
-
+            
         function saveProfile() {
             const select = document.getElementById('studentSelect');
             const opt = select.options[select.selectedIndex];
