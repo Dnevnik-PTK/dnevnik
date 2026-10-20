@@ -8,7 +8,6 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Mammoth.js для чтения файлов замен Word (.docx) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen p-4 select-none pb-24">
@@ -19,22 +18,22 @@
             <div class="flex items-center gap-2">
                 <span class="text-xl">📊</span>
                 <h1 class="text-lg font-bold tracking-tight">Дневник ПТК</h1>
-                <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-mono">v3.0</span>
+                <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono">v3.1</span>
             </div>
-            <button onclick="hardReset()" class="text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-xl transition">
+            <button type="button" onclick="hardReset()" class="text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-xl transition">
                 Сброс
             </button>
         </div>
 
-        <!-- Навигация (3 раздела: Оценки / Расписание / Замены) -->
+        <!-- Навигация (3 вкладки) -->
         <div id="mainNav" class="grid grid-cols-3 gap-1.5">
-            <button onclick="switchSection('marks')" id="navMarksBtn" class="bg-indigo-600 text-white py-2.5 rounded-xl font-medium text-xs transition shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1">
+            <button type="button" onclick="switchSection('marks')" id="navMarksBtn" class="bg-indigo-600 text-white py-2.5 rounded-xl font-medium text-xs transition shadow-md flex items-center justify-center gap-1">
                 <span>📊</span> Оценки
             </button>
-            <button onclick="switchSection('schedule')" id="navScheduleBtn" class="bg-slate-800 text-slate-400 border border-slate-700 py-2.5 rounded-xl font-medium text-xs transition flex items-center justify-center gap-1 hover:text-slate-200">
+            <button type="button" onclick="switchSection('schedule')" id="navScheduleBtn" class="bg-slate-800 text-slate-400 border border-slate-700 py-2.5 rounded-xl font-medium text-xs transition flex items-center justify-center gap-1">
                 <span>📅</span> Расписание
             </button>
-            <button onclick="switchSection('changes')" id="navChangesBtn" class="bg-slate-800 text-slate-400 border border-slate-700 py-2.5 rounded-xl font-medium text-xs transition flex items-center justify-center gap-1 hover:text-slate-200">
+            <button type="button" onclick="switchSection('changes')" id="navChangesBtn" class="bg-slate-800 text-slate-400 border border-slate-700 py-2.5 rounded-xl font-medium text-xs transition flex items-center justify-center gap-1">
                 <span>⚡</span> Замены
             </button>
         </div>
@@ -44,7 +43,7 @@
             <div class="space-y-2">
                 <div class="flex justify-between items-center px-1">
                     <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Мои предметы</span>
-                    <button onclick="openAddSubject()" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium">➕ Добавить предмет</button>
+                    <button type="button" onclick="openAddSubject()" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium">➕ Добавить предмет</button>
                 </div>
                 <div id="subjectsTabs" class="flex gap-2 overflow-x-auto pb-1"></div>
             </div>
@@ -54,7 +53,7 @@
                     <div id="studentDisplay" class="font-bold text-base text-white">ФИО Студента</div>
                     <div id="groupDisplay" class="text-xs text-slate-400 mt-0.5">Группа</div>
                 </div>
-                <button onclick="loadMarksForActiveSubject()" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white px-3.5 py-2 rounded-xl text-xs font-medium transition">
+                <button type="button" onclick="loadMarksForActiveSubject()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-medium transition">
                     🔄 Обновить
                 </button>
             </div>
@@ -67,7 +66,7 @@
             <div class="space-y-2">
                 <div class="flex justify-between items-center px-1">
                     <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Мои группы расписания</span>
-                    <button onclick="openAddSchedule()" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium">📁 Загрузить файл</button>
+                    <button type="button" onclick="openAddSchedule()" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium">📁 Загрузить файл</button>
                 </div>
                 <div id="scheduleTabs" class="flex gap-2 overflow-x-auto pb-1"></div>
             </div>
@@ -78,44 +77,42 @@
                         <div id="schedHeaderInfo" class="font-bold text-sm text-white">Расписание не выбрано</div>
                         <div id="schedSubInfo" class="text-xs text-slate-400 mt-0.5">Загрузите Excel-файл расписания</div>
                     </div>
-                    <button onclick="loadScheduleForActive()" class="bg-slate-700 hover:bg-slate-600 text-white p-2 rounded-xl text-xs transition">🔄</button>
+                    <button type="button" onclick="loadScheduleForActive()" class="bg-slate-700 hover:bg-slate-600 text-white p-2 rounded-xl text-xs transition">🔄</button>
                 </div>
 
                 <div class="grid grid-cols-2 gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-700/60">
-                    <button onclick="setWeekType('upper')" id="btnUpperWeek" class="py-2 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow">⬆️ Верхняя неделя</button>
-                    <button onclick="setWeekType('lower')" id="btnLowerWeek" class="py-2 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white">⬇️ Нижняя неделя</button>
+                    <button type="button" onclick="setWeekType('upper')" id="btnUpperWeek" class="py-2 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow">⬆️ Верхняя неделя</button>
+                    <button type="button" onclick="setWeekType('lower')" id="btnLowerWeek" class="py-2 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white">⬇️ Нижняя неделя</button>
                 </div>
             </div>
 
             <div id="scheduleList" class="space-y-3"></div>
         </div>
 
-        <!-- РАЗДЕЛ 3: ЗАМЕНЫ (.DOCX / .XLS С ПОРТАЛА НОВГУ) -->
+        <!-- РАЗДЕЛ 3: ЗАМЕНЫ -->
         <div id="changesSection" class="space-y-4 hidden">
             <div class="bg-slate-800 p-4 rounded-2xl shadow-lg border border-slate-700/50 space-y-3">
                 <div class="flex justify-between items-start gap-2">
                     <div>
                         <div id="changesHeaderTitle" class="font-bold text-sm text-white">⚡ Изменения в расписании</div>
-                        <div id="changesStatusText" class="text-xs text-indigo-300 mt-0.5">Нажмите «С сайта» или откройте .docx</div>
+                        <div id="changesStatusText" class="text-xs text-indigo-300 mt-0.5">Нажмите «С сайта» или выберите .docx</div>
                     </div>
                     <div class="flex gap-1.5 shrink-0">
                         <label class="cursor-pointer bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-2 rounded-xl text-xs font-medium transition">
                             📁 Файл
-                            <input type="file" accept=".docx, .xls, .xlsx" onchange="handleManualChangesFile(event)" class="hidden">
+                            <input type="file" accept=".docx,.xls,.xlsx" onchange="handleManualChangesFile(event)" class="hidden">
                         </label>
-                        <button onclick="fetchChangesFromPortal()" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white px-3 py-2 rounded-xl text-xs font-medium transition shadow-md shadow-indigo-600/20">
+                        <button type="button" onclick="fetchChangesFromPortal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-xl text-xs font-medium transition shadow-md">
                             🔄 С сайта
                         </button>
                     </div>
                 </div>
 
-                <!-- Даты (файлы замен на портале) -->
                 <div id="portalFilesContainer" class="hidden space-y-1.5 pt-2 border-t border-slate-700/60">
-                    <div class="text-[11px] text-slate-400">Выберите дату замен с сайта:</div>
+                    <div class="text-[11px] text-slate-400">Файлы замен на сайте НовГУ:</div>
                     <div id="portalFilesList" class="flex flex-wrap gap-1.5"></div>
                 </div>
 
-                <!-- Фильтр по группе -->
                 <div class="space-y-1.5 pt-2 border-t border-slate-700/60">
                     <div class="text-[11px] text-slate-400">Фильтр по группе:</div>
                     <div id="changesGroupFilter" class="flex gap-1.5 overflow-x-auto pb-1"></div>
@@ -131,11 +128,11 @@
             </div>
         </div>
 
-        <!-- ЭКРАН ДОБАВЛЕНИЯ ПРЕДМЕТА (ОЦЕНКИ) -->
+        <!-- ЭКРАН ДОБАВЛЕНИЯ ПРЕДМЕТА -->
         <div id="setupScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 border border-slate-700/50 hidden">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base">Подключение предмета</h2>
-                <button onclick="switchSection('marks')" class="text-xs text-slate-400 hover:text-white">Отмена</button>
+                <button type="button" onclick="switchSection('marks')" class="text-xs text-slate-400 hover:text-white">Отмена</button>
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">1. Название предмета</label>
@@ -145,7 +142,7 @@
                 <label class="block text-xs text-slate-400 mb-1">2. Ссылка на Google Таблицу</label>
                 <div class="flex gap-2">
                     <input type="text" id="sheetLinkInput" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
-                    <button id="scanTabsBtn" onclick="fetchGroupsList()" class="bg-indigo-600 hover:bg-indigo-500 px-4 rounded-xl text-xs font-semibold shrink-0 transition">Найти группы</button>
+                    <button type="button" id="scanTabsBtn" onclick="fetchGroupsList()" class="bg-indigo-600 hover:bg-indigo-500 px-4 rounded-xl text-xs font-semibold shrink-0 transition">Найти группы</button>
                 </div>
             </div>
             <div id="groupSelectBlock" class="hidden space-y-2 pt-3 border-t border-slate-700/60">
@@ -157,7 +154,7 @@
                     <label class="block text-xs text-slate-400 mb-1">4. Выберите своё ФИО:</label>
                     <select id="studentSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500"></select>
                 </div>
-                <button onclick="saveSubjectProfile()" class="w-full bg-emerald-600 hover:bg-emerald-500 font-medium py-3 rounded-xl transition">✅ Сохранить предмет</button>
+                <button type="button" onclick="saveSubjectProfile()" class="w-full bg-emerald-600 hover:bg-emerald-500 font-medium py-3 rounded-xl transition">✅ Сохранить предмет</button>
             </div>
         </div>
 
@@ -165,11 +162,11 @@
         <div id="setupScheduleScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 border border-slate-700/50 hidden">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base">Загрузка файла расписания</h2>
-                <button onclick="switchSection('schedule')" class="text-xs text-slate-400 hover:text-white">Отмена</button>
+                <button type="button" onclick="switchSection('schedule')" class="text-xs text-slate-400 hover:text-white">Отмена</button>
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">1. Выберите файл расписания (.xls / .xlsx)</label>
-                <input type="file" id="excelFileInput" accept=".xls, .xlsx" onchange="handleExcelFileSelect(event)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white">
+                <input type="file" id="excelFileInput" accept=".xls,.xlsx" onchange="handleExcelFileSelect(event)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white">
             </div>
             <div id="excelGroupsBlock" class="hidden space-y-2 pt-2 border-t border-slate-700">
                 <label class="block text-xs text-emerald-400 font-medium">2. Выберите вашу группу:</label>
@@ -179,8 +176,11 @@
     </div>
 
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
+        try {
+            if (window.Telegram && window.Telegram.WebApp) {
+                window.Telegram.WebApp.expand();
+            }
+        } catch (e) {}
 
         const STORAGE_MARKS_KEY = 'ptk_diary_subjects_v3';
         const STORAGE_SCHED_KEY = 'ptk_diary_schedules_v6';
@@ -192,16 +192,17 @@
         let currentSelectedWeek = 'upper';
         let selectedGroupForMarks = '';
 
-        // Замены: items = [{ groupRaw, groups: ['4996','3992'], pair, oldLesson, newLesson, aud }]
         let changesData = { dateTitle: '', fileName: '', items: [], portalFiles: [] };
         let activeChangesGroupFilter = 'ALL';
-
         let tempMarksWorkbook = null, tempExcelData = null;
 
-        window.onload = function() {
-            try { subjects = JSON.parse(localStorage.getItem(STORAGE_MARKS_KEY)) || []; } catch(e){}
-            try { schedules = JSON.parse(localStorage.getItem(STORAGE_SCHED_KEY)) || []; } catch(e){}
-            try { changesData = JSON.parse(localStorage.getItem(STORAGE_CHANGES_KEY)) || { dateTitle: '', fileName: '', items: [], portalFiles: [] }; } catch(e){}
+        document.addEventListener('DOMContentLoaded', function() {
+            try { subjects = JSON.parse(localStorage.getItem(STORAGE_MARKS_KEY)) || []; } catch(e) { subjects = []; }
+            try { schedules = JSON.parse(localStorage.getItem(STORAGE_SCHED_KEY)) || []; } catch(e) { schedules = []; }
+            try {
+                const sc = JSON.parse(localStorage.getItem(STORAGE_CHANGES_KEY));
+                if (sc && Array.isArray(sc.items)) changesData = sc;
+            } catch(e) {}
 
             currentSelectedWeek = getInitialWeekType();
             updateWeekButtonsUI();
@@ -211,12 +212,12 @@
 
             if (subjects.length === 0 && schedules.length > 0) switchSection('schedule');
             else switchSection('marks');
-        };
+        });
 
         function getKnownUserGroups() {
             const s = new Set();
-            schedules.forEach(x => { if (x.groupName) s.add(x.groupName); });
-            subjects.forEach(x => { if (x.groupName && /^\d{4}$/.test(x.groupName)) s.add(x.groupName); });
+            schedules.forEach(x => { if (x && x.groupName) s.add(String(x.groupName)); });
+            subjects.forEach(x => { if (x && x.groupName && /^\d{4}$/.test(String(x.groupName))) s.add(String(x.groupName)); });
             return Array.from(s);
         }
 
@@ -236,6 +237,7 @@
 
         function updateWeekButtonsUI() {
             const u = document.getElementById('btnUpperWeek'), l = document.getElementById('btnLowerWeek');
+            if (!u || !l) return;
             u.className = currentSelectedWeek === 'upper' ? "py-2 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow" : "py-2 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white";
             l.className = currentSelectedWeek === 'lower' ? "py-2 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow" : "py-2 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white";
         }
@@ -247,7 +249,7 @@
 
             const navs = { marks: 'navMarksBtn', schedule: 'navScheduleBtn', changes: 'navChangesBtn' };
             const secs = { marks: 'marksSection', schedule: 'scheduleSection', changes: 'changesSection' };
-            const act = "bg-indigo-600 text-white py-2.5 rounded-xl font-medium text-xs transition shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1";
+            const act = "bg-indigo-600 text-white py-2.5 rounded-xl font-medium text-xs transition shadow-md flex items-center justify-center gap-1";
             const inact = "bg-slate-800 text-slate-400 border border-slate-700 py-2.5 rounded-xl font-medium text-xs transition flex items-center justify-center gap-1 hover:text-slate-200";
 
             Object.keys(navs).forEach(k => {
@@ -265,39 +267,38 @@
             }
         }
 
-        // ================= РАЗДЕЛ 3: ЗАМЕНЫ (.DOCX с портала НовГУ) =================
-        async function fetchWithCorsFallback(targetUrl, asArrayBuffer = false) {
+        // ================= ЗАМЕНЫ (.DOCX / ПОРТАЛ НОВГУ) =================
+        async function fetchWithCorsFallback(targetUrl, asArrayBuffer) {
             const proxies = [
                 u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
                 u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
                 u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
             ];
-            for (let build of proxies) {
+            for (let i = 0; i < proxies.length; i++) {
                 try {
-                    const res = await fetch(build(targetUrl));
+                    const res = await fetch(proxies[i](targetUrl));
                     if (!res.ok) continue;
                     return asArrayBuffer ? await res.arrayBuffer() : await res.text();
                 } catch (e) {}
             }
-            throw new Error("Не удалось соединиться с portal.novsu.ru");
+            throw new Error("Не удалось подключиться к сайту НовГУ через прокси");
         }
 
         async function fetchChangesFromPortal() {
             const statusEl = document.getElementById('changesStatusText');
             const listEl = document.getElementById('changesList');
-            statusEl.innerText = "⏳ Поиск файлов замен на portal.novsu.ru...";
-            listEl.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Ищем свежие замены на сайте...</div>';
+            statusEl.innerText = "⏳ Поиск замен на portal.novsu.ru...";
+            listEl.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Ищем свежие файлы замен...</div>';
 
             try {
                 const html = await fetchWithCorsFallback(NOVSU_CHANGES_URL, false);
                 const doc = new DOMParser().parseFromString(html, 'text/html');
-
                 const fileLinks = [];
+
                 doc.querySelectorAll('a[href]').forEach(a => {
                     const href = a.getAttribute('href') || '';
                     const text = (a.textContent || '').replace(/\s+/g, ' ').trim();
-                    // Ищем файлы .docx, .doc, .xls, .xlsx или файлы с датами типа 21.10.2026
-                    if (/\.(docx?|xlsx?)\b/i.test(href) || /\d{2}\.\d{2}\.\d{4}/.test(text) || /univer\/timetable\/spo/i.test(href) && /file|download|\.(docx?|xlsx?)/i.test(href)) {
+                    if (/\.(docx?|xlsx?)\b/i.test(href) || /\d{2}\.\d{2}\.\d{2,4}/.test(text)) {
                         const fullUrl = new URL(href, 'https://portal.novsu.ru').href;
                         if (!fileLinks.some(f => f.url === fullUrl)) {
                             fileLinks.push({ title: text || href.split('/').pop(), url: fullUrl });
@@ -309,20 +310,14 @@
                 renderPortalFilesButtons();
 
                 if (fileLinks.length > 0) {
-                    // Берем самый свежий файл (обычно последний или первый в списке с датой)
                     const target = fileLinks[fileLinks.length - 1];
                     await loadPortalChangesFile(target.url, target.title);
                 } else {
-                    throw new Error("Файлы .docx не найдены на странице");
+                    throw new Error("Файлы замен не найдены");
                 }
             } catch (e) {
-                statusEl.innerText = "Загрузите скачанный .docx файл кнопкой «📁 Файл»";
-                listEl.innerHTML = `
-                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60 text-center space-y-2">
-                        <div class="text-amber-400 text-xs">⚠️ Не удалось автоматически забрать файл с сайта (${e.message}).</div>
-                        <div class="text-slate-300 text-xs">Скачайте файл замен (например, <b>21.10.2026.docx</b>) по ссылке внизу и откройте его кнопкой <b>«📁 Файл»</b> вверху!</div>
-                    </div>
-                `;
+                statusEl.innerText = "Откройте скачанный файл замен кнопкой «📁 Файл»";
+                listEl.innerHTML = `<div class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60 text-center space-y-2"><div class="text-amber-400 text-xs">⚠️ Автозагрузка с сайта заблокирована браузером (${e.message}).</div><div class="text-slate-300 text-xs">Скачайте файл замен (например <b>21.10.2026.docx</b>) по ссылке внизу и выберите его кнопкой <b>«📁 Файл»</b>!</div></div>`;
             }
         }
 
@@ -335,31 +330,29 @@
                 return;
             }
             block.classList.remove('hidden');
-            changesData.portalFiles.forEach(f => {
+            changesData.portalFiles.forEach((f, idx) => {
                 const isActive = changesData.fileName === f.title;
-                const cls = isActive ? "bg-indigo-600 text-white border-indigo-400" : "bg-slate-900 text-indigo-300 border-slate-700 hover:bg-slate-700";
-                const safeUrl = f.url.replace(/'/g, "\\'");
-                const safeTitle = f.title.replace(/'/g, "\\'");
-                list.innerHTML += `
-                    <button onclick="loadPortalChangesFile('${safeUrl}', '${safeTitle}')" class="px-3 py-1.5 rounded-xl border text-xs font-medium transition ${cls}">
-                        📄 ${f.title}
-                    </button>
-                `;
+                const cls = isActive ? "bg-indigo-600 text-white border-indigo-400" : "bg-slate-900 text-indigo-300 border-slate-700";
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `px-3 py-1.5 rounded-xl border text-xs font-medium transition ${cls}`;
+                btn.textContent = `📄 ${f.title}`;
+                btn.onclick = () => loadPortalChangesFile(f.url, f.title);
+                list.appendChild(btn);
             });
         }
 
         async function loadPortalChangesFile(url, title) {
             const statusEl = document.getElementById('changesStatusText');
             const listEl = document.getElementById('changesList');
-            statusEl.innerText = `⏳ Читаем ${title}...`;
-            listEl.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Распаковываем документ замен...</div>';
-
+            statusEl.innerText = `⏳ Загружаем ${title}...`;
+            listEl.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Читаем документ замен...</div>';
             try {
                 const buf = await fetchWithCorsFallback(url, true);
                 await parseChangesBuffer(buf, title);
             } catch (e) {
                 statusEl.innerText = `Ошибка скачивания ${title}`;
-                listEl.innerHTML = `<div class="bg-slate-800 p-4 rounded-2xl text-center text-xs text-red-400">Не удалось скачать файл через прокси. Нажмите на ссылку внизу, скачайте <b>${title}</b> и выберите через кнопку «📁 Файл».</div>`;
+                listEl.innerHTML = `<div class="bg-slate-800 p-4 rounded-2xl text-center text-xs text-red-400">Скачайте файл <b>${title}</b> по ссылке ниже и выберите его через «📁 Файл».</div>`;
             }
         }
 
@@ -375,48 +368,37 @@
 
         async function parseChangesBuffer(arrayBuffer, fileName) {
             try {
-                // Пробуем сначала распаковать как Word (.docx) через Mammoth
-                if (/\.docx$/i.test(fileName) \vert{}\vert{} !/\.xlsx?$/i.test(fileName)) {
+                if (window.mammoth && !/\.xlsx?$/i.test(fileName)) {
                     try {
                         const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
                         if (result && result.value) {
                             parseDocxHtmlChanges(result.value, fileName);
                             return;
                         }
-                    } catch (docxErr) {}
+                    } catch (e) {}
                 }
-
-                // Резервный вариант, если файл оказался Excel (.xls / .xlsx)
                 const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
                 const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: "" });
                 parseRawRowsToChanges(rows, "Изменения в расписании", fileName);
             } catch (err) {
-                alert("Не удалось прочитать файл замен: " + err.message);
+                alert("Ошибка чтения файла замен: " + err.message);
             }
         }
 
-        // Парсим точно структуру .docx файла замен НовГУ (5 колонок: № группы | № пары | По расписанию | Изменения | Ауд.)
         function parseDocxHtmlChanges(htmlString, fileName) {
             const doc = new DOMParser().parseFromString(htmlString, 'text/html');
-
-            // Ищем заголовок (например: "на 21 октября, нижняя неделя 2026 г.")
             let dateTitle = "Изменения в расписании";
             doc.querySelectorAll('p').forEach(p => {
                 const t = p.textContent.replace(/\s+/g, ' ').trim();
-                if (/на\s+\d+/i.test(t) || /неделя/i.test(t)) {
-                    dateTitle = "Замены " + t;
-                }
+                if (/на\s+\d+/i.test(t) || /неделя/i.test(t)) dateTitle = "Замены " + t;
             });
 
             const rows = [];
             doc.querySelectorAll('table tr').forEach(tr => {
                 const cols = [];
-                tr.querySelectorAll('td, th').forEach(td => {
-                    cols.push(td.textContent.replace(/\s+/g, ' ').trim());
-                });
+                tr.querySelectorAll('td, th').forEach(td => cols.push(td.textContent.replace(/\s+/g, ' ').trim()));
                 if (cols.some(c => c.length > 0)) rows.push(cols);
             });
-
             parseRawRowsToChanges(rows, dateTitle, fileName);
         }
 
@@ -426,31 +408,18 @@
 
             for (let r = 0; r < rows.length; r++) {
                 const row = rows[r].map(c => String(c || '').trim());
-                const c0 = row[0] || '';
-                const c1 = row[1] || '';
-                const c2 = row[2] || '';
-                const c3 = row[3] || '';
-                const c4 = row[4] || '';
+                const c0 = row[0] || '', c1 = row[1] || '', c2 = row[2] || '', c3 = row[3] || '', c4 = row[4] || '';
 
-                // Пропускаем шапку таблицы ("№ группы | № пары...") и подпись методиста
                 if (/групп/i.test(c0) || /дисциплина/i.test(c2) || /методист/i.test(row.join(' '))) continue;
                 if (!c0 && !c1 && !c2 && !c3 && !c4) continue;
 
                 const groupRaw = c0 || lastGroupRaw;
                 if (c0) lastGroupRaw = c0;
 
-                // Вытаскиваем все 4-значные номера групп (например из "4996+3992" достанет ['4996', '3992'])
-                const groups = (groupRaw.match(/\d{4}/g) || []);
+                const groups = groupRaw.match(/\d{4}/g) || [];
                 if (groups.length === 0 && !c2 && !c3) continue;
 
-                items.push({
-                    groupRaw: groupRaw || '—',
-                    groups: groups,
-                    pair: c1 || '—',
-                    oldLesson: c2 || '—',
-                    newLesson: c3 || '',
-                    aud: c4 || ''
-                });
+                items.push({ groupRaw: groupRaw || '—', groups, pair: c1 || '—', oldLesson: c2 || '—', newLesson: c3 || '', aud: c4 || '' });
             }
 
             changesData.dateTitle = dateTitle;
@@ -468,53 +437,37 @@
         function renderChangesGroupFilter() {
             const container = document.getElementById('changesGroupFilter');
             container.innerHTML = '';
-
             const groupsSet = new Set(['ALL', ...getKnownUserGroups()]);
-            (changesData.items || []).forEach(it => {
-                (it.groups || []).forEach(g => groupsSet.add(g));
-            });
+            (changesData.items || []).forEach(it => (it.groups || []).forEach(g => groupsSet.add(g)));
 
             groupsSet.forEach(g => {
                 const isSelected = activeChangesGroupFilter === g;
-                const cls = isSelected
-                    ? "bg-indigo-600 text-white border-indigo-500 shadow"
-                    : "bg-slate-900 text-slate-400 border-slate-700 hover:text-slate-200";
-                container.innerHTML += `
-                    <button onclick="setChangesGroupFilter('${g}')" class="px-3 py-1.5 rounded-xl border text-xs font-medium shrink-0 transition ${cls}">
-                        ${g === 'ALL' ? 'Все группы' : 'Гр. ' + g}
-                    </button>
-                `;
+                const cls = isSelected ? "bg-indigo-600 text-white border-indigo-500 shadow" : "bg-slate-900 text-slate-400 border-slate-700";
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `px-3 py-1.5 rounded-xl border text-xs font-medium shrink-0 transition ${cls}`;
+                btn.textContent = g === 'ALL' ? 'Все группы' : 'Гр. ' + g;
+                btn.onclick = () => { activeChangesGroupFilter = g; renderChangesGroupFilter(); renderChangesList(); };
+                container.appendChild(btn);
             });
-        }
-
-        function setChangesGroupFilter(g) {
-            activeChangesGroupFilter = g;
-            renderChangesGroupFilter();
-            renderChangesList();
         }
 
         function renderChangesList() {
             const container = document.getElementById('changesList');
             if (!changesData.items || changesData.items.length === 0) {
-                container.innerHTML = `<div class="text-slate-400 text-center py-8 bg-slate-800/40 rounded-2xl text-sm">Нажмите «🔄 С сайта» или выберите скачанный файл <b>.docx</b> кнопкой «📁 Файл»</div>`;
+                container.innerHTML = `<div class="text-slate-400 text-center py-8 bg-slate-800/40 rounded-2xl text-sm">Нажмите «🔄 С сайта» или откройте файл <b>.docx</b> кнопкой «📁 Файл»</div>`;
                 return;
             }
 
-            if (changesData.dateTitle) {
-                document.getElementById('changesHeaderTitle').innerText = `⚡ ${changesData.dateTitle}`;
-            }
+            if (changesData.dateTitle) document.getElementById('changesHeaderTitle').innerText = `⚡ ${changesData.dateTitle}`;
 
             const filtered = changesData.items.filter(it => {
                 if (activeChangesGroupFilter === 'ALL') return true;
-                return (it.groups || []).includes(activeChangesGroupFilter) || it.groupRaw.includes(activeChangesGroupFilter);
+                return (it.groups || []).includes(activeChangesGroupFilter) || String(it.groupRaw).includes(activeChangesGroupFilter);
             });
 
             if (filtered.length === 0) {
-                container.innerHTML = `
-                    <div class="bg-slate-800/50 p-6 rounded-2xl text-center text-slate-300 text-sm border border-slate-700/40">
-                        🎉 Для группы <b>${activeChangesGroupFilter}</b> замен в этом списке нет!
-                    </div>
-                `;
+                container.innerHTML = `<div class="bg-slate-800/50 p-6 rounded-2xl text-center text-slate-300 text-sm border border-slate-700/40">🎉 Для группы <b>${activeChangesGroupFilter}</b> замен нет!</div>`;
                 return;
             }
 
@@ -536,31 +489,30 @@
                         </div>
                         <div class="space-y-1.5 text-xs">
                             <div class="text-slate-400">
-                                <span class="text-[10px] uppercase tracking-wider text-slate-500 block">По расписанию:</span>
+                                <span class="text-[10px] uppercase text-slate-500 block">По расписанию:</span>
                                 <span class="line-through">${it.oldLesson}</span>
                             </div>
                             <div class="text-slate-100 font-medium bg-slate-900/60 p-2.5 rounded-xl border border-slate-700/40">
-                                <span class="text-[10px] uppercase tracking-wider text-amber-400 block mb-0.5">Изменение:</span>
+                                <span class="text-[10px] uppercase text-amber-400 block mb-0.5">Изменение:</span>
                                 ${it.newLesson || (isCancelled ? 'Занятие отменено (Не будет)' : '—')}
                             </div>
                         </div>
                     </div>
                 `;
             });
-
             container.innerHTML = html;
         }
 
-        // ================= РАЗДЕЛ 1: ОЦЕНКИ =================
+        // ================= ОЦЕНКИ =================
         function extractSheetId(link) {
-            const match = link.match(/\/d\/([a-zA-Z0-9-_]+)/);
+            const match = String(link || '').match(/\/d\/([a-zA-Z0-9-_]+)/);
             return match ? match[1] : null;
         }
 
         async function fetchGroupsList() {
             const link = document.getElementById('sheetLinkInput').value.trim();
             const sheetId = extractSheetId(link);
-            if (!sheetId) { alert("Сначала вставьте ссылку на Google Таблицу!"); return; }
+            if (!sheetId) { alert("Вставьте ссылку на Google Таблицу!"); return; }
 
             const btn = document.getElementById('scanTabsBtn');
             btn.innerText = "⏳ Ищем...";
@@ -572,9 +524,7 @@
                 if (!res.ok) throw new Error("Проверьте доступ к таблице по ссылке");
                 const arrayBuffer = await res.arrayBuffer();
                 tempMarksWorkbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
-
-                const tabs = tempMarksWorkbook.SheetNames || [];
-                renderSheetGroupButtons(tabs);
+                renderSheetGroupButtons(tempMarksWorkbook.SheetNames || []);
                 document.getElementById('groupSelectBlock').classList.remove('hidden');
             } catch (e) {
                 alert("Ошибка чтения групп: " + e.message);
@@ -589,8 +539,12 @@
             tabs.forEach(tabName => {
                 const isSelected = selectedGroupForMarks === tabName;
                 const cls = isSelected ? "bg-indigo-600 border-indigo-400 text-white shadow" : "bg-slate-900 hover:bg-indigo-600/30 border-slate-700 text-slate-200";
-                const safeName = tabName.replace(/'/g, "\\'");
-                container.innerHTML += `<button onclick="selectGroupForMarks('${safeName}')" class="px-3.5 py-2 border rounded-xl text-xs font-bold transition ${cls}">👥 ${tabName}</button>`;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `px-3.5 py-2 border rounded-xl text-xs font-bold transition ${cls}`;
+                btn.textContent = `👥 ${tabName}`;
+                btn.onclick = () => selectGroupForMarks(tabName);
+                container.appendChild(btn);
             });
         }
 
@@ -600,14 +554,14 @@
             for (let col = 0; col < maxCols; col++) {
                 let count = 0;
                 for (let row = 0; row < matrix.length; row++) {
-                    let cell = (matrix[row][col] || '').toString().trim();
+                    let cell = String(matrix[row][col] || '').trim();
                     if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(cell) && !/(задание|лекция|практика|модуль|вопрос|итог|экзамен|фамилия)/i.test(cell)) count++;
                 }
                 if (count > maxNamesCount) { maxNamesCount = count; bestCol = col; }
             }
             let firstStudRow = 1;
             for (let row = 0; row < matrix.length; row++) {
-                let cell = (matrix[row][bestCol] || '').toString().trim();
+                let cell = String(matrix[row][bestCol] || '').trim();
                 if (/[а-яёА-ЯЁ]{2,}\s+[а-яёА-ЯЁ]{2,}/.test(cell) && !/(фио|студент|фамилия|список)/i.test(cell)) { firstStudRow = row; break; }
             }
             return { nameColIdx: bestCol, firstStudentRow: firstStudRow };
@@ -633,9 +587,12 @@
                 select.innerHTML = '<option value="">-- Выберите своё ФИО --</option>';
 
                 for (let r = firstStudentRow; r < matrix.length; r++) {
-                    let name = (matrix[r][nameColIdx] || '').toString().trim();
+                    let name = String(matrix[r][nameColIdx] || '').trim();
                     if (name && /[а-яёА-ЯЁ]{2,}/.test(name) && isNaN(name) && !/(фамилия|фио|студент)/i.test(name)) {
-                        select.innerHTML += `<option value="${name}">${name}</option>`;
+                        const opt = document.createElement('option');
+                        opt.value = name;
+                        opt.textContent = name;
+                        select.appendChild(opt);
                     }
                 }
                 document.getElementById('studentSelectBlock').classList.remove('hidden');
@@ -673,7 +630,7 @@
             const container = document.getElementById('subjectsTabs');
             container.innerHTML = '';
             if (subjects.length === 0) {
-                container.innerHTML = `<button onclick="openAddSubject()" class="text-xs bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 px-3 py-2 rounded-xl">➕ Добавить первый предмет</button>`;
+                container.innerHTML = `<button type="button" onclick="openAddSubject()" class="text-xs bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 px-3 py-2 rounded-xl">➕ Добавить первый предмет</button>`;
                 return;
             }
             subjects.forEach((subj, idx) => {
@@ -681,7 +638,7 @@
                 container.innerHTML += `
                     <div class="flex items-center rounded-xl border ${isActive ? "bg-indigo-600 text-white border-indigo-500 shadow-md" : "bg-slate-800 text-slate-400 border-slate-700"} px-3 py-2 text-xs font-medium shrink-0 cursor-pointer" onclick="switchSubject(${idx})">
                         <span>${subj.subjectName}</span>
-                        <button onclick="deleteSubject(event, ${idx})" class="ml-2 text-slate-300 hover:text-red-400">✕</button>
+                        <button type="button" onclick="deleteSubject(event, ${idx})" class="ml-2 text-slate-300 hover:text-red-400">✕</button>
                     </div>
                 `;
             });
@@ -705,7 +662,7 @@
 
             if (!current) {
                 studentCard.classList.add('hidden');
-                container.innerHTML = `<div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 text-center space-y-3"><div class="text-slate-400 text-sm">Таблицы с оценками пока не добавлены</div><button onclick="openAddSubject()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2.5 rounded-xl transition">➕ Подключить таблицу оценок</button></div>`;
+                container.innerHTML = `<div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 text-center space-y-3"><div class="text-slate-400 text-sm">Таблицы с оценками пока не добавлены</div><button type="button" onclick="openAddSubject()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2.5 rounded-xl transition">➕ Подключить таблицу оценок</button></div>`;
                 return;
             }
 
@@ -723,7 +680,7 @@
                     complete: function(results) {
                         const matrix = results.data;
                         const { nameColIdx, firstStudentRow } = analyzeMatrix(matrix);
-                        let studentRow = matrix.slice(firstStudentRow).find(r => (r[nameColIdx] || '').toString().trim() === current.studentName);
+                        let studentRow = matrix.slice(firstStudentRow).find(r => String(r[nameColIdx] || '').trim() === current.studentName);
 
                         if (!studentRow) { container.innerHTML = '<div class="text-red-400 text-center py-6 text-sm bg-slate-800 rounded-2xl">Студент не найден</div>'; return; }
 
@@ -731,7 +688,7 @@
                         for (let c = 0; c < studentRow.length; c++) {
                             let parts = [];
                             for (let r = 0; r < firstStudentRow; r++) {
-                                let cell = (matrix[r][c] || '').toString().replace(/\s+/g, ' ').trim();
+                                let cell = String(matrix[r][c] || '').replace(/\s+/g, ' ').trim();
                                 if (cell && !parts.includes(cell)) parts.push(cell);
                             }
                             headers[c] = parts.join(' • ') || `Колонка ${c + 1}`;
@@ -741,7 +698,7 @@
                         for (let c = 0; c < studentRow.length; c++) {
                             if (c === nameColIdx || c === 0) continue;
                             let rawHeader = headers[c];
-                            let val = (studentRow[c] || '').toString().trim();
+                            let val = String(studentRow[c] || '').trim();
                             if (!val || val === '—' || val === '-' || /#(DIV|ДЕЛ|VALUE|ЗНАЧ|REF|Н\/Д)/i.test(val)) continue;
                             if (/^(№|п\/п|№\s*п\/п)$/i.test(rawHeader)) continue;
 
@@ -759,7 +716,7 @@
             } catch (e) { container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Ошибка: ${e.message}</div>`; }
         }
 
-        // ================= РАЗДЕЛ 2: РАСПИСАНИЕ =================
+        // ================= РАСПИСАНИЕ =================
         function openAddSchedule() {
             document.getElementById('marksSection').classList.add('hidden');
             document.getElementById('scheduleSection').classList.add('hidden');
@@ -787,7 +744,7 @@
 
                         for (let r = 0; r < Math.min(15, rows.length); r++) {
                             for (let c = 0; c < rows[r].length; c++) {
-                                let val = (rows[r][c] || '').toString().trim();
+                                let val = String(rows[r][c] || '').trim();
                                 if (/^\d{4}[а-яa-z]*$/i.test(val) && !/^202\d$/.test(val)) {
                                     foundGroups.push({ groupName: val, sheetName });
                                 }
@@ -799,7 +756,12 @@
                     const btnContainer = document.getElementById('excelGroupsButtons');
                     btnContainer.innerHTML = '';
                     foundGroups.forEach(g => {
-                        btnContainer.innerHTML += `<button onclick="saveScheduleGroup('${g.groupName}', '${g.sheetName}')" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow transition">👥 Группа ${g.groupName}</button>`;
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = "bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow transition";
+                        btn.textContent = `👥 Группа ${g.groupName}`;
+                        btn.onclick = () => saveScheduleGroup(g.groupName, g.sheetName);
+                        btnContainer.appendChild(btn);
                     });
                     document.getElementById('excelGroupsBlock').classList.remove('hidden');
                 } catch (err) { alert("Ошибка чтения Excel: " + err.message); }
@@ -821,7 +783,7 @@
             const container = document.getElementById('scheduleTabs');
             container.innerHTML = '';
             if (schedules.length === 0) {
-                container.innerHTML = `<button onclick="openAddSchedule()" class="text-xs bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 px-3 py-2 rounded-xl">➕ Добавить расписание</button>`;
+                container.innerHTML = `<button type="button" onclick="openAddSchedule()" class="text-xs bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 px-3 py-2 rounded-xl">➕ Добавить расписание</button>`;
                 return;
             }
             schedules.forEach((sch, idx) => {
@@ -829,7 +791,7 @@
                 container.innerHTML += `
                     <div class="flex items-center rounded-xl border ${isActive ? "bg-indigo-600 text-white border-indigo-500 shadow-md" : "bg-slate-800 text-slate-400 border-slate-700"} px-3 py-2 text-xs font-medium shrink-0 cursor-pointer" onclick="switchSchedule(${idx})">
                         <span>Группа ${sch.groupName}</span>
-                        <button onclick="deleteSchedule(event, ${idx})" class="ml-2 text-slate-300 hover:text-red-400">✕</button>
+                        <button type="button" onclick="deleteSchedule(event, ${idx})" class="ml-2 text-slate-300 hover:text-red-400">✕</button>
                     </div>
                 `;
             });
@@ -855,7 +817,7 @@
             const container = document.getElementById('scheduleList');
             if (!current || !current.rawRows) {
                 document.getElementById('schedHeaderInfo').innerText = "Расписание не выбрано";
-                container.innerHTML = `<div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 text-center space-y-3"><div class="text-slate-400 text-sm">У вас пока не загружено расписание</div><button onclick="openAddSchedule()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2.5 rounded-xl transition">📁 Загрузить файл (.xls / .xlsx)</button></div>`;
+                container.innerHTML = `<div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 text-center space-y-3"><div class="text-slate-400 text-sm">У вас пока не загружено расписание</div><button type="button" onclick="openAddSchedule()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2.5 rounded-xl transition">📁 Загрузить файл (.xls / .xlsx)</button></div>`;
                 return;
             }
 
@@ -867,7 +829,7 @@
                 let groupColIdx = -1, headerRowIdx = -1;
                 for (let r = 0; r < Math.min(15, rows.length); r++) {
                     for (let c = 0; c < rows[r].length; c++) {
-                        if ((rows[r][c] || '').toString().trim() === current.groupName) { groupColIdx = c; headerRowIdx = r; break; }
+                        if (String(rows[r][c] || '').trim() === current.groupName) { groupColIdx = c; headerRowIdx = r; break; }
                     }
                     if (groupColIdx !== -1) break;
                 }
@@ -878,18 +840,18 @@
                 for (let r = headerRowIdx + 1; r < rows.length; r++) {
                     let row = rows[r];
                     if (!row) continue;
-                    let dayCandidate = ((row[dayColIdx] || row[0] || '')).toString().trim().toLowerCase();
+                    let dayCandidate = String(row[dayColIdx] || row[0] || '').trim().toLowerCase();
                     if (/^(понедельник|вторник|среда|четверг|пятница|суббота)$/.test(dayCandidate)) {
                         currentDay = dayCandidate.charAt(0).toUpperCase() + dayCandidate.slice(1);
                     }
 
-                    let timeVal = (row[timeColIdx] || row[1] || '').toString().trim();
+                    let timeVal = String(row[timeColIdx] || row[1] || '').trim();
                     if (!/\d{1,2}[\.:]\d{2}\s*-\s*\d{1,2}[\.:]\d{2}/.test(timeVal)) continue;
 
-                    let upperVal = (rows[r][groupColIdx] || '').toString().trim();
+                    let upperVal = String(rows[r][groupColIdx] || '').trim();
                     let nextRow = rows[r + 1] || [];
-                    let lowerVal = (nextRow[groupColIdx] || '').toString().trim();
-                    let nextTimeVal = (nextRow[timeColIdx] || nextRow[1] || '').toString().trim();
+                    let lowerVal = String(nextRow[groupColIdx] || '').trim();
+                    let nextTimeVal = String(nextRow[timeColIdx] || nextRow[1] || '').trim();
                     let hasSecondRow = !(/\d{1,2}[\.:]\d{2}\s*-\s*\d{1,2}[\.:]\d{2}/.test(nextTimeVal));
                     let isMerged = isCellMergedVertically(merges, r, groupColIdx);
 
