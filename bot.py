@@ -5,7 +5,7 @@ from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 API_TOKEN = '8789843979:AAEKRzTP8Fpas-TBEHvg7m9Ek0bQPOzegEM' # Твой токен от BotFather
-WEB_APP_URL = 'http://ptk-diary.ru/' # Сюда укажешь ссылку на хостинг, где будет лежать index.html
+WEB_APP_URL = 'https://artemafrizonov2-bot.github.io/dnevnik/' # Сюда укажешь ссылку на хостинг, где будет лежать index.html
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
