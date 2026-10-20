@@ -4,8 +4,8 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-API_TOKEN = '8966187302:AAH...ТВОЙ_ТОКЕН' # Твой токен от BotFather
-WEB_APP_URL = 'https://твой-сайт.com' # Сюда укажешь ссылку на хостинг, где будет лежать index.html
+API_TOKEN = '8966187302:AAFtVDy98EZRhaKBmc8iOO8fFAc56J86Mhg' # Твой токен от BotFather
+WEB_APP_URL = 'https://artemafrizonov2-bot.github.io/dnevnik/' # Сюда укажешь ссылку на хостинг, где будет лежать index.html
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
