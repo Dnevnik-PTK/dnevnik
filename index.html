@@ -117,7 +117,6 @@
             document.getElementById('authScreen').classList.remove('hidden');
         }
 
-        // Шаг А: Скачиваем таблицу и выводим все доступные колонки на выбор
         async function loadColumns() {
             const groupName = document.getElementById('groupNameInput').value.trim();
             if (!groupName) {
@@ -149,7 +148,6 @@
                 colSelect.innerHTML = '<option value="">Выбери столбец с фамилиями...</option>';
 
                 keys.forEach((key) => {
-                    // Покажем пример первой строки для каждого столбца, чтобы было понятно, где фамилии
                     const sample = cachedRows[0][key] || '';
                     colSelect.innerHTML += `<option value="${key}">${key} (пример: ${sample})</option>`;
                 });
@@ -162,7 +160,6 @@
             }
         }
 
-        // Шаг Б: Когда пользователь выбрал нужный столбец, подгружаем список студентов из него
         function loadStudentsFromColumn() {
             chosenNameKey = document.getElementById('columnSelect').value;
             if (!chosenNameKey) return;
@@ -249,12 +246,17 @@
 
         function parseCSV(text) {
             let lines = text.split("\n");
+            if (lines.length === 0) return [];
+
+            let firstLine = lines[0];
+            let delimiter = firstLine.includes(';') ? ';' : ',';
+
+            let headers = firstLine.split(delimiter).map(h => h.replace(/^"|"$/g, '').trim());
             let result = [];
-            let headers = lines[0].split(",").map(h => h.replace(/^"|"$/g, '').trim());
 
             for (let i = 1; i < lines.length; i++) {
                 if (!lines[i].trim()) continue;
-                let currentline = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                let currentline = lines[i].split(delimiter);
                 let obj = {};
                 for (let j = 0; j < headers.length; j++) {
                     let val = currentline[j] ? currentline[j].replace(/^"|"$/g, '').trim() : "";
