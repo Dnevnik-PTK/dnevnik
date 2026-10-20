@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Мой Дневник</title>
+    <!-- Подключаем Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Подключаем Telegram Web App JS SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen p-4">
@@ -29,7 +31,7 @@
         <!-- Шаг 2: Ввод группы и выбор ФИО -->
         <div id="authScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 hidden">
             <h2 class="font-semibold text-lg">Выбор группы и ФИО</h2>
-
+            
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Название группы (вкладки внизу таблицы)</label>
                 <div class="flex gap-2">
@@ -103,6 +105,20 @@
             document.getElementById('authScreen').classList.remove('hidden');
         }
 
+        // Умный поиск колонки с именами
+        function findNameKey(keys, rows) {
+            let found = keys.find(k => /name|фио|студент|ф\.и\.о\.|фамилия/i.test(k));
+            if (found) return found;
+
+            for (let k of keys) {
+                const sample = rows[0] && rows[0][k];
+                if (sample && isNaN(sample) && sample.trim().includes(' ')) {
+                    return k;
+                }
+            }
+            return keys[1] || keys[0];
+        }
+
         async function loadStudents() {
             const groupName = document.getElementById('groupNameInput').value.trim();
             if (!groupName) {
@@ -111,33 +127,41 @@
             }
             currentGroupName = groupName;
 
+            const btn = event.target;
+            const oldText = btn.innerText;
+            btn.innerText = "Ищем...";
+
             try {
                 const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(groupName)}`;
                 const response = await fetch(url);
-                if (!response.ok) throw new Error("Не удалось загрузить данные вкладки");
-
+                
+                if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
+                
                 const text = await response.text();
-                const rows = parseCSV(text);
-
-                if (rows.length === 0) {
-                    alert('В этой группе нет данных или вкладка пуста');
-                    return;
+                if (text.includes("<!DOCTYPE html>") || text.includes("<html")) {
+                    throw new Error("Таблица не найдена или вкладка не существует.");
                 }
 
+                const rows = parseCSV(text);
+                if (rows.length === 0) throw new Error('В этой группе нет данных');
+
                 const keys = Object.keys(rows[0]);
-                let nameKey = keys.find(k => /name|фио|студент|ф\.и\.о\./i.test(k)) || keys[0];
+                let nameKey = findNameKey(keys, rows);
 
                 const select = document.getElementById('studentSelect');
                 select.innerHTML = '<option value="">Выбери свое ФИО</option>';
                 rows.forEach((row, idx) => {
-                    if (row[nameKey]) {
-                        select.innerHTML += `<option value="${idx}" data-name="${row[nameKey]}">${row[nameKey]}</option>`;
+                    let nameVal = row[nameKey];
+                    if (nameVal && isNaN(nameVal)) {
+                        select.innerHTML += `<option value="${idx}" data-name="${nameVal}">${nameVal}</option>`;
                     }
                 });
 
                 document.getElementById('studentBlock').classList.remove('hidden');
             } catch (e) {
-                alert('Ошибка при загрузке студентов. Проверьте правильность названия группы и доступ к таблице.');
+                alert('Ошибка: ' + e.message);
+            } finally {
+                btn.innerText = oldText;
             }
         }
 
@@ -145,7 +169,7 @@
             const select = document.getElementById('studentSelect');
             const opt = select.options[select.selectedIndex];
             const studentName = opt ? opt.getAttribute('data-name') : null;
-
+            
             if (!studentName) {
                 alert('Выберите свое ФИО из списка');
                 return;
@@ -174,7 +198,7 @@
                 const rows = parseCSV(text);
 
                 const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
-                let nameKey = keys.find(k => /name|фио|студент|ф\.и\.о\./i.test(k)) || keys[0];
+                let nameKey = findNameKey(keys, rows);
 
                 const row = rows.find(r => r[nameKey] === profile.studentName);
                 if (!row) {
@@ -188,8 +212,7 @@
                 for (let [key, val] of Object.entries(row)) {
                     if (key === nameKey) continue;
                     if (!val || val.trim() === '' || val.trim() === '—' || val.trim() === '-') continue;
-                    if (/Unnamed|№/i.test(key)) continue;
-                    if (!/[а-яё]/i.test(key)) continue; // Только русские названия предметов
+                    if (/Unnamed|№ п\/п/i.test(key)) continue;
 
                     html += `
                         <div class="bg-slate-800 p-3.5 rounded-xl flex justify-between items-center shadow">
