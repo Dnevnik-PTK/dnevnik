@@ -46,7 +46,7 @@
                 <div>
                     <div class="flex items-center gap-2">
                         <h1 id="topScreenTitle" class="text-lg font-bold tracking-tight text-white">Расписание</h1>
-                        <span class="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full font-mono">v5.0</span>
+                        <span class="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full font-mono">v5.1</span>
                     </div>
                     <p id="topScreenSubtitle" class="text-[11px] text-slate-400">НовГУ • Студенческий помощник</p>
                 </div>
@@ -60,7 +60,6 @@
 
         <!-- ==================== ЭКРАН 1: РАСПИСАНИЕ ==================== -->
         <section id="scheduleSection" class="space-y-3.5">
-            <!-- Вкладки сохраненных групп + кнопка добавления -->
             <div class="flex items-center justify-between gap-2">
                 <div id="scheduleTabs" class="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5"></div>
                 <div class="flex gap-1.5 shrink-0">
@@ -69,10 +68,8 @@
                 </div>
             </div>
 
-            <!-- Календарная полоска дней (Пн - Вс) -->
             <div id="weekDaysBar" class="grid grid-cols-7 gap-1.5"></div>
 
-            <!-- Переключатели: День / Неделя и Верхняя / Нижняя -->
             <div class="grid grid-cols-2 gap-2">
                 <div class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1">
                     <button type="button" id="btnModeDay" onclick="setScheduleViewMode('day')" class="py-1.5 rounded-xl text-xs font-semibold transition blue-glow text-white">День</button>
@@ -84,26 +81,22 @@
                 </div>
             </div>
 
-            <!-- Заголовок выбранной даты -->
             <div class="flex justify-between items-center px-1 pt-0.5">
                 <h2 id="selectedDateHeading" class="text-sm font-bold text-white">Понедельник</h2>
                 <span id="schedSubInfo" class="text-[11px] text-slate-400"></span>
             </div>
 
-            <!-- Список карточек пар -->
             <div id="scheduleList" class="space-y-2.5"></div>
         </section>
 
         <!-- ==================== ЭКРАН 2: ИЗМЕНЕНИЯ В РАСПИСАНИИ ==================== -->
         <section id="changesSection" class="space-y-3.5 hidden">
-            <!-- Фильтры: Все | Переносы | Отмены -->
             <div class="pill-bar p-1 rounded-2xl grid grid-cols-3 gap-1">
                 <button type="button" id="chgFilterAll" onclick="setChangesTypeFilter('ALL')" class="py-2 rounded-xl text-xs font-semibold transition blue-glow text-white">Все</button>
                 <button type="button" id="chgFilterMove" onclick="setChangesTypeFilter('MOVE')" class="py-2 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white">Переносы</button>
                 <button type="button" id="chgFilterCancel" onclick="setChangesTypeFilter('CANCEL')" class="py-2 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white">Отмены</button>
             </div>
 
-            <!-- Панель управления и выбор дат (последние 5 дней) -->
             <div class="app-card p-3.5 rounded-2xl space-y-3">
                 <div class="flex justify-between items-center gap-2">
                     <div>
@@ -121,20 +114,17 @@
                     </div>
                 </div>
 
-                <!-- Даты замен (только последние 5 дней) -->
                 <div id="portalFilesContainer" class="hidden space-y-1.5 pt-2 border-t border-slate-800">
                     <div class="text-[10px] text-slate-400 uppercase tracking-wider">Выберите дату (последние 5 дней):</div>
                     <div id="portalFilesList" class="flex flex-wrap gap-1.5"></div>
                 </div>
 
-                <!-- Фильтр по группе -->
                 <div class="space-y-1.5 pt-2 border-t border-slate-800">
                     <div class="text-[10px] text-slate-400 uppercase tracking-wider">Группа:</div>
                     <div id="changesGroupFilter" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5"></div>
                 </div>
             </div>
 
-            <!-- Список карточек изменений -->
             <div id="changesList" class="space-y-2.5"></div>
 
             <div class="text-center pt-1">
@@ -146,7 +136,6 @@
 
         <!-- ==================== ЭКРАН 3: ДОМАШНИЕ ЗАДАНИЯ ==================== -->
         <section id="tasksSection" class="space-y-3.5 hidden">
-            <!-- Фильтры заданий: Все | Сегодня | Неделя | Просроченные -->
             <div class="pill-bar p-1 rounded-2xl grid grid-cols-4 gap-1">
                 <button type="button" id="taskFilterAll" onclick="setTaskFilter('ALL')" class="py-2 rounded-xl text-[11px] font-semibold transition blue-glow text-white">Все</button>
                 <button type="button" id="taskFilterToday" onclick="setTaskFilter('TODAY')" class="py-2 rounded-xl text-[11px] font-medium transition text-slate-400 hover:text-white">Сегодня</button>
@@ -159,7 +148,6 @@
                 <button type="button" onclick="openAddTaskModal()" class="text-xs text-blue-400 font-semibold hover:text-blue-300">➕ Добавить</button>
             </div>
 
-            <!-- Список домашних заданий -->
             <div id="tasksList" class="space-y-2.5"></div>
         </section>
 
@@ -208,7 +196,7 @@
                 <button type="button" id="btnMarksAll" onclick="setMarksViewMode('all')" class="py-2 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white">Все оценки</button>
             </div>
 
-            <!-- Полоска переключения предметов (в режиме Все оценки) -->
+            <!-- Полоска переключения предметов -->
             <div id="subjectsTabs" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5"></div>
 
             <!-- Список предметов или оценок -->
@@ -368,7 +356,7 @@
             </div>
 
             <div class="text-center space-y-2 pt-2">
-                <div class="text-[11px] text-slate-500">Версия 5.0</div>
+                <div class="text-[11px] text-slate-500">Версия 5.1</div>
                 <div class="inline-flex items-center gap-2 text-slate-400 text-xs">
                     <span>🏛️</span>
                     <span class="font-semibold">НовГУ • Студенческий помощник</span>
@@ -378,7 +366,7 @@
 
     </div>
 
-    <!-- НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ (4 ВКЛАДКИ КАК НА МАКЕТЕ) -->
+    <!-- НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ -->
     <nav class="fixed bottom-0 left-0 right-0 bg-[#0a1222]/95 backdrop-blur-md border-t border-[#1b2a46] px-3 py-2 z-50">
         <div class="max-w-md mx-auto grid grid-cols-4 gap-1">
             <button type="button" id="navScheduleBtn" onclick="switchSection('schedule')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition blue-glow text-white">
@@ -428,18 +416,18 @@
         let subjects = [], activeSubjectIndex = 0;
         let schedules = [], activeScheduleIndex = 0;
         let currentSelectedWeek = 'upper';
-        let scheduleViewMode = 'day'; // 'day' | 'week'
-        let selectedDayIndex = 0; // 0 = Пн ... 6 = Вс
+        let scheduleViewMode = 'day';
+        let selectedDayIndex = 0;
 
         let changesData = { dateTitle: 'Изменения в расписании', fileName: '', items: [], portalFiles: [] };
         let activeChangesGroupFilter = 'ALL';
-        let activeChangesTypeFilter = 'ALL'; // 'ALL' | 'MOVE' | 'CANCEL'
+        let activeChangesTypeFilter = 'ALL';
 
         let tasks = [];
         let activeTaskFilter = 'ALL';
 
-        let marksViewMode = 'subjects'; // 'subjects' | 'all'
-        let cachedSubjectSummaries = {}; // кэш средних и итоговых оценок по предметам
+        let marksViewMode = 'subjects';
+        let cachedSubjectSummaries = {};
         let selectedGroupForMarks = '';
         let tempMarksWorkbook = null, tempExcelData = null;
 
@@ -452,7 +440,6 @@
             } catch(e) {}
             try { tasks = JSON.parse(localStorage.getItem(STORAGE_TASKS_KEY)) || getDefaultTasks(); } catch(e) { tasks = getDefaultTasks(); }
 
-            // Вычисляем сегодняшний день недели (Пн=0 .. Вс=6)
             const jsDay = new Date().getDay();
             selectedDayIndex = jsDay === 0 ? 6 : jsDay - 1;
 
@@ -599,7 +586,6 @@
                 bar.appendChild(btn);
             }
 
-            // Обновляем заголовок выбранной даты
             const selDate = new Date(monday);
             selDate.setDate(monday.getDate() + selectedDayIndex);
             const headingEl = document.getElementById('selectedDateHeading');
@@ -636,7 +622,6 @@
             l.className = currentSelectedWeek === 'lower' ? "py-1.5 rounded-xl text-xs font-semibold transition blue-glow text-white" : "py-1.5 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white";
         }
 
-        // Разбираем строку пары НовГУ на предмет, преподавателя и аудиторию
         function parseLessonDetails(rawText) {
             const str = String(rawText || '').trim();
             let aud = '';
@@ -1243,7 +1228,7 @@
             container.innerHTML = html;
         }
 
-        // ================= ЭКРАН 4: ОЦЕНКИ (СРЕДНИЙ БАЛЛ + ДИАГРАММА) =================
+        // ================= ЭКРАН 4: ОЦЕНКИ (ТОЧНЫЙ ИТОГ ИЗ ТАБЛИЦЫ) =================
         function setMarksViewMode(mode) {
             marksViewMode = mode;
             document.getElementById('btnMarksBySubj').className = mode === 'subjects' ? "py-2 rounded-xl text-xs font-semibold transition blue-glow text-white" : "py-2 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white";
@@ -1251,13 +1236,21 @@
             loadMarksForActiveSubject();
         }
 
-        function updateAverageSummaryCard(numericGrades) {
+        // Проверяем, является ли колонка итоговым средним баллом в таблице преподавателя
+        function isSummaryGradeColumn(headerText) {
+            const h = String(headerText || '').trim();
+            // Срабатывает на "Итог", "ИТОГ ПРАКТИКА", "ИТОГ 1 СЕМЕСТР", "итог ДМ", "Средний балл"
+            // НЕ срабатывает на обычные проверочные работы типа "Итог Мн-ва стр 63№1.12,1.18"
+            return /^(итог|итог\s+практика|итог\s+1\s*семестр|итог\s+дм|средний\s+балл)(\s*•.*)?$/i.test(h);
+        }
+
+        function updateAverageSummaryCard(finalAvgValue, displayStr) {
             const bigEl = document.getElementById('avgGradeBig');
             const pctEl = document.getElementById('avgPercentText');
             const circleEl = document.getElementById('avgCircleStroke');
             const barEl = document.getElementById('avgHorizontalBar');
 
-            if (!numericGrades || numericGrades.length === 0) {
+            if (finalAvgValue === null || isNaN(finalAvgValue)) {
                 bigEl.innerText = '—';
                 pctEl.innerText = '0%';
                 circleEl.setAttribute('stroke-dasharray', '0, 100');
@@ -1265,11 +1258,8 @@
                 return;
             }
 
-            const sum = numericGrades.reduce((a, b) => a + b, 0);
-            const avg = sum / numericGrades.length;
-            const pct = Math.min(100, Math.round((avg / 5) * 100));
-
-            bigEl.innerText = avg.toFixed(1).replace('.', ',');
+            const pct = Math.min(100, Math.max(0, Math.round((finalAvgValue / 5) * 100)));
+            bigEl.innerText = displayStr || finalAvgValue.toFixed(2).replace('.', ',');
             pctEl.innerText = `${pct}%`;
             circleEl.setAttribute('stroke-dasharray', `${pct}, 100`);
             barEl.style.width = `${pct}%`;
@@ -1421,7 +1411,7 @@
             renderSubjectTabs();
 
             if (!current) {
-                updateAverageSummaryCard([]);
+                updateAverageSummaryCard(null, '—');
                 container.innerHTML = `
                     <div class="app-card rounded-3xl p-6 text-center space-y-3">
                         <div class="text-slate-300 text-sm font-semibold">Таблицы с оценками пока не добавлены</div>
@@ -1460,7 +1450,9 @@
                         }
 
                         const gradeItems = [];
-                        const numericGrades = [];
+                        const regularGrades = [];
+                        let officialFinalNum = null;
+                        let officialFinalStr = null;
 
                         for (let c = 0; c < studentRow.length; c++) {
                             if (c === nameColIdx || c === 0) continue;
@@ -1469,18 +1461,36 @@
                             if (!val || val === '—' || val === '-' || /#(DIV|ДЕЛ|VALUE|ЗНАЧ|REF|Н\/Д)/i.test(val)) continue;
                             if (/^(№|п\/п|№\s*п\/п)$/i.test(rawHeader)) continue;
 
+                            const isSummaryCol = isSummaryGradeColumn(rawHeader);
                             const num = parseFloat(val.replace(',', '.'));
-                            if (!isNaN(num) && num >= 2 && num <= 5 && !val.includes('%')) {
-                                numericGrades.push(num);
+
+                            if (!isNaN(num) && !val.includes('%')) {
+                                if (isSummaryCol) {
+                                    // Берем точный итоговый балл из колонки "Итог" / "ИТОГ ПРАКТИКА" таблицы преподавателя
+                                    officialFinalNum = num;
+                                    officialFinalStr = val.replace('.', ',');
+                                } else if (num >= 0 && num <= 10) {
+                                    // Учитываем все реальные оценки за работы (включая 0, 0.1, 1, 2, 3, 4, 5, 5.5)
+                                    regularGrades.push(num);
+                                }
                             }
-                            gradeItems.push({ header: rawHeader, val });
+                            gradeItems.push({ header: rawHeader, val: val.replace('.', ','), isSummary: isSummaryCol });
                         }
 
-                        updateAverageSummaryCard(numericGrades);
-                        const subjAvg = numericGrades.length > 0
-                            ? (numericGrades.reduce((a, b) => a + b, 0) / numericGrades.length).toFixed(1).replace('.', ',')
-                            : '—';
-                        cachedSubjectSummaries[activeSubjectIndex] = { avg: subjAvg, count: gradeItems.length };
+                        // Приоритет: официальная колонка "Итог" из таблицы, иначе среднее всех работ
+                        let finalAvgNum = officialFinalNum;
+                        let finalAvgStr = officialFinalStr;
+
+                        if (finalAvgNum === null && regularGrades.length > 0) {
+                            finalAvgNum = regularGrades.reduce((a, b) => a + b, 0) / regularGrades.length;
+                            finalAvgStr = finalAvgNum.toFixed(2).replace(/\.?0+$/, '').replace('.', ',');
+                        }
+
+                        updateAverageSummaryCard(finalAvgNum, finalAvgStr);
+                        cachedSubjectSummaries[activeSubjectIndex] = {
+                            avg: finalAvgStr || '—',
+                            count: regularGrades.length || gradeItems.length
+                        };
 
                         if (marksViewMode === 'subjects') {
                             let subjHtml = '';
@@ -1493,7 +1503,7 @@
                                             <div class="w-11 h-11 rounded-2xl pill-bar flex items-center justify-center text-blue-400 font-bold text-base">${icon}</div>
                                             <div>
                                                 <div class="font-bold text-sm text-white">${s.subjectName}</div>
-                                                <div class="text-xs text-slate-400 mt-0.5">Гр. ${s.groupName} ${summary.count ? `• Оценок: ${summary.count}` : ''}</div>
+                                                <div class="text-xs text-slate-400 mt-0.5">Гр. ${s.groupName} ${summary.count ? `• Работ: ${summary.count}` : ''}</div>
                                             </div>
                                         </div>
                                         <div class="flex items-center gap-2">
@@ -1507,10 +1517,12 @@
                         } else {
                             let html = '';
                             gradeItems.forEach(item => {
+                                const cardBorder = item.isSummary ? 'border-blue-500/60 bg-blue-950/20' : '';
+                                const badgeCls = item.isSummary ? 'blue-glow text-white' : 'pill-bar text-blue-400';
                                 html += `
-                                    <div class="app-card p-3.5 rounded-2xl flex justify-between items-center gap-3">
-                                        <span class="text-xs text-slate-200 leading-snug">${item.header}</span>
-                                        <span class="pill-bar text-blue-400 font-extrabold px-3 py-1.5 rounded-xl text-sm shrink-0">${item.val}</span>
+                                    <div class="app-card p-3.5 rounded-2xl flex justify-between items-center gap-3 ${cardBorder}">
+                                        <span class="text-xs ${item.isSummary ? 'font-bold text-blue-300 uppercase' : 'text-slate-200'} leading-snug">${item.header}</span>
+                                        <span class="${badgeCls} font-extrabold px-3 py-1.5 rounded-xl text-sm shrink-0">${item.val}</span>
                                     </div>
                                 `;
                             });
