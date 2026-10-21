@@ -20,14 +20,14 @@ app.use((req, res, next) => {
     next();
 });
 
-// Извлекаем все ссылки <a> со страницы
+// Извлекаем все ссылки <a> со страницы НовГУ (даже если href без кавычек)
 function extractLinksFromHtml(html, baseUrl) {
     const links = [];
-    const regex = /<a\s+[^>]*href=["']?([^"'\s>]+)["']?[^>]*>([\s\S]*?)<\/a>/gi;
+    const regex = /<a\s+[^>]*href=(?:["']([^"']+)["']|([^\s>]+))[^>]*>([\s\S]*?)<\/a>/gi;
     let m;
     while ((m = regex.exec(html)) !== null) {
-        const rawHref = m[1].replace(/&amp;/g, '&').trim();
-        const text = m[2].replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+        const rawHref = (m[1] || m[2] || '').replace(/&amp;/g, '&').trim();
+        const text = (m[3] || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
         if (!rawHref || rawHref.startsWith('#') || rawHref.startsWith('javascript:')) continue;
         try {
             const fullUrl = new URL(rawHref, baseUrl).href;
@@ -37,7 +37,7 @@ function extractLinksFromHtml(html, baseUrl) {
     return links;
 }
 
-// Получаем ТОЛЬКО последние 5 файлов замен (строго с датой ДД.ММ.ГГ в названии)
+// Замены (.docx) — строго последние 5 файлов с датой ДД.ММ.ГГ в названии
 async function getReplacementFilesList() {
     const pageUrl = 'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999';
     const response = await fetch(pageUrl, { headers: BROWSER_HEADERS });
@@ -58,11 +58,7 @@ async function getReplacementFilesList() {
         const timestamp = new Date(y, m, d).getTime();
 
         if (!files.some(f => f.url === link.url || f.title === link.text)) {
-            files.push({
-                title: link.text,
-                url: link.url,
-                timestamp: timestamp
-            });
+            files.push({ title: link.text, url: link.url, timestamp });
         }
     }
 
@@ -88,171 +84,151 @@ app.get('/api/changes', async (req, res) => {
 
         if (!targetUrl) {
             const files = await getReplacementFilesList();
-            if (files.length === 0) {
-                return res.status(404).json({ error: 'Файлы замен на странице НовГУ не найдены' });
-            }
+            if (files.length === 0) return res.status(404).json({ error: 'Файлы замен не найдены' });
             targetUrl = files[0].url;
             fileTitle = files[0].title;
         }
 
         const fileRes = await fetch(targetUrl, { headers: BROWSER_HEADERS });
-        if (!fileRes.ok) throw new Error(`Не удалось скачать файл замен (${fileRes.status})`);
+        if (!fileRes.ok) throw new Error(`Не удалось скачать файл (${fileRes.status})`);
 
         const arrayBuffer = await fileRes.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-
         res.setHeader('Content-Type', 'application/octet-stream');
         res.setHeader('X-File-Title', encodeURIComponent(fileTitle));
-        res.send(buffer);
+        res.send(Buffer.from(arrayBuffer));
     } catch (error) {
-        res.status(500).json({ error: 'Ошибка загрузки замен: ' + error.message });
+        res.status(500).json({ error: error.message });
     }
 });
 
-// Умный поиск столбца группы внутри книги Excel
-function findGroupInWorkbook(workbook, targetGroup, linkText) {
+// Поиск столбца нужной группы внутри скачанной книги Excel (.xls / .xlsx)
+function findGroupInWorkbook(workbook, targetGroup) {
     const cleanTarget = targetGroup.replace(/\s+/g, '');
 
     for (const sheetName of workbook.SheetNames) {
         const sheet = workbook.Sheets[sheetName];
         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
         const merges = sheet['!merges'] || [];
-        if (rows.length < 5) continue;
+        if (rows.length < 4) continue;
 
-        // 1. Ищем ячейку, где содержится номер нашей группы (например "5952", "гр. 5952", "5952 ")
+        // 1. Ищем ячейку, где написан номер нашей группы (например "5952")
         for (let r = 0; r < Math.min(35, rows.length); r++) {
             const row = rows[r] || [];
             for (let c = 0; c < row.length; c++) {
-                const cellText = String(row[c] || '').replace(/\s+/g, '');
-                if (cellText === cleanTarget || cellText.includes(cleanTarget)) {
-                    // Проверяем, что под этой ячейкой или рядом действительно идет расписание (дни недели)
-                    let hasDaysBelow = false;
-                    for (let rr = r + 1; rr < Math.min(r + 15, rows.length); rr++) {
-                        const rowStr = (rows[rr] || []).join(' ').toLowerCase();
-                        if (/понедельник|вторник|среда|8[\.:]30|10[\.:]20/.test(rowStr)) {
-                            hasDaysBelow = true;
-                            break;
-                        }
-                    }
-                    if (hasDaysBelow) {
-                        return {
-                            rows,
-                            merges,
-                            groupColIdx: c,
-                            headerRowIdx: r,
-                            sheet: sheetName
-                        };
-                    }
+                const cellVal = String(row[c] || '').replace(/\s+/g, '');
+                if (cellVal === cleanTarget || cellVal.includes(cleanTarget)) {
+                    return { rows, merges, groupColIdx: c, headerRowIdx: r, sheet: sheetName };
                 }
             }
         }
 
-        // 2. Если ссылка называлась ТОЧНО "5952" (файл на одну группу), а внутри шапки номер не вписан — ищем строку с "понедельник"
-        if (String(linkText).trim() === cleanTarget) {
-            for (let r = 0; r < Math.min(25, rows.length); r++) {
-                const row = rows[r] || [];
-                const c0 = String(row[0] || '').trim().toLowerCase();
-                if (c0 === 'понедельник') {
-                    // В стандартном шаблоне НовГУ: 0 = день, 1 = время, 2 = предмет
-                    const headerRow = Math.max(0, r - 1);
-                    if (!rows[headerRow]) rows[headerRow] = [];
-                    rows[headerRow][2] = targetGroup;
-                    return {
-                        rows,
-                        merges,
-                        groupColIdx: 2,
-                        headerRowIdx: headerRow,
-                        sheet: sheetName
-                    };
-                }
+        // 2. Если книга скачалась по прямой ссылке группы (на 1 группу), а шапка без номера — ищем строку "понедельник"
+        for (let r = 0; r < Math.min(25, rows.length); r++) {
+            const row = rows[r] || [];
+            const c0 = String(row[0] || '').trim().toLowerCase();
+            if (c0 === 'понедельник') {
+                const headerRow = Math.max(0, r - 1);
+                if (!rows[headerRow]) rows[headerRow] = [];
+                rows[headerRow][2] = targetGroup;
+                return { rows, merges, groupColIdx: 2, headerRowIdx: headerRow, sheet: sheetName };
             }
         }
     }
     return null;
 }
 
-// 3. Поиск и разбор расписания группы с сайта НовГУ (.xls / .xlsx)
+// 3. Точечный поиск и разбор расписания группы с сайта НовГУ
 app.get('/api/schedule/:group', async (req, res) => {
     try {
         const targetGroup = String(req.params.group || '').trim();
         if (!targetGroup) return res.status(400).json({ error: 'Не указан номер группы' });
 
-        const urlsToScan = [
-            'https://portal.novsu.ru/univer/timetable/spo/',
-            'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999'
+        // Сканируем обе страницы расписаний СПО НовГУ
+        const pagesToScan = [
+            'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999',
+            'https://portal.novsu.ru/univer/timetable/spo/'
         ];
 
-        const exactLinks = [];
-        const partialLinks = [];
-        const subPagesToScan = [];
+        const exactGroupLinks = [];
+        const neighborGroupLinks = [];
+        const collegeSubPages = [];
         const seenUrls = new Set();
 
-        const groupWordRegex = new RegExp(`(^|\\D)${targetGroup}(\\D|$)`);
+        const exactRegex = new RegExp(`(^|\\D)${targetGroup}(\\D|$)`);
+        const prefix3 = targetGroup.slice(0, 3);
+        const prefixRegex = new RegExp(`(^|\\D)${prefix3}\\d(\\D|$)`);
 
-        async function collectLinksFromPage(pageUrl) {
-            const pageRes = await fetch(pageUrl, { headers: BROWSER_HEADERS });
-            if (!pageRes.ok) return;
-            const html = await pageRes.text();
+        async function scanPage(pageUrl) {
+            const r = await fetch(pageUrl, { headers: BROWSER_HEADERS });
+            if (!r.ok) return;
+            const html = await r.text();
             const links = extractLinksFromHtml(html, pageUrl);
 
             for (const link of links) {
                 const decodedUrl = decodeURIComponent(link.url);
-                // Если на главной странице СПО есть ссылки на подстраницы колледжей (i.1473214/?id=...)
-                if (/univer\/timetable\/spo\/i\./i.test(link.url) && !/\.(xls|xlsx|doc|docx|pdf)($|\?)/i.test(link.url)) {
-                    if (!urlsToScan.includes(link.url) && !subPagesToScan.includes(link.url)) {
-                        subPagesToScan.push(link.url);
+                const combinedText = `${link.text} ${decodedUrl}`;
+
+                // Пропускаем файлы замен с датами вида 21.10.2026
+                if (/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(link.text)) continue;
+
+                // 1. Точное совпадение номера группы в тексте ссылки или в URL (например "5952" или "5951 5952 5953.xls")
+                if (link.text.trim() === targetGroup || exactRegex.test(combinedText)) {
+                    if (!seenUrls.has(link.url)) {
+                        exactGroupLinks.push(link);
+                        seenUrls.add(link.url);
                     }
                 }
-
-                if (link.text.trim() === targetGroup) {
+                // 2. Ссылка на соседние группы того же потока (например "5951" когда ищем "5952")
+                else if (prefix3.length === 3 && prefixRegex.test(combinedText)) {
                     if (!seenUrls.has(link.url)) {
-                        exactLinks.push(link);
+                        neighborGroupLinks.push(link);
                         seenUrls.add(link.url);
                     }
-                } else if (groupWordRegex.test(link.text) || groupWordRegex.test(decodedUrl)) {
-                    if (!seenUrls.has(link.url)) {
-                        partialLinks.push(link);
-                        seenUrls.add(link.url);
-                    }
+                }
+                // 3. Ссылки на подстраницы других колледжей СПО
+                else if (/univer\/timetable\/spo\/i\./i.test(link.url) && !pagesToScan.includes(link.url)) {
+                    if (!collegeSubPages.includes(link.url)) collegeSubPages.push(link.url);
                 }
             }
         }
 
-        for (const u of urlsToScan) {
-            try { await collectLinksFromPage(u); } catch (e) {}
+        for (const url of pagesToScan) {
+            try { await scanPage(url); } catch (e) {}
         }
 
-        // Если на первых двух страницах не нашли, проверяем подстраницы других колледжей СПО
-        if (exactLinks.length === 0 && partialLinks.length === 0) {
-            for (const subUrl of subPagesToScan.slice(0, 6)) {
-                try { await collectLinksFromPage(subUrl); } catch (e) {}
+        // Если на главных страницах не нашли, заглядываем в подстраницы колледжей
+        if (exactGroupLinks.length === 0 && neighborGroupLinks.length === 0) {
+            for (const subUrl of collegeSubPages.slice(0, 5)) {
+                try { await scanPage(subUrl); } catch (e) {}
             }
         }
 
-        const candidateLinks = [...exactLinks, ...partialLinks];
-        if (candidateLinks.length === 0) {
-            return res.status(404).json({ error: `Ссылка для группы ${targetGroup} не найдена на сайте НовГУ` });
+        const candidates = [...exactGroupLinks, ...neighborGroupLinks];
+        if (candidates.length === 0) {
+            return res.status(404).json({
+                error: `Группа ${targetGroup} не найдена в списке ссылок на сайте НовГУ`
+            });
         }
 
-        for (const cand of candidateLinks) {
+        const checkedFiles = [];
+
+        for (const cand of candidates) {
             try {
                 const fileRes = await fetch(cand.url, { headers: BROWSER_HEADERS });
                 if (!fileRes.ok) continue;
 
-                const contentType = (fileRes.headers.get('content-type') || '').toLowerCase();
                 const arrayBuffer = await fileRes.arrayBuffer();
                 const buffer = Buffer.from(arrayBuffer);
 
-                // Проверяем, не скачалась ли HTML-веб-страница вместо бинарного Excel-файла
-                const firstBytes = buffer.slice(0, 100).toString('utf8').trim().toLowerCase();
-                if (contentType.includes('text/html') || firstBytes.startsWith('<!doctype') || firstBytes.startsWith('<html')) {
-                    // Проваливаемся внутрь этой страницы и ищем прямую ссылку на .xls / .xlsx файл!
-                    const innerHtml = buffer.toString('utf8');
-                    const innerLinks = extractLinksFromHtml(innerHtml, cand.url);
+                // Если по ссылке открылась HTML-страница, ищем внутри неё прямые ссылки на .xls файлы
+                const headStr = buffer.slice(0, 120).toString('utf8').trim().toLowerCase();
+                if (headStr.startsWith('<!doctype') || headStr.startsWith('<html')) {
+                    const innerLinks = extractLinksFromHtml(buffer.toString('utf8'), cand.url);
                     for (const inner of innerLinks) {
-                        if (/\.(xlsx?|xls)($|\?)/i.test(inner.url) || groupWordRegex.test(inner.text) || /\/file\/\d+/i.test(inner.url)) {
+                        const decInner = decodeURIComponent(inner.url);
+                        if (exactRegex.test(`${inner.text} ${decInner}`) || /\.(xlsx?|xls)($|\?)/i.test(inner.url)) {
                             if (!seenUrls.has(inner.url)) {
-                                candidateLinks.push(inner);
+                                candidates.push(inner);
                                 seenUrls.add(inner.url);
                             }
                         }
@@ -260,11 +236,11 @@ app.get('/api/schedule/:group', async (req, res) => {
                     continue;
                 }
 
+                checkedFiles.push(cand.text || cand.url.split('/').pop());
                 const workbook = XLSX.read(buffer, { type: 'buffer' });
-                const result = findGroupInWorkbook(workbook, targetGroup, cand.text);
+                const result = findGroupInWorkbook(workbook, targetGroup);
 
                 if (result) {
-                    // Гарантируем, что в ячейке заголовка стоит точный номер группы для клиента
                     if (!result.rows[result.headerRowIdx]) result.rows[result.headerRowIdx] = [];
                     result.rows[result.headerRowIdx][result.groupColIdx] = targetGroup;
 
@@ -281,16 +257,18 @@ app.get('/api/schedule/:group', async (req, res) => {
             } catch (e) {}
         }
 
-        return res.status(404).json({ error: `Группа ${targetGroup} не найдена в файлах расписания НовГУ` });
+        return res.status(404).json({
+            error: `Проверены файлы (${checkedFiles.join(', ') || '0'}), но таблица группы ${targetGroup} не распознана`
+        });
     } catch (error) {
         res.status(500).json({ error: 'Ошибка сервера: ' + error.message });
     }
 });
 
 app.get('/', (req, res) => {
-    res.send('PTK Diary Server v4.2 is Live!');
+    res.send('PTK Server v4.3 is Live!');
 });
 
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`Server v4.3 is running on port ${PORT}`);
 });
