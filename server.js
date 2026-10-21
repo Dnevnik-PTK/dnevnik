@@ -270,6 +270,5 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    setupTelegramWebhook(); // Включаем бота при старте сервера
+    console.log(`Server v4.3 is running on port ${PORT}`);
 });
