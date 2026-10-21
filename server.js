@@ -20,7 +20,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// Вспомогательная функция извлечения всех ссылок <a> со страницы НовГУ
+// Извлекаем все ссылки <a> со страницы
 function extractLinksFromHtml(html, baseUrl) {
     const links = [];
     const regex = /<a\s+[^>]*href=["']?([^"'\s>]+)["']?[^>]*>([\s\S]*?)<\/a>/gi;
@@ -37,7 +37,7 @@ function extractLinksFromHtml(html, baseUrl) {
     return links;
 }
 
-// Вспомогательная функция поиска файлов замен на странице НовГУ
+// Получаем ТОЛЬКО последние 5 файлов замен (строго с датой ДД.ММ.ГГ в названии)
 async function getReplacementFilesList() {
     const pageUrl = 'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999';
     const response = await fetch(pageUrl, { headers: BROWSER_HEADERS });
@@ -48,38 +48,31 @@ async function getReplacementFilesList() {
     const files = [];
 
     for (const link of allLinks) {
-        const isDocFile = /\.(docx?|xlsx?)(?:$|\?)/i.test(link.url) || /\.(docx?|xlsx?)/i.test(link.text);
-        const isDateNamed = /\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(link.text) || /\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(link.href);
-        const isNovsuFileId = /\/file\/\d+/i.test(link.url) && (isDateNamed || /замен|изменен|расписан/i.test(link.text));
+        // Берем ТОЛЬКО те ссылки, в тексте которых есть дата вида 21.10.2026 или 13.10.26 (отсекаем номера групп вроде 6901, 5911)
+        const dateMatch = link.text.match(/\b(\d{1,2})\.(\d{1,2})\.(\d{2,4})\b/);
+        if (!dateMatch) continue;
 
-        if (isDocFile || (isDateNamed && !/univer\/timetable\/(ochn|zaochn|session|spo\/?$)/i.test(link.url)) || isNovsuFileId) {
-            if (!files.some(f => f.url === link.url)) {
-                files.push({
-                    title: link.text || link.url.split('/').pop(),
-                    url: link.url
-                });
-            }
+        const d = parseInt(dateMatch[1], 10);
+        const m = parseInt(dateMatch[2], 10) - 1;
+        let y = parseInt(dateMatch[3], 10);
+        if (y < 100) y += 2000;
+        const timestamp = new Date(y, m, d).getTime();
+
+        if (!files.some(f => f.url === link.url || f.title === link.text)) {
+            files.push({
+                title: link.text,
+                url: link.url,
+                timestamp: timestamp
+            });
         }
     }
 
-    // Сортируем найденные файлы по дате в названии (например 21.10.2026), чтобы самый свежий был первым
-    files.sort((a, b) => {
-        const parseDate = (str) => {
-            const dm = String(str).match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/);
-            if (!dm) return 0;
-            const d = parseInt(dm[1], 10);
-            const m = parseInt(dm[2], 10) - 1;
-            let y = parseInt(dm[3], 10);
-            if (y < 100) y += 2000;
-            return new Date(y, m, d).getTime();
-        };
-        return parseDate(b.title) - parseDate(a.title);
-    });
-
-    return files;
+    // Сортируем от самой свежей даты к старым и оставляем ТОЛЬКО последние 5 дней
+    files.sort((a, b) => b.timestamp - a.timestamp);
+    return files.slice(0, 5).map(f => ({ title: f.title, url: f.url }));
 }
 
-// 1. Список всех доступных файлов замен (на сегодня / на завтра)
+// 1. Список последних 5 файлов замен
 app.get('/api/changes-list', async (req, res) => {
     try {
         const files = await getReplacementFilesList();
@@ -89,7 +82,7 @@ app.get('/api/changes-list', async (req, res) => {
     }
 });
 
-// 2. Скачивание конкретного или самого свежего .docx файла замен
+// 2. Скачивание файла замен (.docx)
 app.get('/api/changes', async (req, res) => {
     try {
         let targetUrl = req.query.url;
@@ -98,7 +91,7 @@ app.get('/api/changes', async (req, res) => {
         if (!targetUrl) {
             const files = await getReplacementFilesList();
             if (files.length === 0) {
-                return res.status(404).json({ error: 'Файлы замен (.docx) на странице НовГУ не найдены' });
+                return res.status(404).json({ error: 'Файлы замен на странице НовГУ не найдены' });
             }
             targetUrl = files[0].url;
             fileTitle = files[0].title;
@@ -118,42 +111,59 @@ app.get('/api/changes', async (req, res) => {
     }
 });
 
-// 3. Скачивание и разбор расписания группы с сайта НовГУ (.xls / .xlsx)
+// 3. Поиск и разбор расписания группы с сайта НовГУ (.xls / .xlsx)
 app.get('/api/schedule/:group', async (req, res) => {
     try {
         const targetGroup = String(req.params.group || '').trim();
         if (!targetGroup) return res.status(400).json({ error: 'Не указан номер группы' });
 
-        const spoUrl = 'https://portal.novsu.ru/univer/timetable/spo/';
-        const pageRes = await fetch(spoUrl, { headers: BROWSER_HEADERS });
-        if (!pageRes.ok) throw new Error(`Портал НовГУ недоступен (${pageRes.status})`);
-        const html = await pageRes.text();
+        // Проверяем обе страницы СПО на всякий случай
+        const urlsToScan = [
+            'https://portal.novsu.ru/univer/timetable/spo/',
+            'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999'
+        ];
 
-        const allLinks = extractLinksFromHtml(html, spoUrl);
-        const groupRegex = new RegExp(`(^|\\D)${targetGroup}(\\D|$)`);
-        const prefix3 = targetGroup.slice(0, 3);
-        const prefixRegex = new RegExp(`(^|\\D)${prefix3}\\d(\\D|$)`);
+        const exactLinks = [];
+        const partialLinks = [];
+        const seenUrls = new Set();
 
-        // Сначала ищем ссылку, в тексте или адресе которой прямо написана наша группа (например "5951 5952 5953")
-        const candidateLinks = [];
-        for (const link of allLinks) {
-            if (groupRegex.test(link.text) || groupRegex.test(decodeURIComponent(link.url))) {
-                candidateLinks.unshift(link); // Высший приоритет
-            } else if (prefix3.length === 3 && (prefixRegex.test(link.text) || /\.xlsx?$/i.test(link.url))) {
-                candidateLinks.push(link); // Запасной вариант, если 4-я группа внутри файла соседних групп
-            }
+        const groupWordRegex = new RegExp(`(^|\\D)${targetGroup}(\\D|$)`);
+
+        for (const pageUrl of urlsToScan) {
+            try {
+                const pageRes = await fetch(pageUrl, { headers: BROWSER_HEADERS });
+                if (!pageRes.ok) continue;
+                const html = await pageRes.text();
+                const links = extractLinksFromHtml(html, pageUrl);
+
+                for (const link of links) {
+                    const decodedUrl = decodeURIComponent(link.url);
+                    // Если текст ссылки в точности равен номеру группы (например "5952")
+                    if (link.text.trim() === targetGroup) {
+                        if (!seenUrls.has(link.url)) {
+                            exactLinks.push(link);
+                            seenUrls.add(link.url);
+                        }
+                    } else if (groupWordRegex.test(link.text) || groupWordRegex.test(decodedUrl)) {
+                        if (!seenUrls.has(link.url)) {
+                            partialLinks.push(link);
+                            seenUrls.add(link.url);
+                        }
+                    }
+                }
+            } catch (e) {}
         }
 
+        const candidateLinks = [...exactLinks, ...partialLinks];
         if (candidateLinks.length === 0) {
-            return res.status(404).json({ error: `Ссылка на расписание для группы ${targetGroup} не найдена на сайте НовГУ` });
+            return res.status(404).json({ error: `Группа ${targetGroup} не найдена в списке расписаний на сайте НовГУ` });
         }
 
         let foundData = null;
         let sheetNameFound = '';
         let fileTitleFound = '';
 
-        // Проверяем найденные кандидаты (обычно срабатывает самый первый файл за 0.5 сек)
-        for (const cand of candidateLinks.slice(0, 5)) {
+        for (const cand of candidateLinks) {
             try {
                 const excelRes = await fetch(cand.url, { headers: BROWSER_HEADERS });
                 if (!excelRes.ok) continue;
@@ -165,13 +175,15 @@ app.get('/api/schedule/:group', async (req, res) => {
                     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
                     const merges = sheet['!merges'] || [];
 
-                    for (let r = 0; r < Math.min(20, rows.length); r++) {
-                        for (let c = 0; c < (rows[r] || []).length; c++) {
-                            const val = String(rows[r][c] || '').trim();
-                            if (val === targetGroup) {
+                    for (let r = 0; r < Math.min(30, rows.length); r++) {
+                        const row = rows[r] || [];
+                        for (let c = 0; c < row.length; c++) {
+                            const val = String(row[c] || '').trim();
+                            // Ищем точное совпадение "5952" или запись вида "гр. 5952" в шапке
+                            if (val === targetGroup || groupWordRegex.test(val)) {
                                 foundData = { rows, merges, groupColIdx: c, headerRowIdx: r };
                                 sheetNameFound = sheetName;
-                                fileTitleFound = cand.text || 'Расписание НовГУ';
+                                fileTitleFound = cand.text || sheetName;
                                 break;
                             }
                         }
@@ -184,7 +196,7 @@ app.get('/api/schedule/:group', async (req, res) => {
         }
 
         if (!foundData) {
-            return res.status(404).json({ error: `Группа ${targetGroup} не найдена внутри таблиц расписания НовГУ` });
+            return res.status(404).json({ error: `Файл для группы ${targetGroup} скачан, но столбец группы внутри таблицы не найден` });
         }
 
         res.json({
@@ -199,7 +211,7 @@ app.get('/api/schedule/:group', async (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    res.send('PTK Diary Server v4.0 is Live!');
+    res.send('PTK Diary Server v4.1 is Live!');
 });
 
 app.listen(PORT, () => {
