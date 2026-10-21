@@ -18,7 +18,7 @@
             <div class="flex items-center gap-2">
                 <span class="text-xl">📊</span>
                 <h1 class="text-lg font-bold tracking-tight">Дневник ПТК</h1>
-                <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono">v4.0</span>
+                <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono">v4.1</span>
             </div>
             <button type="button" onclick="hardReset()" class="text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-xl transition">
                 Сброс
@@ -63,7 +63,6 @@
 
         <!-- ==================== РАЗДЕЛ 2: РАСПИСАНИЕ ==================== -->
         <div id="scheduleSection" class="space-y-4 hidden">
-            <!-- Вкладки сохраненных групп расписания -->
             <div class="space-y-2">
                 <div class="flex justify-between items-center px-1">
                     <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Мои группы расписания</span>
@@ -83,7 +82,6 @@
                     </button>
                 </div>
 
-                <!-- Переключатель Верхняя / Нижняя неделя -->
                 <div class="grid grid-cols-2 gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-700/60">
                     <button type="button" onclick="setWeekType('upper')" id="btnUpperWeek" class="py-2 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow">⬆️ Верхняя неделя</button>
                     <button type="button" onclick="setWeekType('lower')" id="btnLowerWeek" class="py-2 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white">⬇️ Нижняя неделя</button>
@@ -112,9 +110,9 @@
                     </div>
                 </div>
 
-                <!-- Кнопки выбора дат (файлов замен), найденных на сайте НовГУ -->
+                <!-- Кнопки выбора дат (ТОЛЬКО последние 5 дней) -->
                 <div id="portalFilesContainer" class="hidden space-y-1.5 pt-2 border-t border-slate-700/60">
-                    <div class="text-[11px] text-slate-400">Файлы замен на сайте НовГУ:</div>
+                    <div class="text-[11px] text-slate-400">Замены за последние 5 дней:</div>
                     <div id="portalFilesList" class="flex flex-wrap gap-1.5"></div>
                 </div>
 
@@ -127,7 +125,6 @@
 
             <div id="changesList" class="space-y-2.5"></div>
 
-            <!-- Ссылка на официальную страницу замен НовГУ -->
             <div class="text-center pt-1">
                 <a href="https://portal.novsu.ru/univer/timetable/spo/i.1473214//?id=2445999" target="_blank" class="inline-block bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-indigo-400 px-4 py-2.5 rounded-xl text-xs font-medium transition">
                     🌐 Открыть страницу замен на portal.novsu.ru ↗
@@ -172,11 +169,10 @@
                 <button type="button" onclick="switchSection('schedule')" class="text-xs text-slate-400 hover:text-white">Отмена</button>
             </div>
 
-            <!-- Способ 1: Автоматически с сайта НовГУ по номеру группы -->
             <div class="space-y-2">
                 <label class="block text-xs text-emerald-400 font-medium">Способ 1. Автоматически с сайта НовГУ:</label>
                 <div class="flex gap-2">
-                    <input type="text" id="serverGroupInput" placeholder="Введите номер группы (например: 5953)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
+                    <input type="text" id="serverGroupInput" placeholder="Введите номер группы (например: 5952)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
                     <button type="button" id="fetchSchedBtn" onclick="addScheduleFromServer()" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white px-4 rounded-xl text-xs font-bold shrink-0 transition">
                         Найти на сайте
                     </button>
@@ -193,7 +189,6 @@
                 </div>
             </div>
 
-            <!-- Способ 2: Из скачанного файла .xls / .xlsx -->
             <div class="space-y-2 pt-3 border-t border-slate-700/60">
                 <label class="block text-xs text-slate-400">Способ 2. Или выберите скачанный файл (.xls / .xlsx):</label>
                 <input type="file" id="excelFileInput" accept=".xls,.xlsx" onchange="handleExcelFileSelect(event)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-700 file:text-white">
@@ -215,7 +210,7 @@
 
         const STORAGE_MARKS_KEY = 'ptk_diary_subjects_v3';
         const STORAGE_SCHED_KEY = 'ptk_diary_schedules_v6';
-        const STORAGE_CHANGES_KEY = 'ptk_diary_changes_v7';
+        const STORAGE_CHANGES_KEY = 'ptk_diary_changes_v8';
         const RENDER_URL = 'https://dnevnik-1.onrender.com';
 
         let subjects = [], activeSubjectIndex = 0;
@@ -304,34 +299,39 @@
             }
         }
 
-        // ================= РАЗДЕЛ 3: ЗАМЕНЫ (ЧЕРЕЗ СЕРВЕР RENDER ИЛИ ФАЙЛ) =================
+        // ================= РАЗДЕЛ 3: ЗАМЕНЫ (ТОЛЬКО ПОСЛЕДНИЕ 5 ДНЕЙ) =================
+        function filterOnlyLast5DateFiles(files) {
+            return (files || [])
+                .filter(f => /\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(String(f.title || '')))
+                .slice(0, 5);
+        }
+
         async function fetchChangesFromPortal(specificUrl, specificTitle) {
             const statusEl = document.getElementById('changesStatusText');
             const listEl = document.getElementById('changesList');
             const btn = document.getElementById('fetchChangesBtn');
 
-            statusEl.innerText = "⏳ Связываемся с сервером (первый запуск может занять до 30 сек)...";
-            listEl.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Скачиваем свежий .docx файл замен с сайта НовГУ...</div>';
+            statusEl.innerText = "⏳ Загружаем замены с сайта НовГУ...";
+            listEl.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Получаем свежий документ замен...</div>';
             if (btn) btn.innerText = "⏳...";
 
             try {
-                // 1. Запрашиваем список всех файлов замен на странице НовГУ
                 if (!specificUrl) {
                     try {
                         const listRes = await fetch(`${RENDER_URL}/api/changes-list`);
                         if (listRes.ok) {
                             const listJson = await listRes.json();
-                            if (listJson.files && listJson.files.length > 0) {
-                                changesData.portalFiles = listJson.files;
+                            const cleanFiles = filterOnlyLast5DateFiles(listJson.files);
+                            if (cleanFiles.length > 0) {
+                                changesData.portalFiles = cleanFiles;
                                 renderPortalFilesButtons();
-                                specificUrl = listJson.files[0].url;
-                                specificTitle = listJson.files[0].title;
+                                specificUrl = cleanFiles[0].url;
+                                specificTitle = cleanFiles[0].title;
                             }
                         }
                     } catch (e) {}
                 }
 
-                // 2. Скачиваем сам бинарный файл .docx через сервер Render
                 let fetchUrl = `${RENDER_URL}/api/changes`;
                 if (specificUrl) {
                     fetchUrl += `?url=${encodeURIComponent(specificUrl)}&title=${encodeURIComponent(specificTitle || '')}`;
@@ -354,7 +354,7 @@
                 listEl.innerHTML = `
                     <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60 text-center space-y-2">
                         <div class="text-amber-400 text-xs font-medium">⚠️ ${e.message}</div>
-                        <div class="text-slate-300 text-xs">Если сервер на Render только обновляется, подождите 20 секунд и нажмите <b>«🔄 С сайта»</b> ещё раз, либо выберите скачанный файл кнопкой <b>«📁 .docx»</b>.</div>
+                        <div class="text-slate-300 text-xs">Попробуйте нажать <b>«🔄 С сайта»</b> ещё раз или выберите файл кнопкой <b>«📁 .docx»</b>.</div>
                     </div>
                 `;
             } finally {
@@ -366,12 +366,14 @@
             const block = document.getElementById('portalFilesContainer');
             const list = document.getElementById('portalFilesList');
             list.innerHTML = '';
-            if (!changesData.portalFiles || changesData.portalFiles.length === 0) {
+
+            const cleanFiles = filterOnlyLast5DateFiles(changesData.portalFiles);
+            if (cleanFiles.length === 0) {
                 block.classList.add('hidden');
                 return;
             }
             block.classList.remove('hidden');
-            changesData.portalFiles.forEach(f => {
+            cleanFiles.forEach(f => {
                 const isActive = changesData.fileName === f.title;
                 const cls = isActive ? "bg-indigo-600 text-white border-indigo-400 shadow" : "bg-slate-900 text-indigo-300 border-slate-700 hover:bg-slate-700";
                 const btn = document.createElement('button');
@@ -435,7 +437,6 @@
                 const row = rows[r].map(c => String(c || '').trim());
                 const c0 = row[0] || '', c1 = row[1] || '', c2 = row[2] || '', c3 = row[3] || '', c4 = row[4] || '';
 
-                // Пропускаем шапку таблицы ("№ группы") и подпись методиста
                 if (/групп/i.test(c0) || /дисциплина\s+по\s+расписанию/i.test(c2) || /методист/i.test(row.join(' '))) continue;
                 if (!c0 && !c1 && !c2 && !c3 && !c4) continue;
 
@@ -541,7 +542,7 @@
             container.innerHTML = html;
         }
 
-        // ================= РАЗДЕЛ 2: РАСПИСАНИЕ (МНОГО ГРУПП + СЕРВЕР НОВГУ + ФАЙЛ) =================
+        // ================= РАЗДЕЛ 2: РАСПИСАНИЕ =================
         function openAddSchedule() {
             document.getElementById('marksSection').classList.add('hidden');
             document.getElementById('scheduleSection').classList.add('hidden');
@@ -601,7 +602,6 @@
             const current = schedules[activeScheduleIndex];
             if (!current) { openAddSchedule(); return; }
 
-            const container = document.getElementById('scheduleList');
             document.getElementById('schedSubInfo').innerText = "⏳ Обновляем расписание с сайта НовГУ...";
 
             try {
@@ -637,7 +637,7 @@
                         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
                         allSheetsData[sheetName] = { rows, merges: sheet['!merges'] || [] };
 
-                        for (let r = 0; r < Math.min(15, rows.length); r++) {
+                        for (let r = 0; r < Math.min(20, rows.length); r++) {
                             for (let c = 0; c < rows[r].length; c++) {
                                 let val = String(rows[r][c] || '').trim();
                                 if (/^\d{4}[а-яa-z]*$/i.test(val) && !/^202\d$/.test(val)) {
@@ -722,10 +722,15 @@
 
             try {
                 const rows = current.rawRows, merges = current.merges || [];
+                const groupWordRegex = new RegExp(`(^|\\D)${current.groupName}(\\D|$)`);
                 let groupColIdx = -1, headerRowIdx = -1;
-                for (let r = 0; r < Math.min(20, rows.length); r++) {
+
+                for (let r = 0; r < Math.min(30, rows.length); r++) {
                     for (let c = 0; c < (rows[r] || []).length; c++) {
-                        if (String(rows[r][c] || '').trim() === current.groupName) { groupColIdx = c; headerRowIdx = r; break; }
+                        const val = String(rows[r][c] || '').trim();
+                        if (val === current.groupName || groupWordRegex.test(val)) {
+                            groupColIdx = c; headerRowIdx = r; break;
+                        }
                     }
                     if (groupColIdx !== -1) break;
                 }
