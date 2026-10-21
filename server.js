@@ -48,7 +48,6 @@ async function getReplacementFilesList() {
     const files = [];
 
     for (const link of allLinks) {
-        // Берем ТОЛЬКО те ссылки, в тексте которых есть дата вида 21.10.2026 или 13.10.26 (отсекаем номера групп вроде 6901, 5911)
         const dateMatch = link.text.match(/\b(\d{1,2})\.(\d{1,2})\.(\d{2,4})\b/);
         if (!dateMatch) continue;
 
@@ -67,7 +66,6 @@ async function getReplacementFilesList() {
         }
     }
 
-    // Сортируем от самой свежей даты к старым и оставляем ТОЛЬКО последние 5 дней
     files.sort((a, b) => b.timestamp - a.timestamp);
     return files.slice(0, 5).map(f => ({ title: f.title, url: f.url }));
 }
@@ -111,13 +109,74 @@ app.get('/api/changes', async (req, res) => {
     }
 });
 
+// Умный поиск столбца группы внутри книги Excel
+function findGroupInWorkbook(workbook, targetGroup, linkText) {
+    const cleanTarget = targetGroup.replace(/\s+/g, '');
+
+    for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        const merges = sheet['!merges'] || [];
+        if (rows.length < 5) continue;
+
+        // 1. Ищем ячейку, где содержится номер нашей группы (например "5952", "гр. 5952", "5952 ")
+        for (let r = 0; r < Math.min(35, rows.length); r++) {
+            const row = rows[r] || [];
+            for (let c = 0; c < row.length; c++) {
+                const cellText = String(row[c] || '').replace(/\s+/g, '');
+                if (cellText === cleanTarget || cellText.includes(cleanTarget)) {
+                    // Проверяем, что под этой ячейкой или рядом действительно идет расписание (дни недели)
+                    let hasDaysBelow = false;
+                    for (let rr = r + 1; rr < Math.min(r + 15, rows.length); rr++) {
+                        const rowStr = (rows[rr] || []).join(' ').toLowerCase();
+                        if (/понедельник|вторник|среда|8[\.:]30|10[\.:]20/.test(rowStr)) {
+                            hasDaysBelow = true;
+                            break;
+                        }
+                    }
+                    if (hasDaysBelow) {
+                        return {
+                            rows,
+                            merges,
+                            groupColIdx: c,
+                            headerRowIdx: r,
+                            sheet: sheetName
+                        };
+                    }
+                }
+            }
+        }
+
+        // 2. Если ссылка называлась ТОЧНО "5952" (файл на одну группу), а внутри шапки номер не вписан — ищем строку с "понедельник"
+        if (String(linkText).trim() === cleanTarget) {
+            for (let r = 0; r < Math.min(25, rows.length); r++) {
+                const row = rows[r] || [];
+                const c0 = String(row[0] || '').trim().toLowerCase();
+                if (c0 === 'понедельник') {
+                    // В стандартном шаблоне НовГУ: 0 = день, 1 = время, 2 = предмет
+                    const headerRow = Math.max(0, r - 1);
+                    if (!rows[headerRow]) rows[headerRow] = [];
+                    rows[headerRow][2] = targetGroup;
+                    return {
+                        rows,
+                        merges,
+                        groupColIdx: 2,
+                        headerRowIdx: headerRow,
+                        sheet: sheetName
+                    };
+                }
+            }
+        }
+    }
+    return null;
+}
+
 // 3. Поиск и разбор расписания группы с сайта НовГУ (.xls / .xlsx)
 app.get('/api/schedule/:group', async (req, res) => {
     try {
         const targetGroup = String(req.params.group || '').trim();
         if (!targetGroup) return res.status(400).json({ error: 'Не указан номер группы' });
 
-        // Проверяем обе страницы СПО на всякий случай
         const urlsToScan = [
             'https://portal.novsu.ru/univer/timetable/spo/',
             'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999'
@@ -125,93 +184,111 @@ app.get('/api/schedule/:group', async (req, res) => {
 
         const exactLinks = [];
         const partialLinks = [];
+        const subPagesToScan = [];
         const seenUrls = new Set();
 
         const groupWordRegex = new RegExp(`(^|\\D)${targetGroup}(\\D|$)`);
 
-        for (const pageUrl of urlsToScan) {
-            try {
-                const pageRes = await fetch(pageUrl, { headers: BROWSER_HEADERS });
-                if (!pageRes.ok) continue;
-                const html = await pageRes.text();
-                const links = extractLinksFromHtml(html, pageUrl);
+        async function collectLinksFromPage(pageUrl) {
+            const pageRes = await fetch(pageUrl, { headers: BROWSER_HEADERS });
+            if (!pageRes.ok) return;
+            const html = await pageRes.text();
+            const links = extractLinksFromHtml(html, pageUrl);
 
-                for (const link of links) {
-                    const decodedUrl = decodeURIComponent(link.url);
-                    // Если текст ссылки в точности равен номеру группы (например "5952")
-                    if (link.text.trim() === targetGroup) {
-                        if (!seenUrls.has(link.url)) {
-                            exactLinks.push(link);
-                            seenUrls.add(link.url);
-                        }
-                    } else if (groupWordRegex.test(link.text) || groupWordRegex.test(decodedUrl)) {
-                        if (!seenUrls.has(link.url)) {
-                            partialLinks.push(link);
-                            seenUrls.add(link.url);
-                        }
+            for (const link of links) {
+                const decodedUrl = decodeURIComponent(link.url);
+                // Если на главной странице СПО есть ссылки на подстраницы колледжей (i.1473214/?id=...)
+                if (/univer\/timetable\/spo\/i\./i.test(link.url) && !/\.(xls|xlsx|doc|docx|pdf)($|\?)/i.test(link.url)) {
+                    if (!urlsToScan.includes(link.url) && !subPagesToScan.includes(link.url)) {
+                        subPagesToScan.push(link.url);
                     }
                 }
-            } catch (e) {}
+
+                if (link.text.trim() === targetGroup) {
+                    if (!seenUrls.has(link.url)) {
+                        exactLinks.push(link);
+                        seenUrls.add(link.url);
+                    }
+                } else if (groupWordRegex.test(link.text) || groupWordRegex.test(decodedUrl)) {
+                    if (!seenUrls.has(link.url)) {
+                        partialLinks.push(link);
+                        seenUrls.add(link.url);
+                    }
+                }
+            }
+        }
+
+        for (const u of urlsToScan) {
+            try { await collectLinksFromPage(u); } catch (e) {}
+        }
+
+        // Если на первых двух страницах не нашли, проверяем подстраницы других колледжей СПО
+        if (exactLinks.length === 0 && partialLinks.length === 0) {
+            for (const subUrl of subPagesToScan.slice(0, 6)) {
+                try { await collectLinksFromPage(subUrl); } catch (e) {}
+            }
         }
 
         const candidateLinks = [...exactLinks, ...partialLinks];
         if (candidateLinks.length === 0) {
-            return res.status(404).json({ error: `Группа ${targetGroup} не найдена в списке расписаний на сайте НовГУ` });
+            return res.status(404).json({ error: `Ссылка для группы ${targetGroup} не найдена на сайте НовГУ` });
         }
-
-        let foundData = null;
-        let sheetNameFound = '';
-        let fileTitleFound = '';
 
         for (const cand of candidateLinks) {
             try {
-                const excelRes = await fetch(cand.url, { headers: BROWSER_HEADERS });
-                if (!excelRes.ok) continue;
-                const arrayBuffer = await excelRes.arrayBuffer();
-                const workbook = XLSX.read(Buffer.from(arrayBuffer), { type: 'buffer' });
+                const fileRes = await fetch(cand.url, { headers: BROWSER_HEADERS });
+                if (!fileRes.ok) continue;
 
-                for (const sheetName of workbook.SheetNames) {
-                    const sheet = workbook.Sheets[sheetName];
-                    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-                    const merges = sheet['!merges'] || [];
+                const contentType = (fileRes.headers.get('content-type') || '').toLowerCase();
+                const arrayBuffer = await fileRes.arrayBuffer();
+                const buffer = Buffer.from(arrayBuffer);
 
-                    for (let r = 0; r < Math.min(30, rows.length); r++) {
-                        const row = rows[r] || [];
-                        for (let c = 0; c < row.length; c++) {
-                            const val = String(row[c] || '').trim();
-                            // Ищем точное совпадение "5952" или запись вида "гр. 5952" в шапке
-                            if (val === targetGroup || groupWordRegex.test(val)) {
-                                foundData = { rows, merges, groupColIdx: c, headerRowIdx: r };
-                                sheetNameFound = sheetName;
-                                fileTitleFound = cand.text || sheetName;
-                                break;
+                // Проверяем, не скачалась ли HTML-веб-страница вместо бинарного Excel-файла
+                const firstBytes = buffer.slice(0, 100).toString('utf8').trim().toLowerCase();
+                if (contentType.includes('text/html') || firstBytes.startsWith('<!doctype') || firstBytes.startsWith('<html')) {
+                    // Проваливаемся внутрь этой страницы и ищем прямую ссылку на .xls / .xlsx файл!
+                    const innerHtml = buffer.toString('utf8');
+                    const innerLinks = extractLinksFromHtml(innerHtml, cand.url);
+                    for (const inner of innerLinks) {
+                        if (/\.(xlsx?|xls)($|\?)/i.test(inner.url) || groupWordRegex.test(inner.text) || /\/file\/\d+/i.test(inner.url)) {
+                            if (!seenUrls.has(inner.url)) {
+                                candidateLinks.push(inner);
+                                seenUrls.add(inner.url);
                             }
                         }
-                        if (foundData) break;
                     }
-                    if (foundData) break;
+                    continue;
                 }
-                if (foundData) break;
+
+                const workbook = XLSX.read(buffer, { type: 'buffer' });
+                const result = findGroupInWorkbook(workbook, targetGroup, cand.text);
+
+                if (result) {
+                    // Гарантируем, что в ячейке заголовка стоит точный номер группы для клиента
+                    if (!result.rows[result.headerRowIdx]) result.rows[result.headerRowIdx] = [];
+                    result.rows[result.headerRowIdx][result.groupColIdx] = targetGroup;
+
+                    return res.json({
+                        group: targetGroup,
+                        sheet: result.sheet,
+                        fileName: cand.text || result.sheet,
+                        rows: result.rows,
+                        merges: result.merges,
+                        groupColIdx: result.groupColIdx,
+                        headerRowIdx: result.headerRowIdx
+                    });
+                }
             } catch (e) {}
         }
 
-        if (!foundData) {
-            return res.status(404).json({ error: `Файл для группы ${targetGroup} скачан, но столбец группы внутри таблицы не найден` });
-        }
-
-        res.json({
-            group: targetGroup,
-            sheet: sheetNameFound,
-            fileName: fileTitleFound,
-            ...foundData
-        });
+        return res.status(404).json({ error: `Группа ${targetGroup} не найдена в файлах расписания НовГУ` });
     } catch (error) {
         res.status(500).json({ error: 'Ошибка сервера: ' + error.message });
     }
 });
 
 app.get('/', (req, res) => {
-    res.send('PTK Diary Server v4.1 is Live!');
+    res.send('PTK Diary Server v4.2 is Live!');
 });
 
 app.listen(PORT, () => {
