@@ -18,7 +18,7 @@
             <div class="flex items-center gap-2">
                 <span class="text-xl">📊</span>
                 <h1 class="text-lg font-bold tracking-tight">Дневник ПТК</h1>
-                <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono">v4.1</span>
+                <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono">v4.3</span>
             </div>
             <button type="button" onclick="hardReset()" class="text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-xl transition">
                 Сброс
@@ -82,6 +82,7 @@
                     </button>
                 </div>
 
+                <!-- Переключатель Верхняя / Нижняя неделя -->
                 <div class="grid grid-cols-2 gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-700/60">
                     <button type="button" onclick="setWeekType('upper')" id="btnUpperWeek" class="py-2 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow">⬆️ Верхняя неделя</button>
                     <button type="button" onclick="setWeekType('lower')" id="btnLowerWeek" class="py-2 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white">⬇️ Нижняя неделя</button>
@@ -162,13 +163,14 @@
             </div>
         </div>
 
-        <!-- ==================== ЭКРАН ДОБАВЛЕНИЯ РАСПИСАНИЯ ==================== -->
+        <!-- ==================== ЭКРАН ДОБАВЛЕНИЯ РАСПИСАНИЯ (БЕЗ ЛИШНИХ КНОПОК) ==================== -->
         <div id="setupScheduleScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 border border-slate-700/50 hidden">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base">Добавление расписания</h2>
                 <button type="button" onclick="switchSection('schedule')" class="text-xs text-slate-400 hover:text-white">Отмена</button>
             </div>
 
+            <!-- Способ 1: Автоматически с сайта НовГУ по номеру группы -->
             <div class="space-y-2">
                 <label class="block text-xs text-emerald-400 font-medium">Способ 1. Автоматически с сайта НовГУ:</label>
                 <div class="flex gap-2">
@@ -177,18 +179,9 @@
                         Найти на сайте
                     </button>
                 </div>
-                <div class="flex flex-wrap gap-1.5 pt-1">
-                    <button type="button" onclick="quickServerGroup('5951')" class="text-xs bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-slate-200">5951</button>
-                    <button type="button" onclick="quickServerGroup('5952')" class="text-xs bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-slate-200">5952</button>
-                    <button type="button" onclick="quickServerGroup('5953')" class="text-xs bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-slate-200">5953</button>
-                    <button type="button" onclick="quickServerGroup('5991')" class="text-xs bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-slate-200">5991</button>
-                    <button type="button" onclick="quickServerGroup('5992')" class="text-xs bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-slate-200">5992</button>
-                    <button type="button" onclick="quickServerGroup('5993')" class="text-xs bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-slate-200">5993</button>
-                    <button type="button" onclick="quickServerGroup('5994')" class="text-xs bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-slate-200">5994</button>
-                    <button type="button" onclick="quickServerGroup('4993')" class="text-xs bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded-lg text-slate-200">4993</button>
-                </div>
             </div>
 
+            <!-- Способ 2: Из файла -->
             <div class="space-y-2 pt-3 border-t border-slate-700/60">
                 <label class="block text-xs text-slate-400">Способ 2. Или выберите скачанный файл (.xls / .xlsx):</label>
                 <input type="file" id="excelFileInput" accept=".xls,.xlsx" onchange="handleExcelFileSelect(event)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-700 file:text-white">
@@ -210,7 +203,7 @@
 
         const STORAGE_MARKS_KEY = 'ptk_diary_subjects_v3';
         const STORAGE_SCHED_KEY = 'ptk_diary_schedules_v6';
-        const STORAGE_CHANGES_KEY = 'ptk_diary_changes_v8';
+        const STORAGE_CHANGES_KEY = 'ptk_diary_changes_v9';
         const RENDER_URL = 'https://dnevnik-1.onrender.com';
 
         let subjects = [], activeSubjectIndex = 0;
@@ -365,20 +358,21 @@
         function renderPortalFilesButtons() {
             const block = document.getElementById('portalFilesContainer');
             const list = document.getElementById('portalFilesList');
+            if (!list) return;
             list.innerHTML = '';
 
             const cleanFiles = filterOnlyLast5DateFiles(changesData.portalFiles);
             if (cleanFiles.length === 0) {
-                block.classList.add('hidden');
+                if (block) block.classList.add('hidden');
                 return;
             }
-            block.classList.remove('hidden');
+            if (block) block.classList.remove('hidden');
             cleanFiles.forEach(f => {
                 const isActive = changesData.fileName === f.title;
                 const cls = isActive ? "bg-indigo-600 text-white border-indigo-400 shadow" : "bg-slate-900 text-indigo-300 border-slate-700 hover:bg-slate-700";
                 const btn = document.createElement('button');
                 btn.type = 'button';
-                btn.className = `px-3 py-1.5 rounded-xl border text-xs font-medium transition ${cls}`;
+                btn.className = `px-3 py-1.5 border rounded-xl text-xs font-medium transition ${cls}`;
                 btn.textContent = `📄 ${f.title}`;
                 btn.onclick = () => fetchChangesFromPortal(f.url, f.title);
                 list.appendChild(btn);
@@ -456,9 +450,8 @@
                 });
             }
 
-            changesData.dateTitle = dateTitle;
-            changesData.fileName = fileName;
-            changesData.items = items;
+            const savedPortalFiles = changesData.portalFiles || [];
+            changesData = { dateTitle, fileName, items, portalFiles: savedPortalFiles };
             localStorage.setItem(STORAGE_CHANGES_KEY, JSON.stringify(changesData));
 
             document.getElementById('changesHeaderTitle').innerText = `⚡ ${dateTitle}`;
@@ -542,24 +535,7 @@
             container.innerHTML = html;
         }
 
-        // ================= РАЗДЕЛ 2: РАСПИСАНИЕ =================
-        function openAddSchedule() {
-            document.getElementById('marksSection').classList.add('hidden');
-            document.getElementById('scheduleSection').classList.add('hidden');
-            document.getElementById('changesSection').classList.add('hidden');
-            document.getElementById('setupScreen').classList.add('hidden');
-            document.getElementById('setupScheduleScreen').classList.remove('hidden');
-            document.getElementById('excelFileInput').value = '';
-            document.getElementById('serverGroupInput').value = '';
-            document.getElementById('excelGroupsBlock').classList.add('hidden');
-            tempExcelData = null;
-        }
-
-        function quickServerGroup(groupName) {
-            document.getElementById('serverGroupInput').value = groupName;
-            addScheduleFromServer();
-        }
-
+        // ================= РАЗДЕЛ 2: РАСПИСАНИЕ С СЕРВЕРА =================
         async function addScheduleFromServer() {
             const groupName = document.getElementById('serverGroupInput').value.trim();
             if (!groupName) { alert("Введите номер группы!"); return; }
@@ -621,6 +597,18 @@
                 alert("Не удалось обновить с сервера: " + e.message);
                 loadScheduleForActive();
             }
+        }
+
+        function openAddSchedule() {
+            document.getElementById('marksSection').classList.add('hidden');
+            document.getElementById('scheduleSection').classList.add('hidden');
+            document.getElementById('changesSection').classList.add('hidden');
+            document.getElementById('setupScreen').classList.add('hidden');
+            document.getElementById('setupScheduleScreen').classList.remove('hidden');
+            document.getElementById('excelFileInput').value = '';
+            document.getElementById('serverGroupInput').value = '';
+            document.getElementById('excelGroupsBlock').classList.add('hidden');
+            tempExcelData = null;
         }
 
         function handleExcelFileSelect(event) {
