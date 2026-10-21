@@ -3,196 +3,410 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Мой Дневник ПТК</title>
+    <title>НовГУ — Студенческий помощник</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <style>
+        body {
+            background-color: #080e1a;
+            color: #f1f5f9;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .app-card {
+            background: linear-gradient(180deg, #131f35 0%, #0f192b 100%);
+            border: 1px solid #1e2f4d;
+            box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.45);
+        }
+        .pill-bar {
+            background-color: #0d1626;
+            border: 1px solid #1b2a46;
+        }
+        .blue-glow {
+            background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.45);
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen p-4 select-none pb-24">
+<body class="min-h-screen select-none pb-28">
 
-    <div class="max-w-md mx-auto space-y-4">
-        <!-- Шапка -->
-        <div class="flex justify-between items-center bg-slate-800/60 p-3.5 rounded-2xl border border-slate-700/50">
-            <div class="flex items-center gap-2">
-                <span class="text-xl">📊</span>
-                <h1 class="text-lg font-bold tracking-tight">Дневник ПТК</h1>
-                <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono">v4.3</span>
-            </div>
-            <button type="button" onclick="hardReset()" class="text-xs bg-red-500/10 text-red-400 hover:bg-red-500/20 px-3 py-1.5 rounded-xl transition">
-                Сброс
-            </button>
-        </div>
+    <div class="max-w-md mx-auto px-4 pt-3 space-y-4">
 
-        <!-- Навигация (3 независимых раздела) -->
-        <div id="mainNav" class="grid grid-cols-3 gap-1.5">
-            <button type="button" onclick="switchSection('marks')" id="navMarksBtn" class="bg-indigo-600 text-white py-2.5 rounded-xl font-medium text-xs transition shadow-md flex items-center justify-center gap-1">
-                <span>📊</span> Оценки
-            </button>
-            <button type="button" onclick="switchSection('schedule')" id="navScheduleBtn" class="bg-slate-800 text-slate-400 border border-slate-700 py-2.5 rounded-xl font-medium text-xs transition flex items-center justify-center gap-1">
-                <span>📅</span> Расписание
-            </button>
-            <button type="button" onclick="switchSection('changes')" id="navChangesBtn" class="bg-slate-800 text-slate-400 border border-slate-700 py-2.5 rounded-xl font-medium text-xs transition flex items-center justify-center gap-1">
-                <span>⚡</span> Замены
-            </button>
-        </div>
-
-        <!-- ==================== РАЗДЕЛ 1: ОЦЕНКИ ==================== -->
-        <div id="marksSection" class="space-y-4">
-            <div class="space-y-2">
-                <div class="flex justify-between items-center px-1">
-                    <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Мои предметы</span>
-                    <button type="button" onclick="openAddSubject()" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium">➕ Добавить предмет</button>
+        <!-- ВЕРХНЯЯ ШАПКА -->
+        <header class="flex justify-between items-center py-1">
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-full bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 font-bold text-sm shadow-inner">
+                    🏛️
                 </div>
-                <div id="subjectsTabs" class="flex gap-2 overflow-x-auto pb-1"></div>
-            </div>
-
-            <div id="studentCard" class="bg-slate-800 p-4 rounded-2xl flex justify-between items-center shadow-lg border border-slate-700/50 hidden">
                 <div>
-                    <div id="studentDisplay" class="font-bold text-base text-white">ФИО Студента</div>
-                    <div id="groupDisplay" class="text-xs text-slate-400 mt-0.5">Группа</div>
-                </div>
-                <button type="button" onclick="loadMarksForActiveSubject()" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white px-3.5 py-2 rounded-xl text-xs font-medium transition">
-                    🔄 Обновить
-                </button>
-            </div>
-
-            <div id="marksList" class="space-y-2.5"></div>
-        </div>
-
-        <!-- ==================== РАЗДЕЛ 2: РАСПИСАНИЕ ==================== -->
-        <div id="scheduleSection" class="space-y-4 hidden">
-            <div class="space-y-2">
-                <div class="flex justify-between items-center px-1">
-                    <span class="text-xs text-slate-400 font-medium uppercase tracking-wider">Мои группы расписания</span>
-                    <button type="button" onclick="openAddSchedule()" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium">➕ Добавить группу</button>
-                </div>
-                <div id="scheduleTabs" class="flex gap-2 overflow-x-auto pb-1"></div>
-            </div>
-
-            <div class="bg-slate-800 p-4 rounded-2xl shadow-lg border border-slate-700/50 space-y-3">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <div id="schedHeaderInfo" class="font-bold text-sm text-white">Группа не выбрана</div>
-                        <div id="schedSubInfo" class="text-xs text-slate-400 mt-0.5">Добавьте группу с сайта НовГУ или из файла</div>
+                    <div class="flex items-center gap-2">
+                        <h1 id="topScreenTitle" class="text-lg font-bold tracking-tight text-white">Расписание</h1>
+                        <span class="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full font-mono">v5.0</span>
                     </div>
-                    <button type="button" onclick="refreshActiveScheduleFromServer()" title="Обновить с сайта НовГУ" class="bg-slate-700 hover:bg-slate-600 active:scale-95 text-white px-3 py-2 rounded-xl text-xs font-medium transition">
-                        🔄 Обновить
-                    </button>
+                    <p id="topScreenSubtitle" class="text-[11px] text-slate-400">НовГУ • Студенческий помощник</p>
                 </div>
+            </div>
+            <button type="button" onclick="openProfileModal()" class="w-9 h-9 rounded-full app-card flex items-center justify-center text-slate-300 hover:text-white active:scale-95 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+                </svg>
+            </button>
+        </header>
 
-                <!-- Переключатель Верхняя / Нижняя неделя -->
-                <div class="grid grid-cols-2 gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-700/60">
-                    <button type="button" onclick="setWeekType('upper')" id="btnUpperWeek" class="py-2 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow">⬆️ Верхняя неделя</button>
-                    <button type="button" onclick="setWeekType('lower')" id="btnLowerWeek" class="py-2 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white">⬇️ Нижняя неделя</button>
+        <!-- ==================== ЭКРАН 1: РАСПИСАНИЕ ==================== -->
+        <section id="scheduleSection" class="space-y-3.5">
+            <!-- Вкладки сохраненных групп + кнопка добавления -->
+            <div class="flex items-center justify-between gap-2">
+                <div id="scheduleTabs" class="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5"></div>
+                <div class="flex gap-1.5 shrink-0">
+                    <button type="button" onclick="refreshActiveScheduleFromServer()" title="Обновить" class="app-card px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white active:scale-95 transition">🔄</button>
+                    <button type="button" onclick="openAddSchedule()" class="app-card px-3 py-1.5 rounded-xl text-xs text-blue-400 font-medium hover:text-blue-300 active:scale-95 transition">➕ Группа</button>
                 </div>
             </div>
 
-            <div id="scheduleList" class="space-y-3"></div>
-        </div>
+            <!-- Календарная полоска дней (Пн - Вс) -->
+            <div id="weekDaysBar" class="grid grid-cols-7 gap-1.5"></div>
 
-        <!-- ==================== РАЗДЕЛ 3: ЗАМЕНЫ ==================== -->
-        <div id="changesSection" class="space-y-4 hidden">
-            <div class="bg-slate-800 p-4 rounded-2xl shadow-lg border border-slate-700/50 space-y-3">
-                <div class="flex justify-between items-start gap-2">
+            <!-- Переключатели: День / Неделя и Верхняя / Нижняя -->
+            <div class="grid grid-cols-2 gap-2">
+                <div class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1">
+                    <button type="button" id="btnModeDay" onclick="setScheduleViewMode('day')" class="py-1.5 rounded-xl text-xs font-semibold transition blue-glow text-white">День</button>
+                    <button type="button" id="btnModeWeek" onclick="setScheduleViewMode('week')" class="py-1.5 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white">Неделя</button>
+                </div>
+                <div class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1">
+                    <button type="button" id="btnUpperWeek" onclick="setWeekType('upper')" class="py-1.5 rounded-xl text-xs font-semibold transition blue-glow text-white">⬆️ Верхняя</button>
+                    <button type="button" id="btnLowerWeek" onclick="setWeekType('lower')" class="py-1.5 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white">⬇️ Нижняя</button>
+                </div>
+            </div>
+
+            <!-- Заголовок выбранной даты -->
+            <div class="flex justify-between items-center px-1 pt-0.5">
+                <h2 id="selectedDateHeading" class="text-sm font-bold text-white">Понедельник</h2>
+                <span id="schedSubInfo" class="text-[11px] text-slate-400"></span>
+            </div>
+
+            <!-- Список карточек пар -->
+            <div id="scheduleList" class="space-y-2.5"></div>
+        </section>
+
+        <!-- ==================== ЭКРАН 2: ИЗМЕНЕНИЯ В РАСПИСАНИИ ==================== -->
+        <section id="changesSection" class="space-y-3.5 hidden">
+            <!-- Фильтры: Все | Переносы | Отмены -->
+            <div class="pill-bar p-1 rounded-2xl grid grid-cols-3 gap-1">
+                <button type="button" id="chgFilterAll" onclick="setChangesTypeFilter('ALL')" class="py-2 rounded-xl text-xs font-semibold transition blue-glow text-white">Все</button>
+                <button type="button" id="chgFilterMove" onclick="setChangesTypeFilter('MOVE')" class="py-2 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white">Переносы</button>
+                <button type="button" id="chgFilterCancel" onclick="setChangesTypeFilter('CANCEL')" class="py-2 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white">Отмены</button>
+            </div>
+
+            <!-- Панель управления и выбор дат (последние 5 дней) -->
+            <div class="app-card p-3.5 rounded-2xl space-y-3">
+                <div class="flex justify-between items-center gap-2">
                     <div>
-                        <div id="changesHeaderTitle" class="font-bold text-sm text-white">⚡ Изменения в расписании</div>
-                        <div id="changesStatusText" class="text-xs text-indigo-300 mt-0.5">Нажмите «🔄 С сайта» для загрузки</div>
+                        <div id="changesHeaderTitle" class="font-bold text-xs text-white">Актуальные изменения</div>
+                        <div id="changesStatusText" class="text-[11px] text-slate-400 mt-0.5">Нажмите «С сайта» для обновления</div>
                     </div>
                     <div class="flex gap-1.5 shrink-0">
-                        <label class="cursor-pointer bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-2 rounded-xl text-xs font-medium transition">
+                        <label class="cursor-pointer pill-bar px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white transition">
                             📁 .docx
                             <input type="file" accept=".docx,.doc,.xls,.xlsx" onchange="handleManualChangesFile(event)" class="hidden">
                         </label>
-                        <button type="button" id="fetchChangesBtn" onclick="fetchChangesFromPortal()" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-md">
+                        <button type="button" id="fetchChangesBtn" onclick="fetchChangesFromPortal()" class="blue-glow text-white px-3 py-1.5 rounded-xl text-xs font-semibold active:scale-95 transition">
                             🔄 С сайта
                         </button>
                     </div>
                 </div>
 
-                <!-- Кнопки выбора дат (ТОЛЬКО последние 5 дней) -->
-                <div id="portalFilesContainer" class="hidden space-y-1.5 pt-2 border-t border-slate-700/60">
-                    <div class="text-[11px] text-slate-400">Замены за последние 5 дней:</div>
+                <!-- Даты замен (только последние 5 дней) -->
+                <div id="portalFilesContainer" class="hidden space-y-1.5 pt-2 border-t border-slate-800">
+                    <div class="text-[10px] text-slate-400 uppercase tracking-wider">Выберите дату (последние 5 дней):</div>
                     <div id="portalFilesList" class="flex flex-wrap gap-1.5"></div>
                 </div>
 
                 <!-- Фильтр по группе -->
-                <div class="space-y-1.5 pt-2 border-t border-slate-700/60">
-                    <div class="text-[11px] text-slate-400">Фильтр по группе:</div>
-                    <div id="changesGroupFilter" class="flex gap-1.5 overflow-x-auto pb-1"></div>
+                <div class="space-y-1.5 pt-2 border-t border-slate-800">
+                    <div class="text-[10px] text-slate-400 uppercase tracking-wider">Группа:</div>
+                    <div id="changesGroupFilter" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5"></div>
                 </div>
             </div>
 
+            <!-- Список карточек изменений -->
             <div id="changesList" class="space-y-2.5"></div>
 
             <div class="text-center pt-1">
-                <a href="https://portal.novsu.ru/univer/timetable/spo/i.1473214//?id=2445999" target="_blank" class="inline-block bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-indigo-400 px-4 py-2.5 rounded-xl text-xs font-medium transition">
+                <a href="https://portal.novsu.ru/univer/timetable/spo/i.1473214//?id=2445999" target="_blank" class="inline-block app-card text-blue-400 px-4 py-2 rounded-xl text-xs font-medium hover:text-blue-300 transition">
                     🌐 Открыть страницу замен на portal.novsu.ru ↗
                 </a>
             </div>
-        </div>
+        </section>
 
-        <!-- ==================== ЭКРАН ДОБАВЛЕНИЯ ПРЕДМЕТА (ОЦЕНКИ) ==================== -->
-        <div id="setupScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 border border-slate-700/50 hidden">
+        <!-- ==================== ЭКРАН 3: ДОМАШНИЕ ЗАДАНИЯ ==================== -->
+        <section id="tasksSection" class="space-y-3.5 hidden">
+            <!-- Фильтры заданий: Все | Сегодня | Неделя | Просроченные -->
+            <div class="pill-bar p-1 rounded-2xl grid grid-cols-4 gap-1">
+                <button type="button" id="taskFilterAll" onclick="setTaskFilter('ALL')" class="py-2 rounded-xl text-[11px] font-semibold transition blue-glow text-white">Все</button>
+                <button type="button" id="taskFilterToday" onclick="setTaskFilter('TODAY')" class="py-2 rounded-xl text-[11px] font-medium transition text-slate-400 hover:text-white">Сегодня</button>
+                <button type="button" id="taskFilterWeek" onclick="setTaskFilter('WEEK')" class="py-2 rounded-xl text-[11px] font-medium transition text-slate-400 hover:text-white">Неделя</button>
+                <button type="button" id="taskFilterOverdue" onclick="setTaskFilter('OVERDUE')" class="py-2 rounded-xl text-[11px] font-medium transition text-slate-400 hover:text-white">Просрочено</button>
+            </div>
+
+            <div class="flex justify-between items-center px-1">
+                <span class="text-xs text-slate-400">Нажмите на статус задачи, чтобы изменить его</span>
+                <button type="button" onclick="openAddTaskModal()" class="text-xs text-blue-400 font-semibold hover:text-blue-300">➕ Добавить</button>
+            </div>
+
+            <!-- Список домашних заданий -->
+            <div id="tasksList" class="space-y-2.5"></div>
+        </section>
+
+        <!-- ==================== ЭКРАН 4: ОЦЕНКИ ==================== -->
+        <section id="marksSection" class="space-y-3.5 hidden">
+            <!-- Главная карточка: Средний балл + круговой процент -->
+            <div class="app-card p-5 rounded-3xl space-y-3 relative overflow-hidden">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <div class="text-xs text-slate-400 font-medium">Средний балл</div>
+                        <div class="flex items-baseline gap-1.5 mt-1">
+                            <span id="avgGradeBig" class="text-4xl font-extrabold text-white tracking-tight">—</span>
+                            <span class="text-sm text-slate-400 font-medium">из 5</span>
+                        </div>
+                    </div>
+                    <!-- Круговой индикатор -->
+                    <div class="relative w-16 h-16 flex items-center justify-center">
+                        <svg class="w-16 h-16 -rotate-90" viewBox="0 0 36 36">
+                            <path class="text-slate-800" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                            <path id="avgCircleStroke" class="text-blue-500 transition-all duration-500" stroke-dasharray="0, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                        </svg>
+                        <span id="avgPercentText" class="absolute text-xs font-bold text-white">0%</span>
+                    </div>
+                </div>
+
+                <!-- Горизонтальный прогресс-бар -->
+                <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
+                    <div id="avgHorizontalBar" class="h-full blue-glow rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+
+                <div class="flex justify-between items-center pt-1 text-[11px] text-slate-400">
+                    <div>
+                        <div>На основе данных из Google Таблиц</div>
+                        <div id="marksUpdatedTime" class="text-slate-500 mt-0.5">Выберите или добавьте предмет</div>
+                    </div>
+                    <div class="flex gap-1.5">
+                        <button type="button" onclick="openAddSubject()" class="pill-bar px-3 py-1.5 rounded-xl text-blue-400 font-semibold hover:text-blue-300">➕ Предмет</button>
+                        <button type="button" onclick="loadMarksForActiveSubject()" class="pill-bar p-2 rounded-xl text-slate-300 hover:text-white">🔄</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Переключатель: По предметам | Все оценки -->
+            <div class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1">
+                <button type="button" id="btnMarksBySubj" onclick="setMarksViewMode('subjects')" class="py-2 rounded-xl text-xs font-semibold transition blue-glow text-white">По предметам</button>
+                <button type="button" id="btnMarksAll" onclick="setMarksViewMode('all')" class="py-2 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white">Все оценки</button>
+            </div>
+
+            <!-- Полоска переключения предметов (в режиме Все оценки) -->
+            <div id="subjectsTabs" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5"></div>
+
+            <!-- Список предметов или оценок -->
+            <div id="marksList" class="space-y-2.5"></div>
+        </section>
+
+        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ ПРЕДМЕТА (GOOGLE ТАБЛИЦА) ==================== -->
+        <section id="setupScreen" class="app-card p-5 rounded-3xl space-y-4 hidden">
             <div class="flex justify-between items-center">
-                <h2 class="font-bold text-base">Подключение предмета</h2>
-                <button type="button" onclick="switchSection('marks')" class="text-xs text-slate-400 hover:text-white">Отмена</button>
+                <h2 class="font-bold text-base text-white">Подключение предмета</h2>
+                <button type="button" onclick="switchSection('marks')" class="text-xs text-slate-400 hover:text-white">✕ Закрыть</button>
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">1. Название предмета</label>
-                <input type="text" id="subjectNameInput" placeholder="Например: Дискретная математика" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
+                <input type="text" id="subjectNameInput" placeholder="Например: Дискретная математика" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500">
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">2. Ссылка на Google Таблицу</label>
                 <div class="flex gap-2">
-                    <input type="text" id="sheetLinkInput" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
-                    <button type="button" id="scanTabsBtn" onclick="fetchGroupsList()" class="bg-indigo-600 hover:bg-indigo-500 px-4 rounded-xl text-xs font-semibold shrink-0 transition">Найти группы</button>
+                    <input type="text" id="sheetLinkInput" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500">
+                    <button type="button" id="scanTabsBtn" onclick="fetchGroupsList()" class="blue-glow text-white px-4 rounded-xl text-xs font-semibold shrink-0">Найти группы</button>
                 </div>
             </div>
-            <div id="groupSelectBlock" class="hidden space-y-2 pt-3 border-t border-slate-700/60">
+            <div id="groupSelectBlock" class="hidden space-y-2 pt-3 border-t border-slate-800">
                 <label class="block text-xs text-emerald-400 font-medium">3. Выберите вашу группу:</label>
                 <div id="groupsButtonsContainer" class="flex flex-wrap gap-2"></div>
             </div>
-            <div id="studentSelectBlock" class="hidden space-y-3 pt-3 border-t border-slate-700">
+            <div id="studentSelectBlock" class="hidden space-y-3 pt-3 border-t border-slate-800">
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">4. Выберите своё ФИО:</label>
-                    <select id="studentSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500"></select>
+                    <select id="studentSelect" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500"></select>
                 </div>
-                <button type="button" onclick="saveSubjectProfile()" class="w-full bg-emerald-600 hover:bg-emerald-500 font-medium py-3 rounded-xl transition">✅ Сохранить предмет</button>
+                <button type="button" onclick="saveSubjectProfile()" class="w-full blue-glow text-white font-semibold py-3 rounded-xl transition">✅ Сохранить предмет</button>
             </div>
-        </div>
+        </section>
 
-        <!-- ==================== ЭКРАН ДОБАВЛЕНИЯ РАСПИСАНИЯ (БЕЗ ЛИШНИХ КНОПОК) ==================== -->
-        <div id="setupScheduleScreen" class="bg-slate-800 p-5 rounded-2xl shadow-lg space-y-4 border border-slate-700/50 hidden">
+        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ РАСПИСАНИЯ ==================== -->
+        <section id="setupScheduleScreen" class="app-card p-5 rounded-3xl space-y-4 hidden">
             <div class="flex justify-between items-center">
-                <h2 class="font-bold text-base">Добавление расписания</h2>
-                <button type="button" onclick="switchSection('schedule')" class="text-xs text-slate-400 hover:text-white">Отмена</button>
+                <h2 class="font-bold text-base text-white">Добавление расписания</h2>
+                <button type="button" onclick="switchSection('schedule')" class="text-xs text-slate-400 hover:text-white">✕ Закрыть</button>
             </div>
 
-            <!-- Способ 1: Автоматически с сайта НовГУ по номеру группы -->
             <div class="space-y-2">
-                <label class="block text-xs text-emerald-400 font-medium">Способ 1. Автоматически с сайта НовГУ:</label>
+                <label class="block text-xs text-blue-400 font-medium">Способ 1. Автоматически с сайта НовГУ:</label>
                 <div class="flex gap-2">
-                    <input type="text" id="serverGroupInput" placeholder="Введите номер группы (например: 5952)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
-                    <button type="button" id="fetchSchedBtn" onclick="addScheduleFromServer()" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white px-4 rounded-xl text-xs font-bold shrink-0 transition">
+                    <input type="text" id="serverGroupInput" placeholder="Введите номер группы (например: 5952)" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500">
+                    <button type="button" id="fetchSchedBtn" onclick="addScheduleFromServer()" class="blue-glow text-white px-4 rounded-xl text-xs font-bold shrink-0">
                         Найти на сайте
                     </button>
                 </div>
             </div>
 
-            <!-- Способ 2: Из файла -->
-            <div class="space-y-2 pt-3 border-t border-slate-700/60">
+            <div class="space-y-2 pt-3 border-t border-slate-800">
                 <label class="block text-xs text-slate-400">Способ 2. Или выберите скачанный файл (.xls / .xlsx):</label>
-                <input type="file" id="excelFileInput" accept=".xls,.xlsx" onchange="handleExcelFileSelect(event)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-700 file:text-white">
+                <input type="file" id="excelFileInput" accept=".xls,.xlsx" onchange="handleExcelFileSelect(event)" class="w-full pill-bar rounded-xl p-3 text-sm text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-white">
             </div>
 
-            <div id="excelGroupsBlock" class="hidden space-y-2 pt-2 border-t border-slate-700">
+            <div id="excelGroupsBlock" class="hidden space-y-2 pt-2 border-t border-slate-800">
                 <label class="block text-xs text-emerald-400 font-medium">Выберите группу из файла:</label>
                 <div id="excelGroupsButtons" class="flex flex-wrap gap-2"></div>
             </div>
-        </div>
+        </section>
+
+        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ ЗАДАНИЯ ==================== -->
+        <section id="addTaskModal" class="app-card p-5 rounded-3xl space-y-4 hidden">
+            <div class="flex justify-between items-center">
+                <h2 class="font-bold text-base text-white">Новое задание</h2>
+                <button type="button" onclick="switchSection('tasks')" class="text-xs text-slate-400 hover:text-white">✕ Закрыть</button>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Предмет</label>
+                <input type="text" id="taskSubjectInput" placeholder="Например: Программирование" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Что нужно сделать</label>
+                <input type="text" id="taskTitleInput" placeholder="Например: Практическая работа №4" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Срок сдачи (дедлайн)</label>
+                <input type="date" id="taskDateInput" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
+            </div>
+            <button type="button" onclick="saveNewTask()" class="w-full blue-glow text-white font-semibold py-3 rounded-xl">✅ Добавить задание</button>
+        </section>
+
+        <!-- ==================== ЭКРАН 6: ЛИЧНЫЙ КАБИНЕТ (ПРОФИЛЬ) ==================== -->
+        <section id="profileSection" class="space-y-4 hidden">
+            <div class="flex justify-between items-center px-1">
+                <h2 class="text-base font-bold text-white">Личный кабинет</h2>
+                <button type="button" onclick="closeProfileModal()" class="text-xs text-slate-400 hover:text-white">✕ Закрыть</button>
+            </div>
+
+            <div class="app-card p-5 rounded-3xl space-y-4">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3.5">
+                        <div class="w-14 h-14 rounded-full bg-slate-700/70 border border-slate-600 flex items-center justify-center text-2xl text-slate-200 shrink-0">
+                            👤
+                        </div>
+                        <div>
+                            <div id="profileStudentName" class="font-bold text-base text-white leading-snug">Студент НовГУ</div>
+                            <div class="text-xs text-slate-400 mt-0.5">Политехнический колледж</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-2 pt-2 border-t border-slate-800/80 text-xs text-slate-300">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-slate-400">🏛️</span>
+                        <span>НовГУ, Политехнический колледж (ПТК)</span>
+                    </div>
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-slate-400">💻</span>
+                        <span>Среднее профессиональное образование</span>
+                    </div>
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-slate-400">👥</span>
+                        <span id="profileGroupText">Группа: не выбрана</span>
+                    </div>
+                </div>
+
+                <button type="button" onclick="openAddSchedule()" class="w-full blue-glow text-white font-semibold py-3 rounded-2xl text-xs transition active:scale-95">
+                    Сменить / добавить группу
+                </button>
+            </div>
+
+            <div class="app-card rounded-3xl divide-y divide-slate-800/80 overflow-hidden text-xs">
+                <button type="button" onclick="openAddSubject()" class="w-full p-4 flex justify-between items-center hover:bg-slate-800/40 transition text-left">
+                    <div class="flex items-center gap-3">
+                        <span class="text-base">📊</span>
+                        <span class="font-medium text-slate-200">Подключить таблицу оценок</span>
+                    </div>
+                    <span class="text-slate-500">›</span>
+                </button>
+                <button type="button" onclick="openAddTaskModal()" class="w-full p-4 flex justify-between items-center hover:bg-slate-800/40 transition text-left">
+                    <div class="flex items-center gap-3">
+                        <span class="text-base">📝</span>
+                        <span class="font-medium text-slate-200">Добавить домашнее задание</span>
+                    </div>
+                    <span class="text-slate-500">›</span>
+                </button>
+                <div class="p-4 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <span class="text-base">🌙</span>
+                        <div>
+                            <div class="font-medium text-slate-200">Тема оформления</div>
+                            <div class="text-[11px] text-slate-400">Тёмная (НовГУ Dark)</div>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" onclick="hardReset()" class="w-full p-4 flex justify-between items-center hover:bg-red-500/10 transition text-left text-red-400">
+                    <div class="flex items-center gap-3">
+                        <span class="text-base">🗑️</span>
+                        <span class="font-medium">Сбросить все данные</span>
+                    </div>
+                    <span>›</span>
+                </button>
+            </div>
+
+            <div class="text-center space-y-2 pt-2">
+                <div class="text-[11px] text-slate-500">Версия 5.0</div>
+                <div class="inline-flex items-center gap-2 text-slate-400 text-xs">
+                    <span>🏛️</span>
+                    <span class="font-semibold">НовГУ • Студенческий помощник</span>
+                </div>
+            </div>
+        </section>
+
     </div>
+
+    <!-- НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ (4 ВКЛАДКИ КАК НА МАКЕТЕ) -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-[#0a1222]/95 backdrop-blur-md border-t border-[#1b2a46] px-3 py-2 z-50">
+        <div class="max-w-md mx-auto grid grid-cols-4 gap-1">
+            <button type="button" id="navScheduleBtn" onclick="switchSection('schedule')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition blue-glow text-white">
+                <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+                </svg>
+                <span class="text-[10px] font-medium">Расписание</span>
+            </button>
+            <button type="button" id="navChangesBtn" onclick="switchSection('changes')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition text-slate-400 hover:text-slate-200">
+                <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>
+                </svg>
+                <span class="text-[10px] font-medium">Изменения</span>
+            </button>
+            <button type="button" id="navTasksBtn" onclick="switchSection('tasks')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition text-slate-400 hover:text-slate-200">
+                <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+                </svg>
+                <span class="text-[10px] font-medium">Задания</span>
+            </button>
+            <button type="button" id="navMarksBtn" onclick="switchSection('marks')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition text-slate-400 hover:text-slate-200">
+                <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
+                </svg>
+                <span class="text-[10px] font-medium">Оценки</span>
+            </button>
+        </div>
+    </nav>
 
     <script>
         try {
@@ -204,15 +418,29 @@
         const STORAGE_MARKS_KEY = 'ptk_diary_subjects_v3';
         const STORAGE_SCHED_KEY = 'ptk_diary_schedules_v6';
         const STORAGE_CHANGES_KEY = 'ptk_diary_changes_v9';
+        const STORAGE_TASKS_KEY = 'ptk_diary_tasks_v1';
         const RENDER_URL = 'https://dnevnik-1.onrender.com';
+
+        const DAY_NAMES_FULL = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+        const DAY_NAMES_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+        const MONTHS_GENITIVE = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 
         let subjects = [], activeSubjectIndex = 0;
         let schedules = [], activeScheduleIndex = 0;
         let currentSelectedWeek = 'upper';
-        let selectedGroupForMarks = '';
+        let scheduleViewMode = 'day'; // 'day' | 'week'
+        let selectedDayIndex = 0; // 0 = Пн ... 6 = Вс
 
         let changesData = { dateTitle: 'Изменения в расписании', fileName: '', items: [], portalFiles: [] };
         let activeChangesGroupFilter = 'ALL';
+        let activeChangesTypeFilter = 'ALL'; // 'ALL' | 'MOVE' | 'CANCEL'
+
+        let tasks = [];
+        let activeTaskFilter = 'ALL';
+
+        let marksViewMode = 'subjects'; // 'subjects' | 'all'
+        let cachedSubjectSummaries = {}; // кэш средних и итоговых оценок по предметам
+        let selectedGroupForMarks = '';
         let tempMarksWorkbook = null, tempExcelData = null;
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -222,16 +450,41 @@
                 const sc = JSON.parse(localStorage.getItem(STORAGE_CHANGES_KEY));
                 if (sc && Array.isArray(sc.items)) changesData = sc;
             } catch(e) {}
+            try { tasks = JSON.parse(localStorage.getItem(STORAGE_TASKS_KEY)) || getDefaultTasks(); } catch(e) { tasks = getDefaultTasks(); }
+
+            // Вычисляем сегодняшний день недели (Пн=0 .. Вс=6)
+            const jsDay = new Date().getDay();
+            selectedDayIndex = jsDay === 0 ? 6 : jsDay - 1;
 
             currentSelectedWeek = getInitialWeekType();
             updateWeekButtonsUI();
+            renderWeekDaysBar();
 
             const known = getKnownUserGroups();
             if (known.length > 0) activeChangesGroupFilter = known[0];
 
-            if (subjects.length === 0 && schedules.length > 0) switchSection('schedule');
-            else switchSection('marks');
+            if (schedules.length > 0) switchSection('schedule');
+            else if (subjects.length > 0) switchSection('marks');
+            else switchSection('schedule');
         });
+
+        function getDefaultTasks() {
+            const d1 = new Date(); d1.setDate(d1.getDate() + 2);
+            const d2 = new Date(); d2.setDate(d2.getDate() + 4);
+            return [
+                { id: 1, subject: 'Математика', title: 'Контрольная работа', dueDate: d1.toISOString().slice(0,10), status: 'todo' },
+                { id: 2, subject: 'Программирование', title: 'Практическая работа', dueDate: d2.toISOString().slice(0,10), status: 'progress' }
+            ];
+        }
+
+        function getSubjectIcon(name) {
+            const s = String(name || '').toLowerCase();
+            if (/матем|алгебр|геометр|дискрет/.test(s)) return 'π';
+            if (/программ|алгоритм|информ|код|веб|ос|систем/.test(s)) return '</>';
+            if (/физик|электро|схем|аппарат/.test(s)) return '⚛';
+            if (/англ|иностр|язык/.test(s)) return 'A';
+            return '📘';
+        }
 
         function getKnownUserGroups() {
             const s = new Set();
@@ -248,6 +501,128 @@
             return (Math.ceil(diffDays / 7) % 2 !== 0) ? 'upper' : 'lower';
         }
 
+        // ================= НАВИГАЦИЯ ПО ЭКРАНАМ =================
+        function switchSection(section) {
+            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addTaskModal', 'profileSection'];
+            allSecs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+
+            const titles = {
+                schedule: 'Расписание',
+                changes: 'Изменения в расписании',
+                tasks: 'Домашние задания',
+                marks: 'Оценки'
+            };
+            if (titles[section]) document.getElementById('topScreenTitle').innerText = titles[section];
+
+            const navs = { schedule: 'navScheduleBtn', changes: 'navChangesBtn', tasks: 'navTasksBtn', marks: 'navMarksBtn' };
+            const actCls = "flex flex-col items-center justify-center py-1.5 rounded-2xl transition blue-glow text-white";
+            const inactCls = "flex flex-col items-center justify-center py-1.5 rounded-2xl transition text-slate-400 hover:text-slate-200";
+
+            Object.keys(navs).forEach(k => {
+                const btn = document.getElementById(navs[k]);
+                if (btn) btn.className = (k === section) ? actCls : inactCls;
+            });
+
+            if (section === 'schedule') {
+                document.getElementById('scheduleSection').classList.remove('hidden');
+                renderScheduleTabs();
+                renderWeekDaysBar();
+                loadScheduleForActive();
+            } else if (section === 'changes') {
+                document.getElementById('changesSection').classList.remove('hidden');
+                renderPortalFilesButtons();
+                renderChangesGroupFilter();
+                renderChangesList();
+                if (!changesData.items || changesData.items.length === 0) fetchChangesFromPortal();
+            } else if (section === 'tasks') {
+                document.getElementById('tasksSection').classList.remove('hidden');
+                renderTasksList();
+            } else if (section === 'marks') {
+                document.getElementById('marksSection').classList.remove('hidden');
+                renderSubjectTabs();
+                loadMarksForActiveSubject();
+            }
+        }
+
+        function openProfileModal() {
+            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addTaskModal'];
+            allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
+            document.getElementById('profileSection').classList.remove('hidden');
+            document.getElementById('topScreenTitle').innerText = 'Личный кабинет';
+
+            const stName = subjects.length > 0 ? subjects[activeSubjectIndex].studentName : 'Студент НовГУ';
+            const grp = getKnownUserGroups()[0] || (subjects[0] ? subjects[0].groupName : 'не выбрана');
+            document.getElementById('profileStudentName').innerText = stName;
+            document.getElementById('profileGroupText').innerText = `Группа: ${grp}`;
+        }
+
+        function closeProfileModal() {
+            switchSection('schedule');
+        }
+
+        // ================= ЭКРАН 1: РАСПИСАНИЕ =================
+        function getMondayOfCurrentWeek() {
+            const now = new Date();
+            const day = now.getDay();
+            const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+            return new Date(now.setDate(diff));
+        }
+
+        function renderWeekDaysBar() {
+            const bar = document.getElementById('weekDaysBar');
+            if (!bar) return;
+            bar.innerHTML = '';
+            const monday = getMondayOfCurrentWeek();
+
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(monday);
+                d.setDate(monday.getDate() + i);
+                const dateNum = d.getDate();
+                const isSelected = (i === selectedDayIndex && scheduleViewMode === 'day');
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = isSelected
+                    ? "py-2 rounded-2xl flex flex-col items-center justify-center transition blue-glow text-white font-bold"
+                    : "py-2 rounded-2xl flex flex-col items-center justify-center transition app-card text-slate-400 hover:text-white";
+                btn.innerHTML = `<span class="text-[11px]">${DAY_NAMES_SHORT[i]}</span><span class="text-sm font-bold mt-0.5">${dateNum}</span>`;
+                btn.onclick = () => {
+                    selectedDayIndex = i;
+                    scheduleViewMode = 'day';
+                    updateScheduleModeUI();
+                    renderWeekDaysBar();
+                    loadScheduleForActive();
+                };
+                bar.appendChild(btn);
+            }
+
+            // Обновляем заголовок выбранной даты
+            const selDate = new Date(monday);
+            selDate.setDate(monday.getDate() + selectedDayIndex);
+            const headingEl = document.getElementById('selectedDateHeading');
+            if (headingEl) {
+                headingEl.innerText = scheduleViewMode === 'day'
+                    ? `${DAY_NAMES_FULL[selectedDayIndex]}, ${selDate.getDate()} ${MONTHS_GENITIVE[selDate.getMonth()]}`
+                    : `Расписание на всю неделю`;
+            }
+        }
+
+        function setScheduleViewMode(mode) {
+            scheduleViewMode = mode;
+            updateScheduleModeUI();
+            renderWeekDaysBar();
+            loadScheduleForActive();
+        }
+
+        function updateScheduleModeUI() {
+            const bDay = document.getElementById('btnModeDay'), bWeek = document.getElementById('btnModeWeek');
+            bDay.className = scheduleViewMode === 'day' ? "py-1.5 rounded-xl text-xs font-semibold transition blue-glow text-white" : "py-1.5 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white";
+            bWeek.className = scheduleViewMode === 'week' ? "py-1.5 rounded-xl text-xs font-semibold transition blue-glow text-white" : "py-1.5 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white";
+        }
+
         function setWeekType(type) {
             currentSelectedWeek = type;
             updateWeekButtonsUI();
@@ -257,318 +632,78 @@
         function updateWeekButtonsUI() {
             const u = document.getElementById('btnUpperWeek'), l = document.getElementById('btnLowerWeek');
             if (!u || !l) return;
-            u.className = currentSelectedWeek === 'upper' ? "py-2 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow" : "py-2 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white";
-            l.className = currentSelectedWeek === 'lower' ? "py-2 rounded-lg text-xs font-medium transition bg-indigo-600 text-white shadow" : "py-2 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white";
+            u.className = currentSelectedWeek === 'upper' ? "py-1.5 rounded-xl text-xs font-semibold transition blue-glow text-white" : "py-1.5 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white";
+            l.className = currentSelectedWeek === 'lower' ? "py-1.5 rounded-xl text-xs font-semibold transition blue-glow text-white" : "py-1.5 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white";
         }
 
-        function switchSection(section) {
-            document.getElementById('mainNav').classList.remove('hidden');
-            document.getElementById('setupScreen').classList.add('hidden');
-            document.getElementById('setupScheduleScreen').classList.add('hidden');
-
-            const navs = { marks: 'navMarksBtn', schedule: 'navScheduleBtn', changes: 'navChangesBtn' };
-            const secs = { marks: 'marksSection', schedule: 'scheduleSection', changes: 'changesSection' };
-            const act = "bg-indigo-600 text-white py-2.5 rounded-xl font-medium text-xs transition shadow-md flex items-center justify-center gap-1";
-            const inact = "bg-slate-800 text-slate-400 border border-slate-700 py-2.5 rounded-xl font-medium text-xs transition flex items-center justify-center gap-1 hover:text-slate-200";
-
-            Object.keys(navs).forEach(k => {
-                document.getElementById(navs[k]).className = (k === section) ? act : inact;
-                document.getElementById(secs[k]).classList.toggle('hidden', k !== section);
-            });
-
-            if (section === 'marks') {
-                renderSubjectTabs();
-                loadMarksForActiveSubject();
-            } else if (section === 'schedule') {
-                renderScheduleTabs();
-                loadScheduleForActive();
-            } else if (section === 'changes') {
-                renderPortalFilesButtons();
-                renderChangesGroupFilter();
-                renderChangesList();
-                if (!changesData.items || changesData.items.length === 0) {
-                    fetchChangesFromPortal();
-                }
+        // Разбираем строку пары НовГУ на предмет, преподавателя и аудиторию
+        function parseLessonDetails(rawText) {
+            const str = String(rawText || '').trim();
+            let aud = '';
+            const audMatch = str.match(/(?:ауд\.?|аул\.?|каб\.?|зал)\s*([0-9а-яА-Яa-zA-Z\-\s]+)$/i) || str.match(/(СП\s*зал|спорт\s*зал)/i);
+            let cleanStr = str;
+            if (audMatch) {
+                aud = audMatch[0].trim();
+                cleanStr = str.replace(audMatch[0], '').replace(/,\s*$/, '').trim();
             }
+            const parts = cleanStr.split(',').map(s => s.trim()).filter(Boolean);
+            const title = parts[0] || str;
+            const teacher = parts.slice(1).join(', ') || 'Занятие по расписанию';
+            return { title, teacher, aud: aud || 'НовГУ ПТК' };
         }
 
-        // ================= РАЗДЕЛ 3: ЗАМЕНЫ (ТОЛЬКО ПОСЛЕДНИЕ 5 ДНЕЙ) =================
-        function filterOnlyLast5DateFiles(files) {
-            return (files || [])
-                .filter(f => /\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(String(f.title || '')))
-                .slice(0, 5);
-        }
+        function getLessonLiveStatus(timeStr, pairIdx) {
+            const m = String(timeStr).match(/(\d{1,2})[\.:](\d{2})\s*-\s*(\d{1,2})[\.:](\d{2})/);
+            if (!m) return `${pairIdx} пара`;
+            const now = new Date();
+            const curMin = now.getHours() * 60 + now.getMinutes();
+            const startMin = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+            const endMin = parseInt(m[3], 10) * 60 + parseInt(m[4], 10);
 
-        async function fetchChangesFromPortal(specificUrl, specificTitle) {
-            const statusEl = document.getElementById('changesStatusText');
-            const listEl = document.getElementById('changesList');
-            const btn = document.getElementById('fetchChangesBtn');
-
-            statusEl.innerText = "⏳ Загружаем замены с сайта НовГУ...";
-            listEl.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Получаем свежий документ замен...</div>';
-            if (btn) btn.innerText = "⏳...";
-
-            try {
-                if (!specificUrl) {
-                    try {
-                        const listRes = await fetch(`${RENDER_URL}/api/changes-list`);
-                        if (listRes.ok) {
-                            const listJson = await listRes.json();
-                            const cleanFiles = filterOnlyLast5DateFiles(listJson.files);
-                            if (cleanFiles.length > 0) {
-                                changesData.portalFiles = cleanFiles;
-                                renderPortalFilesButtons();
-                                specificUrl = cleanFiles[0].url;
-                                specificTitle = cleanFiles[0].title;
-                            }
-                        }
-                    } catch (e) {}
-                }
-
-                let fetchUrl = `${RENDER_URL}/api/changes`;
-                if (specificUrl) {
-                    fetchUrl += `?url=${encodeURIComponent(specificUrl)}&title=${encodeURIComponent(specificTitle || '')}`;
-                }
-
-                const res = await fetch(fetchUrl);
-                if (!res.ok) {
-                    let errMsg = "Сервер не смог скачать файл замен";
-                    try { const errObj = await res.json(); if (errObj.error) errMsg = errObj.error; } catch(e){}
-                    throw new Error(errMsg);
-                }
-
-                const headerTitle = res.headers.get('X-File-Title');
-                const finalTitle = specificTitle || (headerTitle ? decodeURIComponent(headerTitle) : 'Замены НовГУ.docx');
-                const arrayBuffer = await res.arrayBuffer();
-
-                await parseChangesBuffer(arrayBuffer, finalTitle);
-            } catch (e) {
-                statusEl.innerText = "Ошибка автозагрузки";
-                listEl.innerHTML = `
-                    <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700/60 text-center space-y-2">
-                        <div class="text-amber-400 text-xs font-medium">⚠️ ${e.message}</div>
-                        <div class="text-slate-300 text-xs">Попробуйте нажать <b>«🔄 С сайта»</b> ещё раз или выберите файл кнопкой <b>«📁 .docx»</b>.</div>
-                    </div>
-                `;
-            } finally {
-                if (btn) btn.innerText = "🔄 С сайта";
+            const jsDay = now.getDay();
+            const todayIdx = jsDay === 0 ? 6 : jsDay - 1;
+            if (selectedDayIndex === todayIdx && scheduleViewMode === 'day') {
+                if (curMin >= startMin && curMin <= endMin) return 'Сейчас';
+                if (startMin > curMin && startMin - curMin <= 60) return `Через ${startMin - curMin} мин`;
             }
+            return `${pairIdx} пара`;
         }
 
-        function renderPortalFilesButtons() {
-            const block = document.getElementById('portalFilesContainer');
-            const list = document.getElementById('portalFilesList');
-            if (!list) return;
-            list.innerHTML = '';
-
-            const cleanFiles = filterOnlyLast5DateFiles(changesData.portalFiles);
-            if (cleanFiles.length === 0) {
-                if (block) block.classList.add('hidden');
-                return;
-            }
-            if (block) block.classList.remove('hidden');
-            cleanFiles.forEach(f => {
-                const isActive = changesData.fileName === f.title;
-                const cls = isActive ? "bg-indigo-600 text-white border-indigo-400 shadow" : "bg-slate-900 text-indigo-300 border-slate-700 hover:bg-slate-700";
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = `px-3 py-1.5 border rounded-xl text-xs font-medium transition ${cls}`;
-                btn.textContent = `📄 ${f.title}`;
-                btn.onclick = () => fetchChangesFromPortal(f.url, f.title);
-                list.appendChild(btn);
-            });
+        function openAddSchedule() {
+            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'addTaskModal', 'profileSection'];
+            allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
+            document.getElementById('setupScheduleScreen').classList.remove('hidden');
+            document.getElementById('excelFileInput').value = '';
+            document.getElementById('serverGroupInput').value = '';
+            document.getElementById('excelGroupsBlock').classList.add('hidden');
+            tempExcelData = null;
         }
 
-        function handleManualChangesFile(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async function(e) {
-                await parseChangesBuffer(e.target.result, file.name);
-            };
-            reader.readAsArrayBuffer(file);
-        }
-
-        async function parseChangesBuffer(arrayBuffer, fileName) {
-            try {
-                if (window.mammoth && !/\.xlsx?$/i.test(fileName)) {
-                    const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
-                    if (result && result.value) {
-                        parseDocxHtmlChanges(result.value, fileName);
-                        return;
-                    }
-                }
-                const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
-                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: "" });
-                parseRawRowsToChanges(rows, "Изменения в расписании", fileName);
-            } catch (err) {
-                alert("Ошибка разбора файла замен: " + err.message);
-            }
-        }
-
-        function parseDocxHtmlChanges(htmlString, fileName) {
-            const doc = new DOMParser().parseFromString(htmlString, 'text/html');
-            let dateTitle = "Изменения в расписании";
-            doc.querySelectorAll('p').forEach(p => {
-                const t = p.textContent.replace(/\s+/g, ' ').trim();
-                if (/на\s+\d+/i.test(t) || /неделя/i.test(t)) dateTitle = "Замены " + t;
-            });
-
-            const rows = [];
-            doc.querySelectorAll('table tr').forEach(tr => {
-                const cols = [];
-                tr.querySelectorAll('td, th').forEach(td => cols.push(td.textContent.replace(/\s+/g, ' ').trim()));
-                if (cols.some(c => c.length > 0)) rows.push(cols);
-            });
-            parseRawRowsToChanges(rows, dateTitle, fileName);
-        }
-
-        function parseRawRowsToChanges(rows, dateTitle, fileName) {
-            const items = [];
-            let lastGroupRaw = '';
-
-            for (let r = 0; r < rows.length; r++) {
-                const row = rows[r].map(c => String(c || '').trim());
-                const c0 = row[0] || '', c1 = row[1] || '', c2 = row[2] || '', c3 = row[3] || '', c4 = row[4] || '';
-
-                if (/групп/i.test(c0) || /дисциплина\s+по\s+расписанию/i.test(c2) || /методист/i.test(row.join(' '))) continue;
-                if (!c0 && !c1 && !c2 && !c3 && !c4) continue;
-
-                const groupRaw = c0 || lastGroupRaw;
-                if (c0 && /\d{4}/.test(c0)) lastGroupRaw = c0;
-
-                const groups = groupRaw.match(/\d{4}/g) || [];
-                if (groups.length === 0) continue;
-
-                items.push({
-                    groupRaw: groupRaw,
-                    groups: groups,
-                    pair: c1 || '—',
-                    oldLesson: c2 || '—',
-                    newLesson: c3 || '',
-                    aud: c4 || ''
-                });
-            }
-
-            const savedPortalFiles = changesData.portalFiles || [];
-            changesData = { dateTitle, fileName, items, portalFiles: savedPortalFiles };
-            localStorage.setItem(STORAGE_CHANGES_KEY, JSON.stringify(changesData));
-
-            document.getElementById('changesHeaderTitle').innerText = `⚡ ${dateTitle}`;
-            document.getElementById('changesStatusText').innerText = `Файл: ${fileName} (замен: ${items.length})`;
-            renderPortalFilesButtons();
-            renderChangesGroupFilter();
-            renderChangesList();
-        }
-
-        function renderChangesGroupFilter() {
-            const container = document.getElementById('changesGroupFilter');
-            container.innerHTML = '';
-            const groupsSet = new Set(['ALL', ...getKnownUserGroups()]);
-            (changesData.items || []).forEach(it => (it.groups || []).forEach(g => groupsSet.add(g)));
-
-            groupsSet.forEach(g => {
-                const isSelected = activeChangesGroupFilter === g;
-                const cls = isSelected ? "bg-indigo-600 text-white border-indigo-500 shadow" : "bg-slate-900 text-slate-400 border-slate-700";
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = `px-3 py-1.5 border rounded-xl text-xs font-medium shrink-0 transition ${cls}`;
-                btn.textContent = g === 'ALL' ? 'Все группы' : 'Гр. ' + g;
-                btn.onclick = () => { activeChangesGroupFilter = g; renderChangesGroupFilter(); renderChangesList(); };
-                container.appendChild(btn);
-            });
-        }
-
-        function renderChangesList() {
-            const container = document.getElementById('changesList');
-            if (!changesData.items || changesData.items.length === 0) {
-                container.innerHTML = `
-                    <div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 text-center space-y-2">
-                        <div class="text-slate-300 text-sm font-medium">Замены ещё не загружены</div>
-                        <div class="text-slate-400 text-xs">Нажмите <b>«🔄 С сайта»</b> выше</div>
-                    </div>
-                `;
-                return;
-            }
-
-            if (changesData.dateTitle) document.getElementById('changesHeaderTitle').innerText = `⚡ ${changesData.dateTitle}`;
-
-            const filtered = changesData.items.filter(it => {
-                if (activeChangesGroupFilter === 'ALL') return true;
-                return (it.groups || []).includes(activeChangesGroupFilter) || String(it.groupRaw).includes(activeChangesGroupFilter);
-            });
-
-            if (filtered.length === 0) {
-                container.innerHTML = `<div class="bg-slate-800/50 p-6 rounded-2xl text-center text-slate-300 text-sm border border-slate-700/40">🎉 Для группы <b>${activeChangesGroupFilter}</b> в файле <b>${changesData.fileName}</b> замен нет!</div>`;
-                return;
-            }
-
-            let html = '';
-            filtered.forEach(it => {
-                const isCancelled = /не\s*будет|отмен/i.test(it.aud) || /не\s*будет|отмен/i.test(it.newLesson);
-                const audBadge = isCancelled
-                    ? `<span class="bg-red-500/20 text-red-300 border border-red-500/30 px-2.5 py-0.5 rounded-lg text-xs font-bold">🚫 ${it.aud || 'Не будет'}</span>`
-                    : (it.aud ? `<span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-lg text-xs font-bold">🚪 Ауд. ${it.aud}</span>` : '');
-
-                html += `
-                    <div class="bg-slate-800 p-4 rounded-2xl shadow border border-slate-700/50 space-y-2.5">
-                        <div class="flex justify-between items-center border-b border-slate-700/60 pb-2">
-                            <div class="flex items-center gap-2">
-                                <span class="bg-indigo-600 text-white px-2.5 py-0.5 rounded-lg text-xs font-bold">Гр. ${it.groupRaw}</span>
-                                <span class="text-xs font-mono text-indigo-300 font-semibold">${it.pair} пара</span>
-                            </div>
-                            ${audBadge}
-                        </div>
-                        <div class="space-y-1.5 text-xs">
-                            <div class="text-slate-400">
-                                <span class="text-[10px] uppercase text-slate-500 block">По расписанию:</span>
-                                <span class="line-through">${it.oldLesson}</span>
-                            </div>
-                            <div class="text-slate-100 font-medium bg-slate-900/60 p-2.5 rounded-xl border border-slate-700/40">
-                                <span class="text-[10px] uppercase text-amber-400 block mb-0.5">Изменение:</span>
-                                ${it.newLesson || (isCancelled ? 'Занятие отменено (Не будет)' : '—')}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-            container.innerHTML = html;
-        }
-
-        // ================= РАЗДЕЛ 2: РАСПИСАНИЕ С СЕРВЕРА =================
         async function addScheduleFromServer() {
             const groupName = document.getElementById('serverGroupInput').value.trim();
             if (!groupName) { alert("Введите номер группы!"); return; }
-
             const btn = document.getElementById('fetchSchedBtn');
             btn.innerText = "⏳ Ищем...";
-
             try {
                 const res = await fetch(`${RENDER_URL}/api/schedule/${encodeURIComponent(groupName)}`);
                 const data = await res.json();
-                if (!res.ok || data.error) throw new Error(data.error || "Группа не найдена на сайте НовГУ");
+                if (!res.ok || data.error) throw new Error(data.error || "Группа не найдена");
 
                 const existingIdx = schedules.findIndex(s => s.groupName === groupName);
                 const newEntry = {
-                    groupName: groupName,
-                    fileName: `Сайт НовГУ (${data.fileName || data.sheet})`,
+                    groupName,
+                    fileName: `НовГУ (${data.fileName || data.sheet})`,
                     rawRows: data.rows,
                     merges: data.merges || []
                 };
-
-                if (existingIdx !== -1) {
-                    schedules[existingIdx] = newEntry;
-                    activeScheduleIndex = existingIdx;
-                } else {
-                    schedules.push(newEntry);
-                    activeScheduleIndex = schedules.length - 1;
-                }
+                if (existingIdx !== -1) { schedules[existingIdx] = newEntry; activeScheduleIndex = existingIdx; }
+                else { schedules.push(newEntry); activeScheduleIndex = schedules.length - 1; }
 
                 localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
                 activeChangesGroupFilter = groupName;
                 switchSection('schedule');
             } catch (e) {
-                alert("Ошибка загрузки с сайта НовГУ: " + e.message);
+                alert("Ошибка загрузки: " + e.message);
             } finally {
                 btn.innerText = "Найти на сайте";
             }
@@ -577,38 +712,23 @@
         async function refreshActiveScheduleFromServer() {
             const current = schedules[activeScheduleIndex];
             if (!current) { openAddSchedule(); return; }
-
-            document.getElementById('schedSubInfo').innerText = "⏳ Обновляем расписание с сайта НовГУ...";
-
+            document.getElementById('schedSubInfo').innerText = "⏳ Обновляем...";
             try {
                 const res = await fetch(`${RENDER_URL}/api/schedule/${encodeURIComponent(current.groupName)}`);
                 const data = await res.json();
-                if (!res.ok || data.error) throw new Error(data.error || "Ошибка обновления");
-
+                if (!res.ok || data.error) throw new Error(data.error || "Ошибка");
                 schedules[activeScheduleIndex] = {
                     groupName: current.groupName,
-                    fileName: `Сайт НовГУ (${data.fileName || data.sheet})`,
+                    fileName: `НовГУ (${data.fileName || data.sheet})`,
                     rawRows: data.rows,
                     merges: data.merges || []
                 };
                 localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
                 loadScheduleForActive();
             } catch (e) {
-                alert("Не удалось обновить с сервера: " + e.message);
+                alert("Не удалось обновить: " + e.message);
                 loadScheduleForActive();
             }
-        }
-
-        function openAddSchedule() {
-            document.getElementById('marksSection').classList.add('hidden');
-            document.getElementById('scheduleSection').classList.add('hidden');
-            document.getElementById('changesSection').classList.add('hidden');
-            document.getElementById('setupScreen').classList.add('hidden');
-            document.getElementById('setupScheduleScreen').classList.remove('hidden');
-            document.getElementById('excelFileInput').value = '';
-            document.getElementById('serverGroupInput').value = '';
-            document.getElementById('excelGroupsBlock').classList.add('hidden');
-            tempExcelData = null;
         }
 
         function handleExcelFileSelect(event) {
@@ -619,29 +739,24 @@
                 try {
                     const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                     let foundGroups = [], allSheetsData = {};
-
                     workbook.SheetNames.forEach(sheetName => {
                         const sheet = workbook.Sheets[sheetName];
                         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
                         allSheetsData[sheetName] = { rows, merges: sheet['!merges'] || [] };
-
                         for (let r = 0; r < Math.min(20, rows.length); r++) {
                             for (let c = 0; c < rows[r].length; c++) {
                                 let val = String(rows[r][c] || '').trim();
-                                if (/^\d{4}[а-яa-z]*$/i.test(val) && !/^202\d$/.test(val)) {
-                                    foundGroups.push({ groupName: val, sheetName });
-                                }
+                                if (/^\d{4}[а-яa-z]*$/i.test(val) && !/^202\d$/.test(val)) foundGroups.push({ groupName: val, sheetName });
                             }
                         }
                     });
-
                     tempExcelData = { fileName: file.name, sheets: allSheetsData };
                     const btnContainer = document.getElementById('excelGroupsButtons');
                     btnContainer.innerHTML = '';
                     foundGroups.forEach(g => {
                         const btn = document.createElement('button');
                         btn.type = 'button';
-                        btn.className = "bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow transition";
+                        btn.className = "blue-glow text-white font-bold px-4 py-2 rounded-xl text-xs";
                         btn.textContent = `👥 Группа ${g.groupName}`;
                         btn.onclick = () => saveScheduleGroup(g.groupName, g.sheetName);
                         btnContainer.appendChild(btn);
@@ -665,15 +780,11 @@
         function renderScheduleTabs() {
             const container = document.getElementById('scheduleTabs');
             container.innerHTML = '';
-            if (schedules.length === 0) {
-                container.innerHTML = `<button type="button" onclick="openAddSchedule()" class="text-xs bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 px-3 py-2 rounded-xl">➕ Добавить первую группу</button>`;
-                return;
-            }
             schedules.forEach((sch, idx) => {
                 const isActive = idx === activeScheduleIndex;
                 container.innerHTML += `
-                    <div class="flex items-center rounded-xl border ${isActive ? "bg-indigo-600 text-white border-indigo-500 shadow-md" : "bg-slate-800 text-slate-400 border-slate-700"} px-3 py-2 text-xs font-medium shrink-0 cursor-pointer" onclick="switchSchedule(${idx})">
-                        <span>Группа ${sch.groupName}</span>
+                    <div onclick="switchSchedule(${idx})" class="flex items-center rounded-xl px-3 py-1.5 text-xs font-semibold shrink-0 cursor-pointer transition ${isActive ? 'blue-glow text-white' : 'app-card text-slate-400'}">
+                        <span>Гр. ${sch.groupName}</span>
                         <button type="button" onclick="deleteSchedule(event, ${idx})" class="ml-2 text-slate-300 hover:text-red-400">✕</button>
                     </div>
                 `;
@@ -683,7 +794,7 @@
         function switchSchedule(idx) { activeScheduleIndex = idx; renderScheduleTabs(); loadScheduleForActive(); }
         function deleteSchedule(event, idx) {
             event.stopPropagation();
-            if (confirm(`Удалить расписание группы ${schedules[idx].groupName}?`)) {
+            if (confirm(`Удалить группу ${schedules[idx].groupName}?`)) {
                 schedules.splice(idx, 1);
                 localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
                 activeScheduleIndex = 0;
@@ -699,14 +810,18 @@
             const current = schedules[activeScheduleIndex];
             const container = document.getElementById('scheduleList');
             if (!current || !current.rawRows) {
-                document.getElementById('schedHeaderInfo').innerText = "Группа не выбрана";
-                document.getElementById('schedSubInfo').innerText = "Нажмите «Добавить группу» выше";
-                container.innerHTML = `<div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 text-center space-y-3"><div class="text-slate-400 text-sm">У вас пока не добавлено расписание</div><button type="button" onclick="openAddSchedule()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2.5 rounded-xl transition">➕ Выбрать группу (с сайта НовГУ)</button></div>`;
+                document.getElementById('schedSubInfo').innerText = "";
+                container.innerHTML = `
+                    <div class="app-card rounded-3xl p-6 text-center space-y-3">
+                        <div class="text-slate-300 text-sm font-semibold">Группа ещё не выбрана</div>
+                        <div class="text-slate-400 text-xs">Подключите расписание вашей группы напрямую с портала НовГУ</div>
+                        <button type="button" onclick="openAddSchedule()" class="blue-glow text-white text-xs font-semibold px-5 py-2.5 rounded-xl transition">➕ Выбрать группу</button>
+                    </div>
+                `;
                 return;
             }
 
-            document.getElementById('schedHeaderInfo').innerText = `Группа: ${current.groupName} (${currentSelectedWeek === 'upper' ? 'Верхняя неделя' : 'Нижняя неделя'})`;
-            document.getElementById('schedSubInfo').innerText = `Источник: ${current.fileName || 'НовГУ'}`;
+            document.getElementById('schedSubInfo').innerText = `Гр. ${current.groupName} • ${currentSelectedWeek === 'upper' ? 'Верхняя' : 'Нижняя'}`;
 
             try {
                 const rows = current.rawRows, merges = current.merges || [];
@@ -716,20 +831,18 @@
                 for (let r = 0; r < Math.min(30, rows.length); r++) {
                     for (let c = 0; c < (rows[r] || []).length; c++) {
                         const val = String(rows[r][c] || '').trim();
-                        if (val === current.groupName || groupWordRegex.test(val)) {
-                            groupColIdx = c; headerRowIdx = r; break;
-                        }
+                        if (val === current.groupName || groupWordRegex.test(val)) { groupColIdx = c; headerRowIdx = r; break; }
                     }
                     if (groupColIdx !== -1) break;
                 }
 
                 if (groupColIdx === -1) {
-                    container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Группа ${current.groupName} не найдена</div>`;
+                    container.innerHTML = `<div class="app-card p-6 rounded-2xl text-center text-red-400 text-xs">Группа ${current.groupName} не найдена</div>`;
                     return;
                 }
 
                 const timeColIdx = groupColIdx - 1, dayColIdx = groupColIdx - 2;
-                let daysSchedule = {}, currentDay = "Понедельник";
+                let daysSchedule = {}, currentDay = "Понедельник", pairCounter = 0;
 
                 for (let r = headerRowIdx + 1; r < rows.length; r++) {
                     let row = rows[r];
@@ -737,10 +850,12 @@
                     let dayCandidate = String(row[dayColIdx] || row[0] || '').trim().toLowerCase();
                     if (/^(понедельник|вторник|среда|четверг|пятница|суббота)$/.test(dayCandidate)) {
                         currentDay = dayCandidate.charAt(0).toUpperCase() + dayCandidate.slice(1);
+                        pairCounter = 0;
                     }
 
                     let timeVal = String(row[timeColIdx] || row[1] || '').trim();
                     if (!/\d{1,2}[\.:]\d{2}\s*-\s*\d{1,2}[\.:]\d{2}/.test(timeVal)) continue;
+                    pairCounter++;
 
                     let upperVal = String(rows[r][groupColIdx] || '').trim();
                     let nextRow = rows[r + 1] || [];
@@ -755,7 +870,8 @@
                     if (chosenLesson && chosenLesson !== '-' && chosenLesson !== '—' && !/Зам\.\s*директора/i.test(chosenLesson)) {
                         if (!daysSchedule[currentDay]) daysSchedule[currentDay] = [];
                         daysSchedule[currentDay].push({
-                            time: timeVal,
+                            pairNum: pairCounter,
+                            time: timeVal.replace(/\./g, ':'),
                             lesson: chosenLesson,
                             onlyThisWeek: (!isMerged && hasSecondRow && upperVal !== lowerVal)
                         });
@@ -763,19 +879,402 @@
                 }
 
                 let html = '';
-                for (let [day, lessons] of Object.entries(daysSchedule)) {
-                    html += `<div class="bg-slate-800 p-4 rounded-2xl shadow border border-slate-700/40 space-y-2"><h3 class="font-bold text-indigo-400 text-sm border-b border-slate-700/60 pb-1.5">${day}</h3><div class="space-y-1.5">`;
-                    lessons.forEach(l => {
-                        const badge = l.onlyThisWeek ? `<span class="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded ml-1">${currentSelectedWeek === 'upper' ? 'верх' : 'низ'}</span>` : '';
-                        html += `<div class="text-xs flex gap-2.5 items-start bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/30"><span class="font-mono text-indigo-300 font-semibold shrink-0 pt-0.5">${l.time}</span><div class="text-slate-200 leading-snug">${l.lesson} ${badge}</div></div>`;
-                    });
-                    html += `</div></div>`;
-                }
-                container.innerHTML = html || '<div class="text-slate-400 text-center py-8 bg-slate-800/50 rounded-2xl text-sm">Пар на этой неделе нет</div>';
-            } catch (e) { container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Ошибка: ${e.message}</div>`; }
+                const targetDays = scheduleViewMode === 'day' ? [DAY_NAMES_FULL[selectedDayIndex]] : DAY_NAMES_FULL;
+
+                targetDays.forEach(dayName => {
+                    const lessons = daysSchedule[dayName] || [];
+                    if (scheduleViewMode === 'week' && lessons.length === 0) return;
+
+                    if (scheduleViewMode === 'week') {
+                        html += `<div class="text-xs font-bold text-blue-400 uppercase tracking-wider px-1 pt-2">${dayName}</div>`;
+                    }
+
+                    if (lessons.length === 0) {
+                        html += `
+                            <div class="app-card p-6 rounded-3xl text-center space-y-1">
+                                <div class="text-base">🎉</div>
+                                <div class="text-sm font-semibold text-white">В этот день пар нет</div>
+                                <div class="text-xs text-slate-400">Можно отдохнуть или заняться заданиями</div>
+                            </div>
+                        `;
+                    } else {
+                        lessons.forEach(l => {
+                            const info = parseLessonDetails(l.lesson);
+                            const statusText = getLessonLiveStatus(l.time, l.pairNum);
+                            const isNow = statusText === 'Сейчас';
+                            const statusCls = isNow ? 'blue-glow text-white' : 'bg-slate-800/90 text-slate-300 border border-slate-700';
+
+                            html += `
+                                <div class="app-card p-4 rounded-3xl space-y-2 relative transition hover:border-blue-500/40">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xs font-mono text-slate-400 font-medium">${l.time}</span>
+                                        <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${statusCls}">${statusText}</span>
+                                    </div>
+                                    <div class="font-bold text-[15px] text-white leading-snug pr-4">${info.title}</div>
+                                    <div class="text-xs text-slate-400">${info.teacher}</div>
+                                    <div class="flex items-center justify-between pt-1 text-xs text-slate-300">
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="text-blue-400">📍</span>
+                                            <span>${info.aud}</span>
+                                        </div>
+                                        ${l.onlyThisWeek ? `<span class="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-md">${currentSelectedWeek === 'upper' ? 'Верхняя нед.' : 'Нижняя нед.'}</span>` : '<span class="text-slate-600">›</span>'}
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                });
+
+                container.innerHTML = html || '<div class="app-card p-6 rounded-3xl text-center text-slate-400 text-sm">На этой неделе пар не найдено</div>';
+            } catch (e) {
+                container.innerHTML = `<div class="app-card p-6 rounded-3xl text-center text-red-400 text-xs">Ошибка: ${e.message}</div>`;
+            }
         }
 
-        // ================= РАЗДЕЛ 1: ОЦЕНКИ =================
+        // ================= ЭКРАН 2: ИЗМЕНЕНИЯ В РАСПИСАНИИ =================
+        function setChangesTypeFilter(type) {
+            activeChangesTypeFilter = type;
+            const ids = { ALL: 'chgFilterAll', MOVE: 'chgFilterMove', CANCEL: 'chgFilterCancel' };
+            Object.keys(ids).forEach(k => {
+                document.getElementById(ids[k]).className = (k === type)
+                    ? "py-2 rounded-xl text-xs font-semibold transition blue-glow text-white"
+                    : "py-2 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white";
+            });
+            renderChangesList();
+        }
+
+        function filterOnlyLast5DateFiles(files) {
+            return (files || []).filter(f => /\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(String(f.title || ''))).slice(0, 5);
+        }
+
+        async function fetchChangesFromPortal(specificUrl, specificTitle) {
+            const statusEl = document.getElementById('changesStatusText');
+            const listEl = document.getElementById('changesList');
+            const btn = document.getElementById('fetchChangesBtn');
+
+            statusEl.innerText = "⏳ Загружаем с сайта НовГУ...";
+            listEl.innerHTML = '<div class="app-card p-8 rounded-3xl text-center text-slate-400 animate-pulse text-xs">Получаем свежий документ изменений...</div>';
+            if (btn) btn.innerText = "⏳...";
+
+            try {
+                if (!specificUrl) {
+                    try {
+                        const listRes = await fetch(`${RENDER_URL}/api/changes-list`);
+                        if (listRes.ok) {
+                            const listJson = await listRes.json();
+                            const cleanFiles = filterOnlyLast5DateFiles(listJson.files);
+                            if (cleanFiles.length > 0) {
+                                changesData.portalFiles = cleanFiles;
+                                renderPortalFilesButtons();
+                                specificUrl = cleanFiles[0].url;
+                                specificTitle = cleanFiles[0].title;
+                            }
+                        }
+                    } catch (e) {}
+                }
+
+                let fetchUrl = `${RENDER_URL}/api/changes`;
+                if (specificUrl) fetchUrl += `?url=${encodeURIComponent(specificUrl)}&title=${encodeURIComponent(specificTitle || '')}`;
+
+                const res = await fetch(fetchUrl);
+                if (!res.ok) throw new Error("Не удалось скачать файл замен");
+
+                const headerTitle = res.headers.get('X-File-Title');
+                const finalTitle = specificTitle || (headerTitle ? decodeURIComponent(headerTitle) : 'Замены НовГУ.docx');
+                const arrayBuffer = await res.arrayBuffer();
+                await parseChangesBuffer(arrayBuffer, finalTitle);
+            } catch (e) {
+                statusEl.innerText = "Ошибка автозагрузки";
+                listEl.innerHTML = `<div class="app-card p-5 rounded-3xl text-center text-amber-400 text-xs">⚠️ ${e.message}</div>`;
+            } finally {
+                if (btn) btn.innerText = "🔄 С сайта";
+            }
+        }
+
+        function renderPortalFilesButtons() {
+            const block = document.getElementById('portalFilesContainer');
+            const list = document.getElementById('portalFilesList');
+            if (!list) return;
+            list.innerHTML = '';
+            const cleanFiles = filterOnlyLast5DateFiles(changesData.portalFiles);
+            if (cleanFiles.length === 0) { block.classList.add('hidden'); return; }
+            block.classList.remove('hidden');
+            cleanFiles.forEach(f => {
+                const isActive = changesData.fileName === f.title;
+                const cls = isActive ? "blue-glow text-white" : "pill-bar text-slate-300 hover:text-white";
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `px-3 py-1.5 rounded-xl text-xs font-medium transition ${cls}`;
+                btn.textContent = f.title;
+                btn.onclick = () => fetchChangesFromPortal(f.url, f.title);
+                list.appendChild(btn);
+            });
+        }
+
+        function handleManualChangesFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(e) { await parseChangesBuffer(e.target.result, file.name); };
+            reader.readAsArrayBuffer(file);
+        }
+
+        async function parseChangesBuffer(arrayBuffer, fileName) {
+            try {
+                if (window.mammoth && !/\.xlsx?$/i.test(fileName)) {
+                    const result = await mammoth.convertToHtml({ arrayBuffer });
+                    if (result && result.value) { parseDocxHtmlChanges(result.value, fileName); return; }
+                }
+                const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: "" });
+                parseRawRowsToChanges(rows, "Изменения в расписании", fileName);
+            } catch (err) { alert("Ошибка файла: " + err.message); }
+        }
+
+        function parseDocxHtmlChanges(htmlString, fileName) {
+            const doc = new DOMParser().parseFromString(htmlString, 'text/html');
+            let dateTitle = "Изменения в расписании";
+            doc.querySelectorAll('p').forEach(p => {
+                const t = p.textContent.replace(/\s+/g, ' ').trim();
+                if (/на\s+\d+/i.test(t) || /неделя/i.test(t)) dateTitle = "Замены " + t;
+            });
+            const rows = [];
+            doc.querySelectorAll('table tr').forEach(tr => {
+                const cols = [];
+                tr.querySelectorAll('td, th').forEach(td => cols.push(td.textContent.replace(/\s+/g, ' ').trim()));
+                if (cols.some(c => c.length > 0)) rows.push(cols);
+            });
+            parseRawRowsToChanges(rows, dateTitle, fileName);
+        }
+
+        function parseRawRowsToChanges(rows, dateTitle, fileName) {
+            const items = [];
+            let lastGroupRaw = '';
+            for (let r = 0; r < rows.length; r++) {
+                const row = rows[r].map(c => String(c || '').trim());
+                const c0 = row[0] || '', c1 = row[1] || '', c2 = row[2] || '', c3 = row[3] || '', c4 = row[4] || '';
+                if (/групп/i.test(c0) || /дисциплина\s+по\s+расписанию/i.test(c2) || /методист/i.test(row.join(' '))) continue;
+                if (!c0 && !c1 && !c2 && !c3 && !c4) continue;
+
+                const groupRaw = c0 || lastGroupRaw;
+                if (c0 && /\d{4}/.test(c0)) lastGroupRaw = c0;
+                const groups = groupRaw.match(/\d{4}/g) || [];
+                if (groups.length === 0) continue;
+
+                items.push({ groupRaw, groups, pair: c1 || '—', oldLesson: c2 || '—', newLesson: c3 || '', aud: c4 || '' });
+            }
+            const savedPortalFiles = changesData.portalFiles || [];
+            changesData = { dateTitle, fileName, items, portalFiles: savedPortalFiles };
+            localStorage.setItem(STORAGE_CHANGES_KEY, JSON.stringify(changesData));
+
+            document.getElementById('changesHeaderTitle').innerText = dateTitle;
+            document.getElementById('changesStatusText').innerText = `Дата: ${fileName} • Найдено: ${items.length}`;
+            renderPortalFilesButtons();
+            renderChangesGroupFilter();
+            renderChangesList();
+        }
+
+        function renderChangesGroupFilter() {
+            const container = document.getElementById('changesGroupFilter');
+            container.innerHTML = '';
+            const groupsSet = new Set(['ALL', ...getKnownUserGroups()]);
+            (changesData.items || []).forEach(it => (it.groups || []).forEach(g => groupsSet.add(g)));
+
+            groupsSet.forEach(g => {
+                const isSelected = activeChangesGroupFilter === g;
+                const cls = isSelected ? "blue-glow text-white" : "pill-bar text-slate-400 hover:text-white";
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `px-3 py-1.5 rounded-xl text-xs font-medium shrink-0 transition ${cls}`;
+                btn.textContent = g === 'ALL' ? 'Все группы' : 'Гр. ' + g;
+                btn.onclick = () => { activeChangesGroupFilter = g; renderChangesGroupFilter(); renderChangesList(); };
+                container.appendChild(btn);
+            });
+        }
+
+        function renderChangesList() {
+            const container = document.getElementById('changesList');
+            if (!changesData.items || changesData.items.length === 0) {
+                container.innerHTML = `<div class="app-card p-6 rounded-3xl text-center text-slate-400 text-xs">Нажмите «🔄 С сайта», чтобы загрузить свежие замены</div>`;
+                return;
+            }
+
+            const filtered = changesData.items.filter(it => {
+                const matchGroup = activeChangesGroupFilter === 'ALL' || (it.groups || []).includes(activeChangesGroupFilter) || String(it.groupRaw).includes(activeChangesGroupFilter);
+                if (!matchGroup) return false;
+                const isCancel = /не\s*будет|отмен/i.test(it.aud) || /не\s*будет|отмен/i.test(it.newLesson);
+                if (activeChangesTypeFilter === 'CANCEL') return isCancel;
+                if (activeChangesTypeFilter === 'MOVE') return !isCancel;
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="app-card p-6 rounded-3xl text-center text-slate-300 text-xs">🎉 Для выбранного фильтра изменений нет!</div>`;
+                return;
+            }
+
+            let html = '';
+            filtered.forEach(it => {
+                const isCancelled = /не\s*будет|отмен/i.test(it.aud) || /не\s*будет|отмен/i.test(it.newLesson);
+                const iconBox = isCancelled
+                    ? `<div class="w-10 h-10 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 font-bold shrink-0">✕</div>`
+                    : `<div class="w-10 h-10 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400 font-bold shrink-0">⇄</div>`;
+
+                const typeLabel = isCancelled
+                    ? `<span class="text-xs font-bold text-red-400">Отмена</span>`
+                    : `<span class="text-xs font-bold text-blue-400">Перенос / Замена</span>`;
+
+                html += `
+                    <div class="app-card p-4 rounded-3xl flex gap-3.5 items-start">
+                        ${iconBox}
+                        <div class="flex-1 min-w-0 space-y-1">
+                            <div class="flex justify-between items-center">
+                                ${typeLabel}
+                                <span class="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-full font-semibold">Гр. ${it.groupRaw} • ${it.pair} пара</span>
+                            </div>
+                            <div class="text-xs text-slate-400 line-through">${it.oldLesson}</div>
+                            <div class="text-sm font-bold text-white leading-snug">${it.newLesson || (isCancelled ? 'Занятие отменено' : it.oldLesson)}</div>
+                            <div class="text-xs text-slate-400 pt-0.5">
+                                ${isCancelled ? '🚫 Занятие не состоится' : `📍 Ауд. ${it.aud || 'по расписанию'}`}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        // ================= ЭКРАН 3: ДОМАШНИЕ ЗАДАНИЯ =================
+        function setTaskFilter(filter) {
+            activeTaskFilter = filter;
+            const ids = { ALL: 'taskFilterAll', TODAY: 'taskFilterToday', WEEK: 'taskFilterWeek', OVERDUE: 'taskFilterOverdue' };
+            Object.keys(ids).forEach(k => {
+                document.getElementById(ids[k]).className = (k === filter)
+                    ? "py-2 rounded-xl text-[11px] font-semibold transition blue-glow text-white"
+                    : "py-2 rounded-xl text-[11px] font-medium transition text-slate-400 hover:text-white";
+            });
+            renderTasksList();
+        }
+
+        function openAddTaskModal() {
+            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'profileSection'];
+            allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
+            document.getElementById('addTaskModal').classList.remove('hidden');
+            document.getElementById('taskSubjectInput').value = '';
+            document.getElementById('taskTitleInput').value = '';
+            document.getElementById('taskDateInput').value = new Date().toISOString().slice(0, 10);
+        }
+
+        function saveNewTask() {
+            const subject = document.getElementById('taskSubjectInput').value.trim() || 'Общее';
+            const title = document.getElementById('taskTitleInput').value.trim();
+            const dueDate = document.getElementById('taskDateInput').value;
+            if (!title) { alert("Введите описание задания!"); return; }
+
+            tasks.unshift({ id: Date.now(), subject, title, dueDate, status: 'todo' });
+            localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(tasks));
+            switchSection('tasks');
+        }
+
+        function toggleTaskStatus(id) {
+            const t = tasks.find(x => x.id === id);
+            if (!t) return;
+            const order = ['todo', 'progress', 'done'];
+            t.status = order[(order.indexOf(t.status) + 1) % order.length];
+            localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(tasks));
+            renderTasksList();
+        }
+
+        function deleteTask(event, id) {
+            event.stopPropagation();
+            tasks = tasks.filter(x => x.id !== id);
+            localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(tasks));
+            renderTasksList();
+        }
+
+        function renderTasksList() {
+            const container = document.getElementById('tasksList');
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const nowTime = new Date(todayStr).getTime();
+
+            const filtered = tasks.filter(t => {
+                if (!t.dueDate) return true;
+                const diffDays = Math.round((new Date(t.dueDate).getTime() - nowTime) / (1000 * 60 * 60 * 24));
+                if (activeTaskFilter === 'TODAY') return diffDays === 0;
+                if (activeTaskFilter === 'WEEK') return diffDays >= 0 && diffDays <= 7;
+                if (activeTaskFilter === 'OVERDUE') return diffDays < 0 && t.status !== 'done';
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="app-card p-6 rounded-3xl text-center text-slate-400 text-xs">В этой категории заданий нет</div>`;
+                return;
+            }
+
+            let html = '';
+            filtered.forEach(t => {
+                const icon = getSubjectIcon(t.subject);
+                const diffDays = t.dueDate ? Math.round((new Date(t.dueDate).getTime() - nowTime) / (1000 * 60 * 60 * 24)) : 0;
+                const dateFormatted = t.dueDate ? t.dueDate.split('-').reverse().slice(0,2).join('.') : '';
+                const daysText = diffDays === 0 ? 'Сегодня' : (diffDays > 0 ? `${diffDays} дн.` : 'Просрочено');
+
+                let badgeHtml = '';
+                if (t.status === 'done') badgeHtml = `<span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">Готово</span>`;
+                else if (t.status === 'progress') badgeHtml = `<span class="bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">В процессе</span>`;
+                else badgeHtml = `<span class="bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-0.5 rounded-full text-[11px] font-medium">Не начато</span>`;
+
+                html += `
+                    <div onclick="toggleTaskStatus(${t.id})" class="app-card p-4 rounded-3xl flex items-center gap-3.5 cursor-pointer active:scale-[0.99] transition">
+                        <div class="w-11 h-11 rounded-2xl pill-bar flex items-center justify-center text-blue-400 font-bold text-base shrink-0">
+                            ${icon}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-xs text-slate-400 truncate">${t.subject}</div>
+                            <div class="text-sm font-bold text-white truncate ${t.status === 'done' ? 'line-through text-slate-500' : ''}">${t.title}</div>
+                            <div class="text-[11px] text-slate-400 mt-0.5">До ${dateFormatted} • ${daysText}</div>
+                        </div>
+                        <div class="flex flex-col items-end gap-1.5 shrink-0">
+                            ${badgeHtml}
+                            <button type="button" onclick="deleteTask(event, ${t.id})" class="text-[10px] text-slate-500 hover:text-red-400">Удалить</button>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        // ================= ЭКРАН 4: ОЦЕНКИ (СРЕДНИЙ БАЛЛ + ДИАГРАММА) =================
+        function setMarksViewMode(mode) {
+            marksViewMode = mode;
+            document.getElementById('btnMarksBySubj').className = mode === 'subjects' ? "py-2 rounded-xl text-xs font-semibold transition blue-glow text-white" : "py-2 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white";
+            document.getElementById('btnMarksAll').className = mode === 'all' ? "py-2 rounded-xl text-xs font-semibold transition blue-glow text-white" : "py-2 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white";
+            loadMarksForActiveSubject();
+        }
+
+        function updateAverageSummaryCard(numericGrades) {
+            const bigEl = document.getElementById('avgGradeBig');
+            const pctEl = document.getElementById('avgPercentText');
+            const circleEl = document.getElementById('avgCircleStroke');
+            const barEl = document.getElementById('avgHorizontalBar');
+
+            if (!numericGrades || numericGrades.length === 0) {
+                bigEl.innerText = '—';
+                pctEl.innerText = '0%';
+                circleEl.setAttribute('stroke-dasharray', '0, 100');
+                barEl.style.width = '0%';
+                return;
+            }
+
+            const sum = numericGrades.reduce((a, b) => a + b, 0);
+            const avg = sum / numericGrades.length;
+            const pct = Math.min(100, Math.round((avg / 5) * 100));
+
+            bigEl.innerText = avg.toFixed(1).replace('.', ',');
+            pctEl.innerText = `${pct}%`;
+            circleEl.setAttribute('stroke-dasharray', `${pct}, 100`);
+            barEl.style.width = `${pct}%`;
+        }
+
         function extractSheetId(link) {
             const match = String(link || '').match(/\/d\/([a-zA-Z0-9-_]+)/);
             return match ? match[1] : null;
@@ -804,10 +1303,10 @@
             container.innerHTML = '';
             tabs.forEach(tabName => {
                 const isSelected = selectedGroupForMarks === tabName;
-                const cls = isSelected ? "bg-indigo-600 border-indigo-400 text-white shadow" : "bg-slate-900 hover:bg-indigo-600/30 border-slate-700 text-slate-200";
+                const cls = isSelected ? "blue-glow text-white" : "pill-bar text-slate-200";
                 const btn = document.createElement('button');
                 btn.type = 'button';
-                btn.className = `px-3.5 py-2 border rounded-xl text-xs font-bold transition ${cls}`;
+                btn.className = `px-3.5 py-2 rounded-xl text-xs font-bold transition ${cls}`;
                 btn.textContent = `👥 ${tabName}`;
                 btn.onclick = () => selectGroupForMarks(tabName);
                 container.appendChild(btn);
@@ -869,15 +1368,14 @@
             subjects.push({ subjectName: subjName, sheetId: extractSheetId(link), groupName: selectedGroupForMarks, studentName });
             localStorage.setItem(STORAGE_MARKS_KEY, JSON.stringify(subjects));
             activeSubjectIndex = subjects.length - 1;
+            marksViewMode = 'all';
             switchSection('marks');
         }
 
         function openAddSubject() {
-            document.getElementById('marksSection').classList.add('hidden');
-            document.getElementById('scheduleSection').classList.add('hidden');
-            document.getElementById('changesSection').classList.add('hidden');
+            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScheduleScreen', 'addTaskModal', 'profileSection'];
+            allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById('setupScreen').classList.remove('hidden');
-            document.getElementById('setupScheduleScreen').classList.add('hidden');
             document.getElementById('groupSelectBlock').classList.add('hidden');
             document.getElementById('studentSelectBlock').classList.add('hidden');
             document.getElementById('subjectNameInput').value = '';
@@ -889,14 +1387,11 @@
         function renderSubjectTabs() {
             const container = document.getElementById('subjectsTabs');
             container.innerHTML = '';
-            if (subjects.length === 0) {
-                container.innerHTML = `<button type="button" onclick="openAddSubject()" class="text-xs bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 px-3 py-2 rounded-xl">➕ Добавить первый предмет</button>`;
-                return;
-            }
+            if (subjects.length === 0) return;
             subjects.forEach((subj, idx) => {
                 const isActive = idx === activeSubjectIndex;
                 container.innerHTML += `
-                    <div class="flex items-center rounded-xl border ${isActive ? "bg-indigo-600 text-white border-indigo-500 shadow-md" : "bg-slate-800 text-slate-400 border-slate-700"} px-3 py-2 text-xs font-medium shrink-0 cursor-pointer" onclick="switchSubject(${idx})">
+                    <div onclick="switchSubject(${idx})" class="flex items-center rounded-xl px-3 py-1.5 text-xs font-semibold shrink-0 cursor-pointer transition ${isActive ? 'blue-glow text-white' : 'app-card text-slate-400'}">
                         <span>${subj.subjectName}</span>
                         <button type="button" onclick="deleteSubject(event, ${idx})" class="ml-2 text-slate-300 hover:text-red-400">✕</button>
                     </div>
@@ -904,7 +1399,12 @@
             });
         }
 
-        function switchSubject(idx) { activeSubjectIndex = idx; renderSubjectTabs(); loadMarksForActiveSubject(); }
+        function switchSubject(idx) {
+            activeSubjectIndex = idx;
+            marksViewMode = 'all';
+            setMarksViewMode('all');
+        }
+
         function deleteSubject(event, idx) {
             event.stopPropagation();
             if (confirm(`Удалить предмет «${subjects[idx].subjectName}»?`)) {
@@ -918,26 +1418,37 @@
         async function loadMarksForActiveSubject() {
             const current = subjects[activeSubjectIndex];
             const container = document.getElementById('marksList');
-            const studentCard = document.getElementById('studentCard');
+            renderSubjectTabs();
+
             if (!current) {
-                studentCard.classList.add('hidden');
-                container.innerHTML = `<div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 text-center space-y-3"><div class="text-slate-400 text-sm">Таблицы с оценками пока не добавлены</div><button type="button" onclick="openAddSubject()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2.5 rounded-xl transition">➕ Подключить таблицу оценок</button></div>`;
+                updateAverageSummaryCard([]);
+                container.innerHTML = `
+                    <div class="app-card rounded-3xl p-6 text-center space-y-3">
+                        <div class="text-slate-300 text-sm font-semibold">Таблицы с оценками пока не добавлены</div>
+                        <button type="button" onclick="openAddSubject()" class="blue-glow text-white text-xs font-semibold px-5 py-2.5 rounded-xl">➕ Подключить Google Таблицу</button>
+                    </div>
+                `;
                 return;
             }
-            studentCard.classList.remove('hidden');
-            document.getElementById('studentDisplay').innerText = current.studentName;
-            document.getElementById('groupDisplay').innerText = `Группа: ${current.groupName} • ${current.subjectName}`;
-            container.innerHTML = '<div class="text-center text-slate-400 py-8 animate-pulse text-sm">Загружаем оценки...</div>';
+
+            document.getElementById('marksUpdatedTime').innerText = `${current.studentName} • Гр. ${current.groupName}`;
+            container.innerHTML = '<div class="app-card p-8 rounded-3xl text-center text-slate-400 animate-pulse text-xs">Синхронизация с Google Таблицами...</div>';
+
             try {
                 const url = `https://docs.google.com/spreadsheets/d/${current.sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(current.groupName)}&_t=${Date.now()}`;
                 const csvText = await (await fetch(url)).text();
+
                 Papa.parse(csvText, {
                     skipEmptyLines: true,
                     complete: function(results) {
                         const matrix = results.data;
                         const { nameColIdx, firstStudentRow } = analyzeMatrix(matrix);
                         let studentRow = matrix.slice(firstStudentRow).find(r => String(r[nameColIdx] || '').trim() === current.studentName);
-                        if (!studentRow) { container.innerHTML = '<div class="text-red-400 text-center py-6 text-sm bg-slate-800 rounded-2xl">Студент не найден</div>'; return; }
+                        if (!studentRow) {
+                            container.innerHTML = '<div class="app-card p-6 rounded-3xl text-center text-red-400 text-xs">Студент не найден в таблице</div>';
+                            return;
+                        }
+
                         const headers = [];
                         for (let c = 0; c < studentRow.length; c++) {
                             let parts = [];
@@ -947,28 +1458,77 @@
                             }
                             headers[c] = parts.join(' • ') || `Колонка ${c + 1}`;
                         }
-                        let html = '', count = 0;
+
+                        const gradeItems = [];
+                        const numericGrades = [];
+
                         for (let c = 0; c < studentRow.length; c++) {
                             if (c === nameColIdx || c === 0) continue;
                             let rawHeader = headers[c];
                             let val = String(studentRow[c] || '').trim();
                             if (!val || val === '—' || val === '-' || /#(DIV|ДЕЛ|VALUE|ЗНАЧ|REF|Н\/Д)/i.test(val)) continue;
                             if (/^(№|п\/п|№\s*п\/п)$/i.test(rawHeader)) continue;
-                            html += `
-                                <div class="bg-slate-800 p-3.5 rounded-xl flex justify-between items-center shadow border border-slate-700/40">
-                                    <span class="text-xs sm:text-sm text-slate-200 pr-3 leading-snug">${rawHeader}</span>
-                                    <span class="bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 font-bold px-3 py-1 rounded-lg text-sm shrink-0">${val}</span>
-                                </div>
-                            `;
-                            count++;
+
+                            const num = parseFloat(val.replace(',', '.'));
+                            if (!isNaN(num) && num >= 2 && num <= 5 && !val.includes('%')) {
+                                numericGrades.push(num);
+                            }
+                            gradeItems.push({ header: rawHeader, val });
                         }
-                        container.innerHTML = count === 0 ? '<div class="text-slate-400 text-center py-8 bg-slate-800/50 rounded-2xl text-sm">Пока нет оценок</div>' : html;
+
+                        updateAverageSummaryCard(numericGrades);
+                        const subjAvg = numericGrades.length > 0
+                            ? (numericGrades.reduce((a, b) => a + b, 0) / numericGrades.length).toFixed(1).replace('.', ',')
+                            : '—';
+                        cachedSubjectSummaries[activeSubjectIndex] = { avg: subjAvg, count: gradeItems.length };
+
+                        if (marksViewMode === 'subjects') {
+                            let subjHtml = '';
+                            subjects.forEach((s, idx) => {
+                                const summary = cachedSubjectSummaries[idx] || { avg: '•', count: '' };
+                                const icon = getSubjectIcon(s.subjectName);
+                                subjHtml += `
+                                    <div onclick="switchSubject(${idx})" class="app-card p-4 rounded-3xl flex items-center justify-between cursor-pointer hover:border-blue-500/40 transition">
+                                        <div class="flex items-center gap-3.5">
+                                            <div class="w-11 h-11 rounded-2xl pill-bar flex items-center justify-center text-blue-400 font-bold text-base">${icon}</div>
+                                            <div>
+                                                <div class="font-bold text-sm text-white">${s.subjectName}</div>
+                                                <div class="text-xs text-slate-400 mt-0.5">Гр. ${s.groupName} ${summary.count ? `• Оценок: ${summary.count}` : ''}</div>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xl font-extrabold text-white">${summary.avg}</span>
+                                            <span class="text-slate-500">›</span>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            container.innerHTML = subjHtml;
+                        } else {
+                            let html = '';
+                            gradeItems.forEach(item => {
+                                html += `
+                                    <div class="app-card p-3.5 rounded-2xl flex justify-between items-center gap-3">
+                                        <span class="text-xs text-slate-200 leading-snug">${item.header}</span>
+                                        <span class="pill-bar text-blue-400 font-extrabold px-3 py-1.5 rounded-xl text-sm shrink-0">${item.val}</span>
+                                    </div>
+                                `;
+                            });
+                            container.innerHTML = html || '<div class="app-card p-6 rounded-3xl text-center text-slate-400 text-xs">Выставленных оценок пока нет</div>';
+                        }
                     }
                 });
-            } catch (e) { container.innerHTML = `<div class="text-red-400 text-center py-6 bg-slate-800 rounded-2xl text-sm">Ошибка: ${e.message}</div>`; }
+            } catch (e) {
+                container.innerHTML = `<div class="app-card p-6 rounded-3xl text-center text-red-400 text-xs">Ошибка: ${e.message}</div>`;
+            }
         }
 
-        function hardReset() { if (confirm("Сбросить все оценки, расписание и замены?")) { localStorage.clear(); location.reload(); } }
+        function hardReset() {
+            if (confirm("Сбросить все оценки, расписание, задания и замены?")) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
     </script>
 </body>
 </html>
