@@ -192,7 +192,6 @@
                 <button type="button" id="taskFilterOverdue" onclick="setTaskFilter('OVERDUE')" class="py-2 rounded-xl text-[11px] font-medium transition text-slate-400">Просрочено</button>
             </div>
 
-            <!-- Статус старосты и кнопка добавления -->
             <div class="flex justify-between items-center px-1">
                 <div id="starostaStatusBadge" class="text-xs text-slate-400 flex items-center gap-1.5">
                     <span>Личные и групповые задания</span>
@@ -307,7 +306,7 @@
             </div>
         </section>
 
-        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ ЗАДАНИЯ (ЛИЧНОЕ ИЛИ ДЛЯ ГРУППЫ) ==================== -->
+        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ ЗАДАНИЯ ==================== -->
         <section id="addTaskModal" class="app-card p-5 rounded-3xl space-y-4 hidden">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base text-white">Новое задание</h2>
@@ -374,21 +373,57 @@
                 </button>
             </div>
 
-            <!-- Управление дневниками оценок -->
-            <div class="app-card p-5 rounded-3xl space-y-3">
-                <div class="flex justify-between items-center">
+            <!-- ПАНЕЛЬ СОЗДАТЕЛЯ (ВХОД ПО ОДНОРАЗОВОМУ ROOT-КЛЮЧУ) -->
+            <div class="app-card p-5 rounded-3xl space-y-3 border-amber-500/30">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-lg">🛡️</span>
                     <div>
-                        <h3 class="text-sm font-bold text-white">📊 Мои дневники оценок</h3>
-                        <p class="text-[11px] text-slate-400">Таблицы предметов и баллов</p>
+                        <h3 class="text-sm font-bold text-white">Панель создателя</h3>
+                        <p class="text-[11px] text-slate-400">Выпуск одноразовых ключей для любых групп</p>
                     </div>
-                    <button type="button" onclick="openAddSubject()" class="blue-glow px-3.5 py-2 rounded-xl text-xs font-semibold active:scale-95 transition">
-                        ➕ Добавить
+                </div>
+
+                <!-- Состояние: Авторизован как Создатель -->
+                <div id="adminPanelUnlocked" class="hidden space-y-3 pt-1">
+                    <div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs flex justify-between items-center">
+                        <div>
+                            <div class="font-bold text-amber-400">✓ Права создателя активны</div>
+                            <div class="text-[11px] text-slate-300">Вы можете выпускать ключи старостам</div>
+                        </div>
+                        <button type="button" onclick="logoutAdmin()" class="text-red-400 font-bold hover:underline">Выйти</button>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-xs text-slate-400">Номер группы для выпуска ключа:</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="adminGroupSelectInput" placeholder="Например: 5953" class="w-full pill-bar rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-500">
+                            <button type="button" onclick="generateKeyForGroup()" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 rounded-xl text-xs shrink-0 transition">
+                                Создать ключ
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="generatedKeyBox" class="hidden p-3 rounded-2xl bg-slate-900 border border-slate-700 space-y-1.5 text-xs">
+                        <div class="text-slate-400 text-[11px]">Готовый одноразовый ключ:</div>
+                        <div class="flex items-center justify-between gap-2">
+                            <code id="generatedKeyResult" class="font-mono text-sm font-bold text-emerald-400"></code>
+                            <button type="button" onclick="copyGeneratedKey()" class="pill-bar px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-200 hover:text-white">
+                                📋 Копировать
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Состояние: Форма ввода одноразового ключа создателя -->
+                <div id="adminLoginForm" class="space-y-2 pt-1">
+                    <input type="password" id="adminRootKeyInput" placeholder="Введите одноразовый ключ создателя..." class="w-full pill-bar rounded-xl p-3 text-xs text-white focus:outline-none focus:border-amber-500">
+                    <button type="button" onclick="activateAdminKey()" class="w-full pill-bar hover:bg-slate-800 text-amber-400 font-bold py-2.5 rounded-xl text-xs transition">
+                        Активировать права создателя
                     </button>
                 </div>
-                <div id="profileSubjectsList" class="space-y-2 pt-1"></div>
             </div>
 
-            <!-- Доступ старосты (Ввод секретного ключа) -->
+            <!-- Доступ старосты (Ввод одноразового ключа) -->
             <div class="app-card p-5 rounded-3xl space-y-3">
                 <div class="flex items-center gap-2.5">
                     <span class="text-lg">👑</span>
@@ -407,11 +442,25 @@
                 </div>
 
                 <div id="starostaLoginForm" class="space-y-2 pt-1">
-                    <input type="password" id="starostaKeyInput" placeholder="Введите секретный ключ старосты..." class="w-full pill-bar rounded-xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
+                    <input type="password" id="starostaKeyInput" placeholder="Введите одноразовый ключ старосты..." class="w-full pill-bar rounded-xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
                     <button type="button" onclick="activateStarostaKey()" class="w-full pill-bar hover:bg-slate-800 text-blue-400 font-bold py-2.5 rounded-xl text-xs transition">
                         Активировать статус старосты
                     </button>
                 </div>
+            </div>
+
+            <!-- Управление дневниками оценок -->
+            <div class="app-card p-5 rounded-3xl space-y-3">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h3 class="text-sm font-bold text-white">📊 Мои дневники оценок</h3>
+                        <p class="text-[11px] text-slate-400">Таблицы предметов и баллов</p>
+                    </div>
+                    <button type="button" onclick="openAddSubject()" class="blue-glow px-3.5 py-2 rounded-xl text-xs font-semibold active:scale-95 transition">
+                        ➕ Добавить
+                    </button>
+                </div>
+                <div id="profileSubjectsList" class="space-y-2 pt-1"></div>
             </div>
 
             <!-- Настройки темы и сброс -->
@@ -493,6 +542,7 @@
         const STORAGE_TASKS_KEY = 'ptk_diary_tasks_v1';
         const STORAGE_THEME_KEY = 'ptk_diary_theme_v1';
         const STORAGE_STAROSTA_KEY = 'ptk_diary_starosta_v1';
+        const STORAGE_ADMIN_KEY = 'ptk_diary_admin_token_v1';
         const RENDER_URL = 'https://dnevnik-1.onrender.com';
 
         const DAY_NAMES_FULL = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
@@ -507,9 +557,10 @@
         let lastActiveSection = 'schedule';
         let currentTheme = 'dark';
 
-        // Доступ старосты: { group: '5953', key: 'ptk5953star' }
+        // Доступ старосты и создателя
         let starostaAuth = null;
-        let serverGroupTasks = []; // Задания, загруженные с сервера для текущей группы
+        let adminToken = localStorage.getItem(STORAGE_ADMIN_KEY) || null;
+        let serverGroupTasks = [];
 
         let changesData = { dateTitle: 'Изменения в расписании', fileName: '', items: [], portalFiles: [] };
         let activeChangesGroupFilter = 'ALL';
@@ -547,6 +598,7 @@
             if (known.length > 0) activeChangesGroupFilter = known[0];
 
             updateStarostaUI();
+            updateAdminUI();
             fetchServerTasksForActiveGroup();
 
             if (schedules.length > 0) switchSection('schedule');
@@ -689,10 +741,87 @@
 
             renderProfileSubjectsList();
             updateStarostaUI();
+            updateAdminUI();
         }
 
         function closeProfileModal() {
             switchSection(lastActiveSection || 'schedule');
+        }
+
+        // ================= ПАНЕЛЬ СОЗДАТЕЛЯ (АДМИНИСТРАТОР) =================
+        function updateAdminUI() {
+            const unlocked = document.getElementById('adminPanelUnlocked');
+            const loginForm = document.getElementById('adminLoginForm');
+            if (adminToken) {
+                if (unlocked) unlocked.classList.remove('hidden');
+                if (loginForm) loginForm.classList.add('hidden');
+            } else {
+                if (unlocked) unlocked.classList.add('hidden');
+                if (loginForm) loginForm.classList.remove('hidden');
+            }
+        }
+
+        async function activateAdminKey() {
+            const input = document.getElementById('adminRootKeyInput');
+            const rootKey = input.value.trim();
+            if (!rootKey) { alert("Введите одноразовый ключ создателя!"); return; }
+
+            try {
+                const res = await fetch(`${RENDER_URL}/api/admin/auth`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rootKey })
+                });
+                const data = await res.json();
+                if (!res.ok || data.error) {
+                    alert("Ошибка: " + (data.error || "Неверный ключ"));
+                    return;
+                }
+
+                adminToken = data.adminToken;
+                localStorage.setItem(STORAGE_ADMIN_KEY, adminToken);
+                input.value = '';
+                updateAdminUI();
+                alert("✓ Права создателя подтверждены! Одноразовый мастер-ключ сгорел.");
+            } catch (e) {
+                alert("Ошибка связи с сервером: " + e.message);
+            }
+        }
+
+        async function generateKeyForGroup() {
+            const grp = document.getElementById('adminGroupSelectInput').value.trim();
+            if (!grp) { alert("Укажите номер группы!"); return; }
+
+            try {
+                const res = await fetch(`${RENDER_URL}/api/admin/generate-starosta-key`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ adminToken, group: grp })
+                });
+                const data = await res.json();
+                if (!res.ok || data.error) throw new Error(data.error || "Ошибка генерации");
+
+                document.getElementById('generatedKeyResult').innerText = data.key;
+                document.getElementById('generatedKeyBox').classList.remove('hidden');
+            } catch (e) {
+                alert("Ошибка: " + e.message);
+            }
+        }
+
+        function copyGeneratedKey() {
+            const txt = document.getElementById('generatedKeyResult').innerText;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(txt);
+                alert("Ключ скопирован в буфер обмена!");
+            }
+        }
+
+        function logoutAdmin() {
+            if (confirm("Выйти из режима создателя?")) {
+                adminToken = null;
+                localStorage.removeItem(STORAGE_ADMIN_KEY);
+                updateAdminUI();
+            }
         }
 
         // ================= СТАРОСТА: АВТОРИЗАЦИЯ И УПРАВЛЕНИЕ =================
@@ -702,7 +831,7 @@
             const groupLabel = document.getElementById('starostaActiveGroupLabel');
             const statusBadge = document.getElementById('starostaStatusBadge');
 
-            if (starostaAuth && starostaAuth.key) {
+            if (starostaAuth && starostaAuth.sessionToken) {
                 if (activeBlock) activeBlock.classList.remove('hidden');
                 if (loginForm) loginForm.classList.add('hidden');
                 if (groupLabel) groupLabel.innerText = `Группа: ${starostaAuth.group}`;
@@ -715,42 +844,30 @@
         }
 
         async function activateStarostaKey() {
-            const key = document.getElementById('starostaKeyInput').value.trim();
-            const currentGrp = getActiveGroupName();
-            if (!currentGrp) { alert("Сначала выберите вашу группу в расписании!"); return; }
-            if (!key) { alert("Введите секретный ключ!"); return; }
+            const keyInput = document.getElementById('starostaKeyInput');
+            const key = keyInput.value.trim();
+            if (!key) { alert("Вставьте одноразовый ключ!"); return; }
 
-            // Пробуем тестовый запрос к серверу с этим ключом
             try {
-                const res = await fetch(`${RENDER_URL}/api/tasks/${currentGrp}`, {
+                const res = await fetch(`${RENDER_URL}/api/tasks/auth`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        secretKey: key,
-                        task: { subject: 'Тест', title: '__test_verify__', dueDate: '2099-01-01' }
-                    })
+                    body: JSON.stringify({ secretKey: key })
                 });
 
                 const data = await res.json();
                 if (!res.ok || data.error) {
-                    alert("Ошибка: " + (data.error || "Неверный ключ для группы " + currentGrp));
+                    alert("Ошибка: " + (data.error || "Неверный ключ"));
                     return;
                 }
 
-                // Сразу удаляем тестовое задание
-                if (data.task && data.task.id) {
-                    await fetch(`${RENDER_URL}/api/tasks/${currentGrp}/${data.task.id}`, {
-                        method: 'DELETE',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ secretKey: key })
-                    });
-                }
-
-                starostaAuth = { group: currentGrp, key: key };
+                starostaAuth = { group: data.group, sessionToken: data.sessionToken };
                 localStorage.setItem(STORAGE_STAROSTA_KEY, JSON.stringify(starostaAuth));
-                document.getElementById('starostaKeyInput').value = '';
+                keyInput.value = '';
                 updateStarostaUI();
-                alert(`Успешно! Вы получили статус старосты группы ${currentGrp}. Теперь добавленные вами задания будут видеть все студенты группы.`);
+                await fetchServerTasksForActiveGroup();
+
+                alert(`✓ Успешно! Вы назначены старостой группы ${data.group}. Одноразовый ключ погашен.`);
             } catch (e) {
                 alert("Ошибка связи с сервером: " + e.message);
             }
@@ -764,7 +881,7 @@
             }
         }
 
-        // ================= ЗАГРУЗКА ЗАДАНИЙ С СЕРВЕРА ДЛЯ ГРУППЫ =================
+        // ================= ЗАГРУЗКА ЗАДАНИЙ С СЕРВЕРА =================
         async function fetchServerTasksForActiveGroup() {
             const currentGrp = getActiveGroupName();
             if (!currentGrp) return;
@@ -779,7 +896,7 @@
             }
         }
 
-        // ================= ЭКРАН 1: РАСПИСАНИЕ С ПОДВЯЗКОЙ ДЗ =================
+        // ================= ЭКРАН 1: РАСПИСАНИЕ =================
         function getMondayOfCurrentWeek() {
             const now = new Date();
             const day = now.getDay();
@@ -791,7 +908,7 @@
             const monday = getMondayOfCurrentWeek();
             const d = new Date(monday);
             d.setDate(monday.getDate() + dayIdx);
-            return d.toISOString().slice(0, 10); // YYYY-MM-DD
+            return d.toISOString().slice(0, 10);
         }
 
         function renderWeekDaysBar() {
@@ -1106,12 +1223,11 @@
                 const targetDays = scheduleViewMode === 'day' ? [DAY_NAMES_FULL[selectedDayIndex]] : DAY_NAMES_FULL;
                 const allCombinedTasks = getAllCombinedTasks();
 
-                targetDays.forEach((dayName, idxOffset) => {
+                targetDays.forEach((dayName) => {
                     const lessons = daysSchedule[dayName] || [];
                     const dayIdx = scheduleViewMode === 'day' ? selectedDayIndex : DAY_NAMES_FULL.indexOf(dayName);
                     const targetDayDateStr = getDateForDayIndex(dayIdx);
 
-                    // Ищем домашку на эту дату
                     const dayTasks = allCombinedTasks.filter(t => t.dueDate === targetDayDateStr);
 
                     if (scheduleViewMode === 'week' && lessons.length === 0 && dayTasks.length === 0) return;
@@ -1120,7 +1236,6 @@
                         html += `<div class="text-xs font-bold text-blue-400 uppercase tracking-wider px-1 pt-2">${dayName}</div>`;
                     }
 
-                    // Блок ДЗ прямо в расписании на этот день!
                     if (dayTasks.length > 0) {
                         html += `
                             <div class="app-card p-3.5 rounded-3xl border-blue-500/50 bg-blue-500/10 space-y-1.5">
@@ -1443,7 +1558,7 @@
             const choiceBox = document.getElementById('starostaPublishChoice');
             const groupSpan = document.getElementById('starostaGroupNameSpan');
 
-            if (starostaAuth && starostaAuth.key && starostaAuth.group === currentGrp) {
+            if (starostaAuth && starostaAuth.sessionToken && starostaAuth.group === currentGrp) {
                 if (choiceBox) choiceBox.classList.remove('hidden');
                 if (groupSpan) groupSpan.innerText = currentGrp;
             } else {
@@ -1462,7 +1577,7 @@
             if (!title) { alert("Введите описание задания!"); return; }
 
             const currentGrp = getActiveGroupName();
-            const isGroupPublish = starostaAuth && starostaAuth.key && document.getElementById('taskForGroupCheckbox')?.checked;
+            const isGroupPublish = starostaAuth && starostaAuth.sessionToken && document.getElementById('taskForGroupCheckbox')?.checked;
 
             if (isGroupPublish && currentGrp) {
                 const btn = document.getElementById('saveTaskSubmitBtn');
@@ -1472,7 +1587,7 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            secretKey: starostaAuth.key,
+                            sessionToken: starostaAuth.sessionToken,
                             task: { subject, title, dueDate }
                         })
                     });
@@ -1480,7 +1595,7 @@
                     if (!res.ok || data.error) throw new Error(data.error || "Ошибка сохранения");
                     await fetchServerTasksForActiveGroup();
                 } catch (e) {
-                    alert("Ошибка публикации на сервере: " + e.message);
+                    alert("Ошибка публикации: " + e.message);
                 } finally {
                     btn.innerText = "✅ Добавить задание";
                 }
@@ -1493,7 +1608,7 @@
         }
 
         function toggleTaskStatus(id, isGroupTask) {
-            if (isGroupTask) return; // статус переключается для личных заметок
+            if (isGroupTask) return;
             const t = localTasks.find(x => x.id === id);
             if (!t) return;
             const order = ['todo', 'progress', 'done'];
@@ -1505,29 +1620,31 @@
         async function deleteTask(event, id, isGroupTask) {
             event.stopPropagation();
             if (isGroupTask) {
-                if (!starostaAuth || !starostaAuth.key) {
-                    alert("Это задание опубликовано старостой группы. Удалить его может только староста.");
+                if (!starostaAuth || !starostaAuth.sessionToken) {
+                    alert("Удалить это задание может только староста группы.");
                     return;
                 }
-                if (confirm("Удалить это групповое задание для всех студентов?")) {
+                if (confirm("Удалить это групповое задание для всех?")) {
                     try {
                         const res = await fetch(`${RENDER_URL}/api/tasks/${starostaAuth.group}/${id}`, {
                             method: 'DELETE',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ secretKey: starostaAuth.key })
+                            body: JSON.stringify({ sessionToken: starostaAuth.sessionToken })
                         });
                         if (res.ok) {
                             serverGroupTasks = serverGroupTasks.filter(t => t.id !== id);
                             renderTasksList();
+                            loadScheduleForActive();
                         }
                     } catch (e) {
-                        alert("Ошибка удаления с сервера: " + e.message);
+                        alert("Ошибка: " + e.message);
                     }
                 }
             } else {
                 localTasks = localTasks.filter(x => x.id !== id);
                 localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
                 renderTasksList();
+                loadScheduleForActive();
             }
         }
 
@@ -1569,7 +1686,7 @@
                     badgeHtml = `<span class="pill-bar text-slate-300 px-2.5 py-0.5 rounded-full text-[11px] font-medium">Не начато</span>`;
                 }
 
-                const canDelete = !t.isGroupTask || (starostaAuth && starostaAuth.key);
+                const canDelete = !t.isGroupTask || (starostaAuth && starostaAuth.sessionToken);
 
                 html += `
                     <div onclick="toggleTaskStatus(${t.id}, ${!!t.isGroupTask})" class="app-card p-4 rounded-3xl flex items-center gap-3.5 cursor-pointer active:scale-[0.99] transition">
