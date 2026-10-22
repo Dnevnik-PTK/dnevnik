@@ -506,6 +506,75 @@ app.get('/api/changes', async (req, res) => {
 
 app.get('/api/schedule/:group', async (req, res) => {
     try {
-        const targetGroup = String(req.params.group || '').tport ${PORT}`);
+        const targetGroup = String(req.params.group || '').trim();
+        if (!targetGroup) return res.status(400).json({ error: 'Не указана группа' });
+        if (scheduleCache.has(targetGroup)) return res.json(scheduleCache.get(targetGroup));
+
+        const pagesToScan = [
+            'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999',
+            'https://portal.novsu.ru/univer/timetable/spo/'
+        ];
+        const exactRegex = new RegExp(`(^|\\D)${targetGroup}(\\D|$)`);
+        const prefix3 = targetGroup.slice(0, 3);
+        const prefixRegex = new RegExp(`(^|\\D)${prefix3}\\d(\\D|$)`);
+        const candidates = [];
+        const seenUrls = new Set();
+
+        for (const pageUrl of pagesToScan) {
+            try {
+                const r = await fetch(pageUrl, { headers: BROWSER_HEADERS });
+                if (!r.ok) continue;
+                const html = await r.text();
+                const links = extractLinksFromHtml(html, pageUrl);
+                for (const link of links) {
+                    const combined = `${link.text} ${decodeURIComponent(link.url)}`;
+                    if (/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(link.text)) continue;
+                    if (link.text.trim() === targetGroup || exactRegex.test(combined)) {
+                        if (!seenUrls.has(link.url)) { candidates.unshift(link); seenUrls.add(link.url); }
+                    } else if (prefix3.length === 3 && prefixRegex.test(combined)) {
+                        if (!seenUrls.has(link.url)) { candidates.push(link); seenUrls.add(link.url); }
+                    }
+                }
+            } catch (e) {}
+        }
+
+        for (const cand of candidates) {
+            try {
+                const fileRes = await fetch(cand.url, { headers: BROWSER_HEADERS });
+                if (!fileRes.ok) continue;
+                const buffer = Buffer.from(await fileRes.arrayBuffer());
+                const headStr = buffer.slice(0, 100).toString('utf8').trim().toLowerCase();
+                if (headStr.startsWith('<!doctype') || headStr.startsWith('<html')) continue;
+
+                const workbook = XLSX.read(buffer, { type: 'buffer' });
+                indexWorkbookGroups(workbook, cand.text);
+                const result = findGroupInWorkbook(workbook, targetGroup);
+                if (result) {
+                    if (!result.rows[result.headerRowIdx]) result.rows[result.headerRowIdx] = [];
+                    result.rows[result.headerRowIdx][result.groupColIdx] = targetGroup;
+                    const payload = {
+                        group: targetGroup,
+                        sheet: result.sheet,
+                        fileName: cand.text || result.sheet,
+                        rows: result.rows,
+                        merges: result.merges,
+                        groupColIdx: result.groupColIdx,
+                        headerRowIdx: result.headerRowIdx
+                    };
+                    scheduleCache.set(targetGroup, payload);
+                    return res.json(payload);
+                }
+            } catch (e) {}
+        }
+        return res.status(404).json({ error: `Группа ${targetGroup} не найдена` });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.get('/ping', (req, res) => {
+    res.json({ status: 'ok', cachedGroupsCount: scheduleCache.size, lastCacheUpdate });
+});
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
     syncAllDataFromNovsu();
 });
