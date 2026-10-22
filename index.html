@@ -95,7 +95,7 @@
                 <div>
                     <div class="flex items-center gap-2">
                         <h1 id="topScreenTitle" class="text-lg font-bold tracking-tight text-white">Расписание</h1>
-                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">v5.4</span>
+                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">v5.5</span>
                     </div>
                     <p id="topScreenSubtitle" class="text-[11px] text-slate-400">НовГУ • Студенческий помощник</p>
                 </div>
@@ -306,7 +306,7 @@
             </div>
         </section>
 
-        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ ЗАДАНИЯ ==================== -->
+        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ ЗАДАНИЯ (УМНЫЙ ВЫБОР ПРЕДМЕТА) ==================== -->
         <section id="addTaskModal" class="app-card p-5 rounded-3xl space-y-4 hidden">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base text-white">Новое задание</h2>
@@ -321,18 +321,32 @@
                 </label>
             </div>
 
+            <!-- ШАГ 1: ДАТА (ДЕДЛАЙН) -->
             <div>
-                <label class="block text-xs text-slate-400 mb-1">Предмет</label>
-                <input type="text" id="taskSubjectInput" placeholder="Например: Разработка веб-приложений" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
+                <label class="block text-xs text-slate-400 mb-1">1. Выберите дату сдачи (дедлайн):</label>
+                <input type="date" id="taskDateInput" onchange="onTaskDateChanged()" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
             </div>
+
+            <!-- ШАГ 2: ВЫБОР ПРЕДМЕТА ИЗ РАСПИСАНИЯ НА ЭТОТ ДЕНЬ -->
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <label class="block text-xs text-slate-400">2. Предмет в этот день:</label>
+                    <button type="button" onclick="enableCustomSubjectInput()" class="text-[11px] text-blue-400 hover:underline">Другой предмет</button>
+                </div>
+                
+                <div id="modalDayLessonsContainer" class="flex flex-wrap gap-2 pt-0.5">
+                    <!-- Сюда скрипт подставляет кнопки пар -->
+                </div>
+
+                <input type="text" id="taskSubjectInput" placeholder="Название предмета" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none hidden">
+            </div>
+
+            <!-- ШАГ 3: ОПИСАНИЕ -->
             <div>
-                <label class="block text-xs text-slate-400 mb-1">Что нужно сделать</label>
-                <input type="text" id="taskTitleInput" placeholder="Например: Практическая работа №4" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
+                <label class="block text-xs text-slate-400 mb-1">3. Что нужно сделать:</label>
+                <input type="text" id="taskTitleInput" placeholder="Например: Практическая работа №4 (упр. 12-15)" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
             </div>
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">Срок сдачи (дедлайн)</label>
-                <input type="date" id="taskDateInput" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
-            </div>
+
             <button type="button" id="saveTaskSubmitBtn" onclick="saveNewTask()" class="w-full blue-glow font-semibold py-3 rounded-xl">✅ Добавить задание</button>
         </section>
 
@@ -373,7 +387,7 @@
                 </button>
             </div>
 
-            <!-- ПАНЕЛЬ СОЗДАТЕЛЯ (ВХОД ПО ОДНОРАЗОВОМУ ROOT-КЛЮЧУ) -->
+            <!-- ПАНЕЛЬ СОЗДАТЕЛЯ (АДМИН) -->
             <div class="app-card p-5 rounded-3xl space-y-3 border-amber-500/30">
                 <div class="flex items-center gap-2.5">
                     <span class="text-lg">🛡️</span>
@@ -489,7 +503,7 @@
             </div>
 
             <div class="text-center space-y-1 pt-1">
-                <div class="text-[11px] text-slate-400">Версия 5.4</div>
+                <div class="text-[11px] text-slate-400">Версия 5.5</div>
                 <div class="inline-flex items-center gap-1.5 text-slate-400 text-xs">
                     <span>🏛️</span>
                     <span class="font-semibold">НовГУ • Студенческий помощник</span>
@@ -568,6 +582,7 @@
 
         let localTasks = [];
         let activeTaskFilter = 'ALL';
+        let selectedSubjectInModal = '';
 
         let marksViewMode = 'subjects';
         let cachedSubjectSummaries = {};
@@ -653,6 +668,14 @@
             const year = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
             const septFirst = new Date(year, 8, 1);
             const diffDays = Math.ceil(Math.abs(now - septFirst) / (1000 * 60 * 60 * 24));
+            return (Math.ceil(diffDays / 7) % 2 !== 0) ? 'upper' : 'lower';
+        }
+
+        // Вычисляет тип недели (верхняя/нижняя) для любой произвольной даты
+        function getWeekTypeForDate(dateObj) {
+            const year = dateObj.getMonth() >= 8 ? dateObj.getFullYear() : dateObj.getFullYear() - 1;
+            const septFirst = new Date(year, 8, 1);
+            const diffDays = Math.ceil(Math.abs(dateObj - septFirst) / (1000 * 60 * 60 * 24));
             return (Math.ceil(diffDays / 7) % 2 !== 0) ? 'upper' : 'lower';
         }
 
@@ -748,7 +771,7 @@
             switchSection(lastActiveSection || 'schedule');
         }
 
-        // ================= ПАНЕЛЬ СОЗДАТЕЛЯ (АДМИНИСТРАТОР) =================
+        // ================= ПАНЕЛЬ СОЗДАТЕЛЯ =================
         function updateAdminUI() {
             const unlocked = document.getElementById('adminPanelUnlocked');
             const loginForm = document.getElementById('adminLoginForm');
@@ -824,7 +847,7 @@
             }
         }
 
-        // ================= СТАРОСТА: АВТОРИЗАЦИЯ И УПРАВЛЕНИЕ =================
+        // ================= СТАРОСТА: АВТОРИЗАЦИЯ =================
         function updateStarostaUI() {
             const activeBlock = document.getElementById('starostaActiveBlock');
             const loginForm = document.getElementById('starostaLoginForm');
@@ -896,7 +919,7 @@
             }
         }
 
-        // ================= ЭКРАН 1: РАСПИСАНИЕ =================
+        // ================= РАСПИСАНИЕ И АНАЛИЗ ПАР =================
         function getMondayOfCurrentWeek() {
             const now = new Date();
             const day = now.getDay();
@@ -975,6 +998,62 @@
             const title = parts[0] || str;
             const teacher = parts.slice(1).join(', ') || 'Занятие по расписанию';
             return { title, teacher, aud: aud || 'НовГУ ПТК' };
+        }
+
+        // Извлекает список предметов на конкретный день и тип недели для активной группы
+        function getLessonsForDayAndWeek(targetDayName, weekType) {
+            const current = schedules[activeScheduleIndex];
+            if (!current || !current.rawRows) return [];
+
+            const rows = current.rawRows, merges = current.merges || [];
+            const groupWordRegex = new RegExp(`(^|\\D)${current.groupName}(\\D|$)`);
+            let groupColIdx = -1, headerRowIdx = -1;
+
+            for (let r = 0; r < Math.min(30, rows.length); r++) {
+                for (let c = 0; c < (rows[r] || []).length; c++) {
+                    const val = String(rows[r][c] || '').trim();
+                    if (val === current.groupName || groupWordRegex.test(val)) { groupColIdx = c; headerRowIdx = r; break; }
+                }
+                if (groupColIdx !== -1) break;
+            }
+
+            if (groupColIdx === -1) return [];
+
+            const timeColIdx = groupColIdx - 1, dayColIdx = groupColIdx - 2;
+            let currentDay = "Понедельник";
+            const foundLessons = [];
+
+            for (let r = headerRowIdx + 1; r < rows.length; r++) {
+                let row = rows[r];
+                if (!row) continue;
+                let dayCandidate = String(row[dayColIdx] || row[0] || '').trim().toLowerCase();
+                if (/^(понедельник|вторник|среда|четверг|пятница|суббота)$/.test(dayCandidate)) {
+                    currentDay = dayCandidate.charAt(0).toUpperCase() + dayCandidate.slice(1);
+                }
+
+                if (currentDay.toLowerCase() !== targetDayName.toLowerCase()) continue;
+
+                let timeVal = String(row[timeColIdx] || row[1] || '').trim();
+                if (!/\d{1,2}[\.:]\d{2}\s*-\s*\d{1,2}[\.:]\d{2}/.test(timeVal)) continue;
+
+                let upperVal = String(rows[r][groupColIdx] || '').trim();
+                let nextRow = rows[r + 1] || [];
+                let lowerVal = String(nextRow[groupColIdx] || '').trim();
+                let nextTimeVal = String(nextRow[timeColIdx] || nextRow[1] || '').trim();
+                let hasSecondRow = !(/\d{1,2}[\.:]\d{2}\s*-\s*\d{1,2}[\.:]\d{2}/.test(nextTimeVal));
+                let isMerged = isCellMergedVertically(merges, r, groupColIdx);
+
+                if (isMerged || !hasSecondRow) lowerVal = upperVal;
+                let chosenLesson = weekType === 'upper' ? upperVal : lowerVal;
+
+                if (chosenLesson && chosenLesson !== '-' && chosenLesson !== '—' && !/Зам\.\s*директора/i.test(chosenLesson)) {
+                    const parsed = parseLessonDetails(chosenLesson);
+                    if (!foundLessons.includes(parsed.title)) {
+                        foundLessons.push(parsed.title);
+                    }
+                }
+            }
+            return foundLessons;
         }
 
         function getLessonLiveStatus(timeStr, pairIdx) {
@@ -1147,6 +1226,7 @@
             return list;
         }
 
+        // ================= ОТОБРАЖЕНИЕ РАСПИСАНИЯ С ДЗ ПРЯМО В КАРТОЧКАХ ПРЕДМЕТОВ =================
         function loadScheduleForActive() {
             const current = schedules[activeScheduleIndex];
             const container = document.getElementById('scheduleList');
@@ -1228,6 +1308,7 @@
                     const dayIdx = scheduleViewMode === 'day' ? selectedDayIndex : DAY_NAMES_FULL.indexOf(dayName);
                     const targetDayDateStr = getDateForDayIndex(dayIdx);
 
+                    // Все задания на эту конкретную дату
                     const dayTasks = allCombinedTasks.filter(t => t.dueDate === targetDayDateStr);
 
                     if (scheduleViewMode === 'week' && lessons.length === 0 && dayTasks.length === 0) return;
@@ -1236,44 +1317,47 @@
                         html += `<div class="text-xs font-bold text-blue-400 uppercase tracking-wider px-1 pt-2">${dayName}</div>`;
                     }
 
-                    if (dayTasks.length > 0) {
-                        html += `
-                            <div class="app-card p-3.5 rounded-3xl border-blue-500/50 bg-blue-500/10 space-y-1.5">
-                                <div class="flex items-center justify-between">
-                                    <span class="text-[11px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
-                                        <span>📝</span> Домашнее задание на этот день:
-                                    </span>
-                                    <span class="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full font-semibold">${dayTasks.length}</span>
-                                </div>
-                                <div class="space-y-1 pt-0.5">
-                        `;
-                        dayTasks.forEach(dt => {
-                            html += `
-                                <div class="text-xs flex items-start gap-1.5 text-slate-200">
-                                    <span class="text-blue-400">•</span>
-                                    <div><b class="text-white">${dt.subject}:</b> ${dt.title} ${dt.isGroupTask ? '<span class="text-[9px] bg-blue-500/20 text-blue-300 px-1 rounded ml-1">от старосты</span>' : ''}</div>
-                                </div>
-                            `;
-                        });
-                        html += `</div></div>`;
-                    }
-
                     if (lessons.length === 0) {
-                        if (scheduleViewMode === 'day' && dayTasks.length === 0) {
-                            html += `
-                                <div class="app-card p-6 rounded-3xl text-center space-y-1">
-                                    <div class="text-base">🎉</div>
-                                    <div class="text-sm font-semibold text-white">В этот день пар нет</div>
-                                    <div class="text-xs text-slate-400">Можно отдохнуть или заняться заданиями</div>
-                                </div>
-                            `;
-                        }
+                        html += `
+                            <div class="app-card p-6 rounded-3xl text-center space-y-1">
+                                <div class="text-base">🎉</div>
+                                <div class="text-sm font-semibold text-white">В этот день пар нет</div>
+                                <div class="text-xs text-slate-400">Можно отдохнуть или заняться заданиями</div>
+                            </div>
+                        `;
                     } else {
                         lessons.forEach(l => {
                             const info = parseLessonDetails(l.lesson);
                             const statusText = getLessonLiveStatus(l.time, l.pairNum);
                             const isNow = statusText === 'Сейчас';
                             const statusCls = isNow ? 'blue-glow' : 'pill-bar text-slate-300';
+
+                            // Ищем ДЗ, привязанное именно к этому предмету (по полному или частичному совпадению названия)
+                            const lessonTasks = dayTasks.filter(t => {
+                                const tSubj = String(t.subject || '').trim().toLowerCase();
+                                const pTitle = String(info.title || '').trim().toLowerCase();
+                                return tSubj === pTitle || pTitle.includes(tSubj) || tSubj.includes(pTitle);
+                            });
+
+                            let taskInsideCardHtml = '';
+                            if (lessonTasks.length > 0) {
+                                taskInsideCardHtml += `<div class="mt-2.5 pt-2.5 border-t border-slate-700/50 space-y-1.5">`;
+                                lessonTasks.forEach(t => {
+                                    taskInsideCardHtml += `
+                                        <div class="bg-blue-500/10 border border-blue-500/30 p-2 rounded-xl text-xs flex items-start justify-between gap-2">
+                                            <div class="min-w-0">
+                                                <div class="text-[10px] text-blue-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                                                    <span>📝 Задание:</span>
+                                                    ${t.isGroupTask ? '<span class="bg-blue-500/20 text-blue-300 px-1 py-0.2 rounded text-[9px]">от старосты</span>' : ''}
+                                                </div>
+                                                <div class="text-white font-medium leading-snug pt-0.5">${t.title}</div>
+                                            </div>
+                                            <span class="text-emerald-400 text-xs shrink-0 pt-0.5">✓</span>
+                                        </div>
+                                    `;
+                                });
+                                taskInsideCardHtml += `</div>`;
+                            }
 
                             html += `
                                 <div class="app-card p-4 rounded-3xl space-y-2 relative transition">
@@ -1290,9 +1374,30 @@
                                         </div>
                                         ${l.onlyThisWeek ? `<span class="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-md font-medium">${currentSelectedWeek === 'upper' ? 'Верхняя нед.' : 'Нижняя нед.'}</span>` : '<span class="text-slate-400">›</span>'}
                                     </div>
+                                    ${taskInsideCardHtml}
                                 </div>
                             `;
                         });
+                    }
+
+                    // Если в этот день есть задачи без привязки к конкретной паре
+                    const unassignedTasks = dayTasks.filter(t => {
+                        const tSubj = String(t.subject || '').trim().toLowerCase();
+                        return !lessons.some(l => {
+                            const pTitle = String(parseLessonDetails(l.lesson).title || '').trim().toLowerCase();
+                            return tSubj === pTitle || pTitle.includes(tSubj) || tSubj.includes(pTitle);
+                        });
+                    });
+
+                    if (unassignedTasks.length > 0) {
+                        html += `
+                            <div class="app-card p-3 rounded-2xl border-dashed border-slate-700/80 space-y-1.5 text-xs">
+                                <div class="text-[10px] font-bold text-slate-400 uppercase">📌 Прочие задания на этот день:</div>
+                        `;
+                        unassignedTasks.forEach(ut => {
+                            html += `<div>• <b class="text-white">${ut.subject}:</b> ${ut.title}</div>`;
+                        });
+                        html += `</div>`;
                     }
                 });
 
@@ -1549,6 +1654,75 @@
             renderTasksList();
         }
 
+        // ================= УМНЫЙ ВЫБОР ПРЕДМЕТА ПО ДАТЕ В МОДАЛКЕ =================
+        function onTaskDateChanged() {
+            const dateVal = document.getElementById('taskDateInput').value;
+            const container = document.getElementById('modalDayLessonsContainer');
+            const customInput = document.getElementById('taskSubjectInput');
+            if (!dateVal || !container) return;
+
+            const [y, m, d] = dateVal.split('-').map(Number);
+            const dateObj = new Date(y, m - 1, d);
+            const jsDay = dateObj.getDay();
+            const dayIdx = jsDay === 0 ? 6 : jsDay - 1;
+            const dayName = DAY_NAMES_FULL[dayIdx];
+            const weekType = getWeekTypeForDate(dateObj);
+
+            const lessons = getLessonsForDayAndWeek(dayName, weekType);
+            container.innerHTML = '';
+            selectedSubjectInModal = '';
+
+            if (lessons.length === 0) {
+                container.innerHTML = `<span class="text-xs text-slate-400">В этот день (${dayName}) пар по расписанию нет</span>`;
+                enableCustomSubjectInput();
+                return;
+            }
+
+            customInput.classList.add('hidden');
+            lessons.forEach((subj, idx) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = idx === 0 
+                    ? "px-3 py-2 rounded-xl text-xs font-semibold blue-glow transition" 
+                    : "px-3 py-2 rounded-xl text-xs font-medium pill-bar text-slate-300 hover:text-white transition";
+                btn.textContent = subj;
+                btn.onclick = () => selectSubjectInModal(subj, btn);
+                container.appendChild(btn);
+
+                if (idx === 0) {
+                    selectedSubjectInModal = subj;
+                    customInput.value = subj;
+                }
+            });
+        }
+
+        function selectSubjectInModal(subj, clickedBtn) {
+            selectedSubjectInModal = subj;
+            document.getElementById('taskSubjectInput').value = subj;
+            document.getElementById('taskSubjectInput').classList.add('hidden');
+
+            const container = document.getElementById('modalDayLessonsContainer');
+            Array.from(container.children).forEach(child => {
+                child.className = "px-3 py-2 rounded-xl text-xs font-medium pill-bar text-slate-300 hover:text-white transition";
+            });
+            clickedBtn.className = "px-3 py-2 rounded-xl text-xs font-semibold blue-glow transition";
+        }
+
+        function enableCustomSubjectInput() {
+            const customInput = document.getElementById('taskSubjectInput');
+            customInput.classList.remove('hidden');
+            customInput.value = '';
+            customInput.focus();
+            selectedSubjectInModal = '';
+
+            const container = document.getElementById('modalDayLessonsContainer');
+            if (container) {
+                Array.from(container.children).forEach(child => {
+                    child.className = "px-3 py-2 rounded-xl text-xs font-medium pill-bar text-slate-300 hover:text-white transition";
+                });
+            }
+        }
+
         function openAddTaskModal() {
             const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'profileSection'];
             allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
@@ -1565,16 +1739,21 @@
                 if (choiceBox) choiceBox.classList.add('hidden');
             }
 
-            document.getElementById('taskSubjectInput').value = '';
             document.getElementById('taskTitleInput').value = '';
+            document.getElementById('taskSubjectInput').value = '';
             document.getElementById('taskDateInput').value = new Date().toISOString().slice(0, 10);
+            
+            // Сразу инициализируем список предметов на сегодняшнюю дату
+            onTaskDateChanged();
         }
 
         async function saveNewTask() {
-            const subject = document.getElementById('taskSubjectInput').value.trim() || 'Общее';
+            let subject = selectedSubjectInModal || document.getElementById('taskSubjectInput').value.trim();
             const title = document.getElementById('taskTitleInput').value.trim();
             const dueDate = document.getElementById('taskDateInput').value;
-            if (!title) { alert("Введите описание задания!"); return; }
+            
+            if (!subject) subject = 'Общее задание';
+            if (!title) { alert("Введите, что нужно сделать!"); return; }
 
             const currentGrp = getActiveGroupName();
             const isGroupPublish = starostaAuth && starostaAuth.sessionToken && document.getElementById('taskForGroupCheckbox')?.checked;
@@ -1605,6 +1784,7 @@
             }
 
             switchSection('tasks');
+            loadScheduleForActive();
         }
 
         function toggleTaskStatus(id, isGroupTask) {
@@ -1615,6 +1795,7 @@
             t.status = order[(order.indexOf(t.status) + 1) % order.length];
             localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
             renderTasksList();
+            loadScheduleForActive();
         }
 
         async function deleteTask(event, id, isGroupTask) {
