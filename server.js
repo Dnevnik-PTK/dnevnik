@@ -21,8 +21,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// ================= НАДЁЖНЫЙ ПРОКСИ-АПЛОАДЕР ФАЙЛОВ =================
-// Принимает файл с телефона без CORS-ошибок, пересылает в облако и тут же очищает память
+// ================= НАДЁЖНЫЙ ПРОКСИ-АПЛОАДЕР В ОБЛАКО =================
 app.post('/api/upload', express.raw({ type: '*/*', limit: '100mb' }), async (req, res) => {
     try {
         if (!req.body || req.body.length === 0) {
@@ -65,6 +64,42 @@ app.post('/api/upload', express.raw({ type: '*/*', limit: '100mb' }), async (req
     } catch (err) {
         console.error('[UPLOAD ERROR]', err.message);
         res.status(500).json({ error: 'Ошибка загрузки в облако: ' + err.message });
+    }
+});
+
+// ================= СКВОЗНОЕ ТРАНЗИТНОЕ СКАЧИВАНИЕ (STREAM PASS-THROUGH) =================
+// Забирает файл из заблокированного облака и потоком передаёт клиенту (ноль нагрузки на память Render)
+app.get('/api/download', async (req, res) => {
+    try {
+        const fileUrl = req.query.url;
+        let fileName = req.query.filename || 'material.pdf';
+
+        if (!fileUrl) {
+            return res.status(400).send('Ссылка на файл не указана');
+        }
+
+        const response = await fetch(fileUrl, { headers: BROWSER_HEADERS });
+        if (!response.ok) {
+            throw new Error(`Облако ответило кодом ${response.status}`);
+        }
+
+        if (!/\.[a-zA-Z0-9]+$/.test(fileName)) {
+            const ext = fileUrl.split('.').pop().split(/[?#]/)[0];
+            if (ext && ext.length <= 5) fileName += '.' + ext;
+        }
+
+        res.setHeader('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+
+        // Потоковая сквозная передача байтов (в памяти сервера ничего не оседает)
+        response.body.pipe(res);
+
+        res.on('close', () => {
+            if (response.body && response.body.destroy) response.body.destroy();
+        });
+    } catch (e) {
+        console.error('[DOWNLOAD ERROR]', e.message);
+        res.status(500).send('Ошибка скачивания: ' + e.message);
     }
 });
 
@@ -118,7 +153,7 @@ app.post('/api/admin/auth', (req, res) => {
     res.json({ success: true, adminToken });
 });
 
-// 2. ВЫПУСК ОДНОРАЗОВОГО КЛЮЧА СТАРОСТЕ
+// 2. ВЫПУСК ОДНОРАЗОВОГО КЛЮЧА ДЛЯ СТАРОСТЫ
 app.post('/api/admin/generate-starosta-key', (req, res) => {
     const { adminToken, group } = req.body || {};
     if (!adminSessions.has(adminToken)) {
@@ -133,7 +168,7 @@ app.post('/api/admin/generate-starosta-key', (req, res) => {
     res.json({ success: true, group: cleanGroup, key });
 });
 
-// 3. СБРОС СТАРОСТЫ
+// 3. СБРОС СТАРОСТЫ ГРУППЫ
 app.post('/api/admin/revoke-starosta', (req, res) => {
     const { adminToken, group } = req.body || {};
     if (!adminSessions.has(adminToken)) {
