@@ -15,19 +15,32 @@ const BROWSER_HEADERS = {
 
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type');
     next();
 });
 
-// ================= МГНОВЕННЫЙ КЭШ В ПАМЯТИ СЕРВЕРА =================
-const scheduleCache = new Map();       // groupName -> готовый JSON расписания
-let changesListCache = [];             // список последних 5 файлов замен
-const changesBufferCache = new Map();  // url -> скачанный Buffer файла .docx
+app.use(express.json());
+
+// ================= МГНОВЕННЫЙ КЭШ РАСПИСАНИЙ И ЗАМЕН =================
+const scheduleCache = new Map();
+let changesListCache = [];
+const changesBufferCache = new Map();
 let lastCacheUpdate = null;
 let isSyncing = false;
 
-// Извлекаем все ссылки <a> со страницы НовГУ
+// ================= ХРАНИЛИЩЕ ДОМАШНИХ ЗАДАНИЙ ГРУПП =================
+// groupName -> Array of { id, subject, title, dueDate, createdAt }
+const groupTasksStorage = new Map();
+
+// Секретные ключи для старост групп (можешь менять или дополнять любыми своими группами)
+const STAROSTA_KEYS = {
+    '5953': 'ptk5953star',
+    '5952': 'ptk5952star',
+    '5951': 'ptk5951star',
+    '5996': 'ptk5996star'
+};
+
 function extractLinksFromHtml(html, baseUrl) {
     const links = [];
     const regex = /<a\s+[^>]*href=(?:["']([^"']+)["']|([^\s>]+))[^>]*>([\s\S]*?)<\/a>/gi;
@@ -44,7 +57,6 @@ function extractLinksFromHtml(html, baseUrl) {
     return links;
 }
 
-// Индексируем ВСЕ группы внутри скачанной книги Excel и кладем в кэш
 function indexWorkbookGroups(workbook, fileLabel) {
     let count = 0;
     for (const sheetName of workbook.SheetNames) {
@@ -60,7 +72,7 @@ function indexWorkbookGroups(workbook, fileLabel) {
                 const matches = cellVal.match(/\b([2-9]\d{3}[а-яa-z]*)\b/gi);
                 if (matches) {
                     for (const grp of matches) {
-                        if (/^202\d$/.test(grp)) continue; // пропускаем годы (2024-2029)
+                        if (/^202\d$/.test(grp)) continue;
                         scheduleCache.set(grp, {
                             group: grp,
                             sheet: sheetName,
@@ -79,7 +91,6 @@ function indexWorkbookGroups(workbook, fileLabel) {
     return count;
 }
 
-// Поиск конкретной группы внутри книги Excel
 function findGroupInWorkbook(workbook, targetGroup) {
     const cleanTarget = targetGroup.replace(/\s+/g, '');
     for (const sheetName of workbook.SheetNames) {
@@ -112,7 +123,6 @@ function findGroupInWorkbook(workbook, targetGroup) {
     return null;
 }
 
-// Загрузка списка последних 5 файлов замен
 async function fetchReplacementFilesList() {
     const pageUrl = 'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999';
     const response = await fetch(pageUrl, { headers: BROWSER_HEADERS });
@@ -141,14 +151,12 @@ async function fetchReplacementFilesList() {
     return files.slice(0, 5).map(f => ({ title: f.title, url: f.url }));
 }
 
-// ФОНОВАЯ ФУНКЦИЯ: Заранее выгружает ВСЕ расписания и замены в память сервера
 async function syncAllDataFromNovsu() {
     if (isSyncing) return;
     isSyncing = true;
-    console.log('[CACHE] Начинаем фоновое обновление всех расписаний и замен...');
+    console.log('[CACHE] Фоновое обновление данных...');
 
     try {
-        // 1. Кэшируем последние 5 файлов замен (.docx)
         const chgFiles = await fetchReplacementFilesList();
         if (chgFiles.length > 0) {
             changesListCache = chgFiles;
@@ -161,10 +169,8 @@ async function syncAllDataFromNovsu() {
                     }
                 } catch (e) {}
             }
-            console.log(`[CACHE] Замены обновлены: ${chgFiles.length} файлов в памяти.`);
         }
 
-        // 2. Кэшируем все файлы расписания СПО (.xls / .xlsx)
         const pagesToScan = [
             'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999',
             'https://portal.novsu.ru/univer/timetable/spo/'
@@ -203,25 +209,80 @@ async function syncAllDataFromNovsu() {
         }
 
         lastCacheUpdate = new Date().toISOString();
-        console.log(`[CACHE] Готово! В памяти закэшировано групп: ${scheduleCache.size}`);
+        console.log(`[CACHE] Обновлено. Групп в кэше: ${scheduleCache.size}`);
     } catch (err) {
-        console.error('[CACHE] Ошибка фонового обновления:', err.message);
+        console.error('[CACHE] Ошибка обновления:', err.message);
     } finally {
         isSyncing = false;
     }
 }
 
-// Запускаем автообновление каждые 30 минут
 setInterval(syncAllDataFromNovsu, 30 * 60 * 1000);
 
-// ================= API ЭНДПОИНТЫ (ОТВЕЧАЮТ МГНОВЕННО ИЗ КЭША) =================
+// ================= API: ДОМАШНИЕ ЗАДАНИЯ ГРУПП (СТАРОСТА) =================
 
-// 1. Список последних 5 файлов замен
+// 1. Получить задания конкретной группы
+app.get('/api/tasks/:group', (req, res) => {
+    const group = String(req.params.group || '').trim();
+    const tasks = groupTasksStorage.get(group) || [];
+    res.json({ tasks });
+});
+
+// 2. Добавить задание от старосты (с проверкой секретного ключа)
+app.post('/api/tasks/:group', (req, res) => {
+    const group = String(req.params.group || '').trim();
+    const { task, secretKey } = req.body || {};
+
+    const expectedKey = STAROSTA_KEYS[group];
+    if (!expectedKey || expectedKey !== secretKey) {
+        return res.status(403).json({ error: 'Неверный ключ доступа старосты этой группы' });
+    }
+
+    if (!task || !task.title || !task.dueDate) {
+        return res.status(400).json({ error: 'Заполните название задания и дату' });
+    }
+
+    if (!groupTasksStorage.has(group)) {
+        groupTasksStorage.set(group, []);
+    }
+
+    const newTask = {
+        id: Date.now(),
+        subject: String(task.subject || 'Общее').trim(),
+        title: String(task.title || '').trim(),
+        dueDate: String(task.dueDate || '').trim(), // YYYY-MM-DD
+        author: 'Староста',
+        createdAt: new Date().toISOString()
+    };
+
+    groupTasksStorage.get(group).unshift(newTask);
+    res.json({ success: true, task: newTask });
+});
+
+// 3. Удалить задание старостой
+app.delete('/api/tasks/:group/:id', (req, res) => {
+    const group = String(req.params.group || '').trim();
+    const taskId = parseInt(req.params.id, 10);
+    const { secretKey } = req.body || {};
+
+    const expectedKey = STAROSTA_KEYS[group];
+    if (!expectedKey || expectedKey !== secretKey) {
+        return res.status(403).json({ error: 'Неверный ключ доступа старосты' });
+    }
+
+    if (groupTasksStorage.has(group)) {
+        const filtered = groupTasksStorage.get(group).filter(t => t.id !== taskId);
+        groupTasksStorage.set(group, filtered);
+    }
+
+    res.json({ success: true });
+});
+
+// ================= API: РАСПИСАНИЕ И ЗАМЕНЫ =================
+
 app.get('/api/changes-list', async (req, res) => {
     try {
-        if (changesListCache.length > 0) {
-            return res.json({ files: changesListCache, cached: true });
-        }
+        if (changesListCache.length > 0) return res.json({ files: changesListCache, cached: true });
         const files = await fetchReplacementFilesList();
         changesListCache = files;
         res.json({ files, cached: false });
@@ -230,24 +291,18 @@ app.get('/api/changes-list', async (req, res) => {
     }
 });
 
-// 2. Скачивание файла замен (.docx)
 app.get('/api/changes', async (req, res) => {
     try {
         let targetUrl = req.query.url;
         let fileTitle = req.query.title || 'changes.docx';
 
         if (!targetUrl) {
-            if (changesListCache.length === 0) {
-                changesListCache = await fetchReplacementFilesList();
-            }
-            if (changesListCache.length === 0) {
-                return res.status(404).json({ error: 'Файлы замен не найдены' });
-            }
+            if (changesListCache.length === 0) changesListCache = await fetchReplacementFilesList();
+            if (changesListCache.length === 0) return res.status(404).json({ error: 'Файлы не найдены' });
             targetUrl = changesListCache[0].url;
             fileTitle = changesListCache[0].title;
         }
 
-        // Если файл уже в памяти сервера — отдаем мгновенно!
         if (changesBufferCache.has(targetUrl)) {
             const cachedItem = changesBufferCache.get(targetUrl);
             res.setHeader('Content-Type', 'application/octet-stream');
@@ -269,13 +324,11 @@ app.get('/api/changes', async (req, res) => {
     }
 });
 
-// 3. Получение расписания группы (сначала мгновенно из кэша, иначе точечный поиск)
 app.get('/api/schedule/:group', async (req, res) => {
     try {
         const targetGroup = String(req.params.group || '').trim();
         if (!targetGroup) return res.status(400).json({ error: 'Не указан номер группы' });
 
-        // МГНОВЕННЫЙ ОТВЕТ ИЗ ПАМЯТИ СЕРВЕРА (0.01 сек)
         if (scheduleCache.has(targetGroup)) {
             return res.json(scheduleCache.get(targetGroup));
         }
@@ -346,7 +399,6 @@ app.get('/api/schedule/:group', async (req, res) => {
     }
 });
 
-// Эндпоинт для проверки кэша и пинга (чтобы сервер не засыпал)
 app.get('/ping', (req, res) => {
     res.json({
         status: 'ok',
@@ -357,10 +409,10 @@ app.get('/ping', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    res.send(`PTK Fast Cache Server v5.0 is Live! Cached groups: ${scheduleCache.size}`);
+    res.send(`PTK Fast Cache Server v5.4 is Live!`);
 });
 
 app.listen(PORT, () => {
-    console.log(`Server v5.0 running on port ${PORT}`);
+    console.log(`Server v5.4 running on port ${PORT}`);
     syncAllDataFromNovsu();
 });
