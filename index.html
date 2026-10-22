@@ -59,6 +59,12 @@
             color: #ffffff !important;
         }
 
+        .emerald-glow {
+            background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+            color: #ffffff !important;
+        }
+
         .bottom-nav {
             background-color: var(--bg-nav);
             border-top: 1px solid var(--border-pill);
@@ -95,7 +101,7 @@
                 <div>
                     <div class="flex items-center gap-2">
                         <h1 id="topScreenTitle" class="text-lg font-bold tracking-tight text-white">Расписание</h1>
-                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">v5.9</span>
+                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">v6.0</span>
                     </div>
                     <p id="topScreenSubtitle" class="text-[11px] text-slate-400">НовГУ • Студенческий помощник</p>
                 </div>
@@ -376,7 +382,6 @@
                 <button type="button" onclick="closeAddMaterialModal()" class="w-8 h-8 rounded-full pill-bar flex items-center justify-center text-xs text-slate-400 hover:text-white transition">✕</button>
             </div>
 
-            <!-- ВЫБОР: ДЛЯ СЕБЯ ИЛИ ДЛЯ ВСЕЙ ГРУППЫ -->
             <div class="space-y-1">
                 <label class="block text-xs text-slate-400 font-medium">Кому доступен материал:</label>
                 <div class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1 text-xs">
@@ -392,7 +397,6 @@
                 </div>
             </div>
 
-            <!-- УМНЫЙ АВТОКОМПЛИТ ПРЕДМЕТА -->
             <div class="relative space-y-1">
                 <label class="block text-xs text-slate-400 font-medium">Предмет:</label>
                 <div class="relative">
@@ -407,13 +411,11 @@
                 <div id="matSubjectSuggestions" class="hidden absolute left-0 right-0 top-full mt-1.5 z-20 pill-bar rounded-2xl p-1.5 shadow-2xl max-h-48 overflow-y-auto no-scrollbar border border-blue-500/30 space-y-1"></div>
             </div>
 
-            <!-- НАЗВАНИЕ МАТЕРИАЛА -->
             <div class="space-y-1">
                 <label class="block text-xs text-slate-400 font-medium">Название материала:</label>
                 <input type="text" id="matTitleInput" placeholder="Например: Методичка к практикам 2026" class="w-full pill-bar rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
             </div>
 
-            <!-- ПЕРЕКЛЮЧАТЕЛЬ: ФАЙЛ ИЛИ ССЫЛКА -->
             <div class="space-y-2 pt-1">
                 <div class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1 text-xs">
                     <button type="button" id="btnMatModeFile" onclick="setMaterialMode('file')" class="py-2 rounded-xl font-semibold transition blue-glow">
@@ -597,7 +599,7 @@
             </div>
 
             <div class="text-center space-y-1 pt-1">
-                <div class="text-[11px] text-slate-400">Версия 5.9</div>
+                <div class="text-[11px] text-slate-400">Версия 6.0</div>
                 <div class="inline-flex items-center gap-1.5 text-slate-400 text-xs">
                     <span>🏛️</span>
                     <span class="font-semibold">НовГУ • Студенческий помощник</span>
@@ -671,6 +673,11 @@
         let serverGroupTasks = [];
         let serverGroupMaterials = [];
         let personalMaterials = [];
+
+        // Локальный кэш скачанных файлов (id -> { blobUrl, blob, fileName })
+        const downloadedMaterials = new Map();
+        // Текущий прогресс активных скачиваний (id -> percent)
+        const activeDownloadProgress = new Map();
 
         let changesData = { dateTitle: 'Изменения в расписании', fileName: '', items: [], portalFiles: [] };
         let activeChangesGroupFilter = 'ALL';
@@ -1198,7 +1205,6 @@
             return Array.from(set).sort();
         }
 
-        // ================= АВТОКОМПЛИТ ПРЕДМЕТА =================
         function onMaterialSubjectInput(query) {
             const container = document.getElementById('matSubjectSuggestions');
             if (!container) return;
@@ -2098,7 +2104,7 @@
             container.innerHTML = html;
         }
 
-        // ================= УЧЕБНИКИ: ЛИЧНЫЕ И ОБЩИЕ =================
+        // ================= УЧЕБНИКИ: СКАЧИВАНИЕ С ПРОЦЕНТАМИ И ОТКРЫТИЕ =================
         function formatBytes(bytes) {
             if (!bytes || isNaN(bytes)) return '';
             const k = 1024;
@@ -2229,7 +2235,6 @@
             if (!title) { alert("Введите название материала!"); return; }
             if (!fileUrl) { alert("Выберите файл или вставьте ссылку!"); return; }
 
-            // 1. СОХРАНЕНИЕ ДЛЯ СЕБЯ (ЛОКАЛЬНО)
             if (materialTarget === 'personal') {
                 personalMaterials.unshift({
                     id: Date.now(),
@@ -2248,7 +2253,6 @@
                 return;
             }
 
-            // 2. ПУБЛИКАЦИЯ ДЛЯ ВСЕЙ ГРУППЫ (ЧЕРЕЗ СЕРВЕР)
             const currentGrp = getActiveGroupName();
             if (!currentGrp) { alert("Не выбрана группа в расписании!"); return; }
             if (!starostaAuth || !starostaAuth.sessionToken) {
@@ -2292,6 +2296,7 @@
             if (!isGroup) {
                 personalMaterials = personalMaterials.filter(m => m.id !== id);
                 localStorage.setItem(STORAGE_PERSONAL_MATS_KEY, JSON.stringify(personalMaterials));
+                downloadedMaterials.delete(id);
                 renderMaterialsList();
                 return;
             }
@@ -2310,12 +2315,88 @@
                     });
                     if (res.ok) {
                         serverGroupMaterials = serverGroupMaterials.filter(m => m.id !== id);
+                        downloadedMaterials.delete(id);
                         renderMaterialsList();
                     }
                 } catch (e) {
                     alert("Ошибка: " + e.message);
                 }
             }
+        }
+
+        // ================= ФОНОВОЕ СКАЧИВАНИЕ С ПРОЦЕНТАМИ ВНУТРИ ПРИЛОЖЕНИЯ =================
+        function startMaterialDownload(id, downloadUrl, fileName) {
+            if (activeDownloadProgress.has(id)) return; // Уже скачивается
+
+            activeDownloadProgress.set(id, 0);
+            renderMaterialsList();
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', downloadUrl, true);
+            xhr.responseType = 'blob';
+
+            xhr.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const pct = Math.round((e.loaded / e.total) * 100);
+                    activeDownloadProgress.set(id, pct);
+                } else {
+                    activeDownloadProgress.set(id, 99);
+                }
+                const progressBtn = document.getElementById(`matBtn-${id}`);
+                if (progressBtn) {
+                    progressBtn.innerText = `⏳ ${activeDownloadProgress.get(id)}%`;
+                }
+            };
+
+            xhr.onload = function() {
+                activeDownloadProgress.delete(id);
+                if (xhr.status === 200 && xhr.response) {
+                    const blob = xhr.response;
+                    const blobUrl = URL.createObjectURL(blob);
+                    downloadedMaterials.set(id, { blobUrl, blob, fileName });
+                    renderMaterialsList();
+                } else {
+                    alert('Не удалось скачать файл. Попробуйте еще раз.');
+                    renderMaterialsList();
+                }
+            };
+
+            xhr.onerror = function() {
+                activeDownloadProgress.delete(id);
+                alert('Сбой сети при скачивании файла');
+                renderMaterialsList();
+            };
+
+            xhr.send();
+        }
+
+        // ================= НАЙТИ И ОТКРЫТЬ СКАЧАННЫЙ ФАЙЛ НА ТЕЛЕФОНЕ =================
+        async function openDownloadedMaterial(id) {
+            const item = downloadedMaterials.get(id);
+            if (!item) return;
+
+            // 1. Попытка открыть через нативный просмотрщик смартфона (Web Share API)
+            try {
+                const file = new File([item.blob], item.fileName, { type: item.blob.type || 'application/pdf' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        files: [file],
+                        title: item.fileName
+                    });
+                    return;
+                }
+            } catch (err) {
+                console.log('Share skipped or cancelled:', err);
+            }
+
+            // 2. Fallback: нативное системное скачивание/открытие Blob
+            const a = document.createElement('a');
+            a.href = item.blobUrl;
+            a.download = item.fileName;
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => a.remove(), 100);
         }
 
         function renderMaterialsList() {
@@ -2365,11 +2446,44 @@
                     ? `<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-md text-[10px] font-bold">👥 Группа</span>`
                     : `<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-md text-[10px] font-bold">👤 Личный</span>`;
 
-                // Сквозная ссылка: если файл был загружен напрямую, качаем через транзитный стрим Render без блокировок
                 const isUploadedFile = Boolean(m.isDirectUpload || (m.fileUrl && m.fileUrl.includes('catbox.moe')));
-                const targetLink = isUploadedFile
+                const proxyDownloadUrl = isUploadedFile
                     ? `${RENDER_URL}/api/download?url=${encodeURIComponent(m.fileUrl)}&filename=${encodeURIComponent(m.fileName || m.title)}`
                     : m.fileUrl;
+
+                // Состояния кнопки: Скачивается (проценты) -> Скачан (Открыть) -> Не скачан (Скачать)
+                let actionBtnHtml = '';
+                const isDownloaded = downloadedMaterials.has(m.id);
+                const isDownloading = activeDownloadProgress.has(m.id);
+
+                if (!isUploadedFile) {
+                    actionBtnHtml = `
+                        <a href="${m.fileUrl}" target="_blank" class="blue-glow px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 active:scale-95 transition">
+                            <span>Перейти</span>
+                            <span>↗</span>
+                        </a>
+                    `;
+                } else if (isDownloaded) {
+                    actionBtnHtml = `
+                        <button type="button" onclick="openDownloadedMaterial(${m.id})" class="emerald-glow px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 active:scale-95 transition">
+                            <span>📂 Открыть</span>
+                        </button>
+                    `;
+                } else if (isDownloading) {
+                    const pct = activeDownloadProgress.get(m.id) || 0;
+                    actionBtnHtml = `
+                        <button type="button" id="matBtn-${m.id}" disabled class="bg-slate-800 text-blue-400 border border-blue-500/40 px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1">
+                            <span>⏳ ${pct}%</span>
+                        </button>
+                    `;
+                } else {
+                    actionBtnHtml = `
+                        <button type="button" onclick="startMaterialDownload(${m.id}, '${proxyDownloadUrl}', '${m.fileName || m.title}')" class="blue-glow px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 active:scale-95 transition">
+                            <span>Скачать</span>
+                            <span>↓</span>
+                        </button>
+                    `;
+                }
 
                 html += `
                     <div class="app-card p-4 rounded-3xl space-y-2.5">
@@ -2391,10 +2505,7 @@
 
                         <div class="flex items-center justify-between pt-1 text-xs border-t border-slate-700/50">
                             <span class="text-slate-400 text-[11px]">${m.fileSize ? `Файл • ${m.fileSize}` : 'Ссылка'}</span>
-                            <a href="${targetLink}" target="_blank" download="${m.fileName || 'file'}" class="blue-glow px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 active:scale-95 transition">
-                                <span>${isUploadedFile ? 'Скачать файл' : 'Перейти по ссылке'}</span>
-                                <span>${isUploadedFile ? '↓' : '↗'}</span>
-                            </a>
+                            ${actionBtnHtml}
                         </div>
                     </div>
                 `;
