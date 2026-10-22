@@ -17,12 +17,11 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type');
-    res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Disposition');
     if (req.method === 'OPTIONS') return res.sendStatus(200);
     next();
 });
 
-// ================= ПРОКСИ-АПЛОАДЕР В ОБЛАКО =================
+// ================= НАДЁЖНЫЙ ПРОКСИ-АПЛОАДЕР В ОБЛАКО =================
 app.post('/api/upload', express.raw({ type: '*/*', limit: '100mb' }), async (req, res) => {
     try {
         if (!req.body || req.body.length === 0) {
@@ -68,7 +67,8 @@ app.post('/api/upload', express.raw({ type: '*/*', limit: '100mb' }), async (req
     }
 });
 
-// ================= ПОТОКОВОЕ ТРАНЗИТНОЕ СКАЧИВАНИЕ С РАСЧЁТОМ ПРОЦЕНТОВ =================
+// ================= СКВОЗНОЕ ТРАНЗИТНОЕ СКАЧИВАНИЕ (STREAM PASS-THROUGH) =================
+// Забирает файл из заблокированного облака и потоком передаёт клиенту (ноль нагрузки на память Render)
 app.get('/api/download', async (req, res) => {
     try {
         const fileUrl = req.query.url;
@@ -83,11 +83,6 @@ app.get('/api/download', async (req, res) => {
             throw new Error(`Облако ответило кодом ${response.status}`);
         }
 
-        const contentLength = response.headers.get('content-length');
-        if (contentLength) {
-            res.setHeader('Content-Length', contentLength);
-        }
-
         if (!/\.[a-zA-Z0-9]+$/.test(fileName)) {
             const ext = fileUrl.split('.').pop().split(/[?#]/)[0];
             if (ext && ext.length <= 5) fileName += '.' + ext;
@@ -96,6 +91,7 @@ app.get('/api/download', async (req, res) => {
         res.setHeader('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
         res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
 
+        // Потоковая сквозная передача байтов (в памяти сервера ничего не оседает)
         response.body.pipe(res);
 
         res.on('close', () => {
@@ -116,10 +112,16 @@ const changesBufferCache = new Map();
 let lastCacheUpdate = null;
 let isSyncing = false;
 
+// Одноразовые ключи для старост (key -> groupName)
 const starostaOneTimeKeys = new Map();
+// Сессии авторизованных старост (groupName -> sessionToken)
 const starostaSessions = new Map();
+// Задания групп (groupName -> Array of tasks)
 const groupTasksStorage = new Map();
+// Учебники и материалы групп (groupName -> Array of materials)
 const groupMaterialsStorage = new Map();
+
+// Сессии подтверждённых админов
 const adminSessions = new Set();
 
 function generateRandomCode(len = 6) {
@@ -135,6 +137,7 @@ console.log('🔑 ОДНОРАЗОВЫЙ КЛЮЧ СОЗДАТЕЛЯ ДЛЯ ВХ
 console.log(currentRootOneTimeKey);
 console.log('====================================================');
 
+// 1. АВТОРИЗАЦИЯ СОЗДАТЕЛЯ
 app.post('/api/admin/auth', (req, res) => {
     const { rootKey } = req.body || {};
     const cleanKey = String(rootKey || '').trim();
@@ -150,6 +153,7 @@ app.post('/api/admin/auth', (req, res) => {
     res.json({ success: true, adminToken });
 });
 
+// 2. ВЫПУСК ОДНОРАЗОВОГО КЛЮЧА ДЛЯ СТАРОСТЫ
 app.post('/api/admin/generate-starosta-key', (req, res) => {
     const { adminToken, group } = req.body || {};
     if (!adminSessions.has(adminToken)) {
@@ -164,6 +168,7 @@ app.post('/api/admin/generate-starosta-key', (req, res) => {
     res.json({ success: true, group: cleanGroup, key });
 });
 
+// 3. СБРОС СТАРОСТЫ ГРУППЫ
 app.post('/api/admin/revoke-starosta', (req, res) => {
     const { adminToken, group } = req.body || {};
     if (!adminSessions.has(adminToken)) {
@@ -174,6 +179,7 @@ app.post('/api/admin/revoke-starosta', (req, res) => {
     res.json({ success: true, message: `Староста группы ${cleanGroup} сброшен` });
 });
 
+// 4. АВТОРИЗАЦИЯ СТАРОСТЫ
 app.post('/api/tasks/auth', (req, res) => {
     const { secretKey } = req.body || {};
     const cleanKey = String(secretKey || '').trim();
@@ -191,6 +197,7 @@ app.post('/api/tasks/auth', (req, res) => {
     res.json({ success: true, group, sessionToken });
 });
 
+// 5. ЗАДАНИЯ ГРУППЫ
 app.get('/api/tasks/:group', (req, res) => {
     const group = String(req.params.group || '').trim();
     res.json({ tasks: groupTasksStorage.get(group) || [] });
@@ -242,6 +249,7 @@ app.delete('/api/tasks/:group/:id', (req, res) => {
     res.json({ success: true });
 });
 
+// 6. УЧЕБНИКИ И МАТЕРИАЛЫ ГРУППЫ
 app.get('/api/materials/:group', (req, res) => {
     const group = String(req.params.group || '').trim();
     res.json({ materials: groupMaterialsStorage.get(group) || [] });
@@ -296,6 +304,7 @@ app.delete('/api/materials/:group/:id', (req, res) => {
     res.json({ success: true });
 });
 
+// ================= РАСПИСАНИЕ И ЗАМЕНЫ =================
 function extractLinksFromHtml(html, baseUrl) {
     const links = [];
     const regex = /<a\s+[^>]*href=(?:["']([^"']+)["']|([^\s>]+))[^>]*>([\s\S]*?)<\/a>/gi;
@@ -497,75 +506,6 @@ app.get('/api/changes', async (req, res) => {
 
 app.get('/api/schedule/:group', async (req, res) => {
     try {
-        const targetGroup = String(req.params.group || '').trim();
-        if (!targetGroup) return res.status(400).json({ error: 'Не указана группа' });
-        if (scheduleCache.has(targetGroup)) return res.json(scheduleCache.get(targetGroup));
-
-        const pagesToScan = [
-            'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999',
-            'https://portal.novsu.ru/univer/timetable/spo/'
-        ];
-        const exactRegex = new RegExp(`(^|\\D)${targetGroup}(\\D|$)`);
-        const prefix3 = targetGroup.slice(0, 3);
-        const prefixRegex = new RegExp(`(^|\\D)${prefix3}\\d(\\D|$)`);
-        const candidates = [];
-        const seenUrls = new Set();
-
-        for (const pageUrl of pagesToScan) {
-            try {
-                const r = await fetch(pageUrl, { headers: BROWSER_HEADERS });
-                if (!r.ok) continue;
-                const html = await r.text();
-                const links = extractLinksFromHtml(html, pageUrl);
-                for (const link of links) {
-                    const combined = `${link.text} ${decodeURIComponent(link.url)}`;
-                    if (/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(link.text)) continue;
-                    if (link.text.trim() === targetGroup || exactRegex.test(combined)) {
-                        if (!seenUrls.has(link.url)) { candidates.unshift(link); seenUrls.add(link.url); }
-                    } else if (prefix3.length === 3 && prefixRegex.test(combined)) {
-                        if (!seenUrls.has(link.url)) { candidates.push(link); seenUrls.add(link.url); }
-                    }
-                }
-            } catch (e) {}
-        }
-
-        for (const cand of candidates) {
-            try {
-                const fileRes = await fetch(cand.url, { headers: BROWSER_HEADERS });
-                if (!fileRes.ok) continue;
-                const buffer = Buffer.from(await fileRes.arrayBuffer());
-                const headStr = buffer.slice(0, 100).toString('utf8').trim().toLowerCase();
-                if (headStr.startsWith('<!doctype') || headStr.startsWith('<html')) continue;
-
-                const workbook = XLSX.read(buffer, { type: 'buffer' });
-                indexWorkbookGroups(workbook, cand.text);
-                const result = findGroupInWorkbook(workbook, targetGroup);
-                if (result) {
-                    if (!result.rows[result.headerRowIdx]) result.rows[result.headerRowIdx] = [];
-                    result.rows[result.headerRowIdx][result.groupColIdx] = targetGroup;
-                    const payload = {
-                        group: targetGroup,
-                        sheet: result.sheet,
-                        fileName: cand.text || result.sheet,
-                        rows: result.rows,
-                        merges: result.merges,
-                        groupColIdx: result.groupColIdx,
-                        headerRowIdx: result.headerRowIdx
-                    };
-                    scheduleCache.set(targetGroup, payload);
-                    return res.json(payload);
-                }
-            } catch (e) {}
-        }
-        return res.status(404).json({ error: `Группа ${targetGroup} не найдена` });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-app.get('/ping', (req, res) => {
-    res.json({ status: 'ok', cachedGroupsCount: scheduleCache.size, lastCacheUpdate });
-});
-
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+        const targetGroup = String(req.params.group || '').tport ${PORT}`);
     syncAllDataFromNovsu();
 });
