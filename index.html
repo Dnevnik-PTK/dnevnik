@@ -95,7 +95,7 @@
                 <div>
                     <div class="flex items-center gap-2">
                         <h1 id="topScreenTitle" class="text-lg font-bold tracking-tight text-white">Расписание</h1>
-                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">v5.5</span>
+                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">v5.6</span>
                     </div>
                     <p id="topScreenSubtitle" class="text-[11px] text-slate-400">НовГУ • Студенческий помощник</p>
                 </div>
@@ -183,25 +183,51 @@
             </div>
         </section>
 
-        <!-- ==================== ЭКРАН 3: ДОМАШНИЕ ЗАДАНИЯ ==================== -->
+        <!-- ==================== ЭКРАН 3: ДОМАШНИЕ ЗАДАНИЯ И УЧЕБНИКИ ==================== -->
         <section id="tasksSection" class="space-y-3.5 hidden">
-            <div class="pill-bar p-1 rounded-2xl grid grid-cols-4 gap-1">
-                <button type="button" id="taskFilterAll" onclick="setTaskFilter('ALL')" class="py-2 rounded-xl text-[11px] font-semibold transition blue-glow">Все</button>
-                <button type="button" id="taskFilterToday" onclick="setTaskFilter('TODAY')" class="py-2 rounded-xl text-[11px] font-medium transition text-slate-400">Сегодня</button>
-                <button type="button" id="taskFilterWeek" onclick="setTaskFilter('WEEK')" class="py-2 rounded-xl text-[11px] font-medium transition text-slate-400">Неделя</button>
-                <button type="button" id="taskFilterOverdue" onclick="setTaskFilter('OVERDUE')" class="py-2 rounded-xl text-[11px] font-medium transition text-slate-400">Просрочено</button>
+            <!-- Главный переключатель раздела: Задания / Учебники -->
+            <div class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1">
+                <button type="button" id="btnSubTabTasks" onclick="switchTaskSubTab('tasks')" class="py-2 rounded-xl text-xs font-semibold transition blue-glow">📝 Домашние задания</button>
+                <button type="button" id="btnSubTabMaterials" onclick="switchTaskSubTab('materials')" class="py-2 rounded-xl text-xs font-medium transition text-slate-400">📚 Учебники и файлы</button>
             </div>
 
-            <div class="flex justify-between items-center px-1">
-                <div id="starostaStatusBadge" class="text-xs text-slate-400 flex items-center gap-1.5">
-                    <span>Личные и групповые задания</span>
+            <!-- ПОДРАЗДЕЛ А: ЗАДАНИЯ -->
+            <div id="tasksSubView" class="space-y-3.5">
+                <div class="pill-bar p-1 rounded-2xl grid grid-cols-4 gap-1">
+                    <button type="button" id="taskFilterAll" onclick="setTaskFilter('ALL')" class="py-2 rounded-xl text-[11px] font-semibold transition blue-glow">Все</button>
+                    <button type="button" id="taskFilterToday" onclick="setTaskFilter('TODAY')" class="py-2 rounded-xl text-[11px] font-medium transition text-slate-400">Сегодня</button>
+                    <button type="button" id="taskFilterWeek" onclick="setTaskFilter('WEEK')" class="py-2 rounded-xl text-[11px] font-medium transition text-slate-400">Неделя</button>
+                    <button type="button" id="taskFilterOverdue" onclick="setTaskFilter('OVERDUE')" class="py-2 rounded-xl text-[11px] font-medium transition text-slate-400">Просрочено</button>
                 </div>
-                <button type="button" onclick="openAddTaskModal()" class="text-xs text-blue-400 font-bold hover:text-blue-300 flex items-center gap-1">
-                    <span>➕ Добавить</span>
-                </button>
+
+                <div class="flex justify-between items-center px-1">
+                    <div id="starostaStatusBadge" class="text-xs text-slate-400 flex items-center gap-1.5">
+                        <span>Личные и групповые задания</span>
+                    </div>
+                    <button type="button" onclick="openAddTaskModal()" class="text-xs text-blue-400 font-bold hover:text-blue-300 flex items-center gap-1">
+                        <span>➕ Добавить задание</span>
+                    </button>
+                </div>
+
+                <div id="tasksList" class="space-y-2.5"></div>
             </div>
 
-            <div id="tasksList" class="space-y-2.5"></div>
+            <!-- ПОДРАЗДЕЛ Б: УЧЕБНИКИ И МАТЕРИАЛЫ -->
+            <div id="materialsSubView" class="space-y-3.5 hidden">
+                <div class="flex justify-between items-center px-1">
+                    <div class="text-xs text-slate-400">
+                        Учебники, методички и ссылки группы
+                    </div>
+                    <button type="button" onclick="openAddMaterialModal()" class="blue-glow px-3 py-1.5 rounded-xl text-xs font-bold active:scale-95 transition">
+                        ➕ Загрузить файл
+                    </button>
+                </div>
+
+                <!-- Фильтр по предметам материалов -->
+                <div id="materialsSubjectFilter" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5"></div>
+
+                <div id="materialsList" class="space-y-2.5"></div>
+            </div>
         </section>
 
         <!-- ==================== ЭКРАН 4: ОЦЕНКИ ==================== -->
@@ -306,7 +332,7 @@
             </div>
         </section>
 
-        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ ЗАДАНИЯ (УМНЫЙ ВЫБОР ПРЕДМЕТА) ==================== -->
+        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ ЗАДАНИЯ ==================== -->
         <section id="addTaskModal" class="app-card p-5 rounded-3xl space-y-4 hidden">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base text-white">Новое задание</h2>
@@ -321,33 +347,64 @@
                 </label>
             </div>
 
-            <!-- ШАГ 1: ДАТА (ДЕДЛАЙН) -->
             <div>
                 <label class="block text-xs text-slate-400 mb-1">1. Выберите дату сдачи (дедлайн):</label>
                 <input type="date" id="taskDateInput" onchange="onTaskDateChanged()" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
             </div>
 
-            <!-- ШАГ 2: ВЫБОР ПРЕДМЕТА ИЗ РАСПИСАНИЯ НА ЭТОТ ДЕНЬ -->
             <div class="space-y-2">
                 <div class="flex justify-between items-center">
                     <label class="block text-xs text-slate-400">2. Предмет в этот день:</label>
                     <button type="button" onclick="enableCustomSubjectInput()" class="text-[11px] text-blue-400 hover:underline">Другой предмет</button>
                 </div>
-                
-                <div id="modalDayLessonsContainer" class="flex flex-wrap gap-2 pt-0.5">
-                    <!-- Сюда скрипт подставляет кнопки пар -->
-                </div>
-
+                <div id="modalDayLessonsContainer" class="flex flex-wrap gap-2 pt-0.5"></div>
                 <input type="text" id="taskSubjectInput" placeholder="Название предмета" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none hidden">
             </div>
 
-            <!-- ШАГ 3: ОПИСАНИЕ -->
             <div>
                 <label class="block text-xs text-slate-400 mb-1">3. Что нужно сделать:</label>
                 <input type="text" id="taskTitleInput" placeholder="Например: Практическая работа №4 (упр. 12-15)" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
             </div>
 
             <button type="button" id="saveTaskSubmitBtn" onclick="saveNewTask()" class="w-full blue-glow font-semibold py-3 rounded-xl">✅ Добавить задание</button>
+        </section>
+
+        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ УЧЕБНИКА / МАТЕРИАЛА ==================== -->
+        <section id="addMaterialModal" class="app-card p-5 rounded-3xl space-y-4 hidden">
+            <div class="flex justify-between items-center">
+                <h2 class="font-bold text-base text-white">Добавление материала</h2>
+                <button type="button" onclick="closeAddMaterialModal()" class="pill-bar px-3 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white">✕ Закрыть</button>
+            </div>
+
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">1. Название предмета:</label>
+                <input type="text" id="matSubjectInput" placeholder="Например: Разработка веб-приложений" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
+            </div>
+
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">2. Описание материала / Название книги:</label>
+                <input type="text" id="matTitleInput" placeholder="Например: Методичка к лабораторным работам 2026" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
+            </div>
+
+            <!-- Способ прикрепления: Файл с телефона или Ссылка -->
+            <div class="space-y-3 pt-1">
+                <label class="block text-xs text-blue-400 font-semibold">3. Выберите файл с телефона или вставьте ссылку:</label>
+                
+                <div class="pill-bar p-3.5 rounded-2xl space-y-2">
+                    <span class="text-xs text-slate-300 font-medium block">Вариант А: Загрузить файл с телефона</span>
+                    <input type="file" id="matFileInput" onchange="handleMaterialFileSelected(event)" class="w-full text-xs text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white">
+                    <div id="uploadProgressStatus" class="text-[11px] text-emerald-400 hidden pt-1"></div>
+                </div>
+
+                <div class="pill-bar p-3.5 rounded-2xl space-y-2">
+                    <span class="text-xs text-slate-300 font-medium block">Вариант Б: Или вставьте готовую ссылку (ТГ / Диск / Сайт)</span>
+                    <input type="url" id="matLinkInput" placeholder="https://..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none">
+                </div>
+            </div>
+
+            <button type="button" id="submitMaterialBtn" onclick="saveNewMaterial()" class="w-full blue-glow font-semibold py-3 rounded-xl transition">
+                🚀 Опубликовать учебник
+            </button>
         </section>
 
         <!-- ==================== ЭКРАН 6: ЛИЧНЫЙ КАБИНЕТ ==================== -->
@@ -443,7 +500,7 @@
                     <span class="text-lg">👑</span>
                     <div>
                         <h3 class="text-sm font-bold text-white">Доступ старосты группы</h3>
-                        <p class="text-[11px] text-slate-400">Публикуйте ДЗ для всех одногруппников</p>
+                        <p class="text-[11px] text-slate-400">Публикуйте ДЗ и учебники для всей группы</p>
                     </div>
                 </div>
 
@@ -503,7 +560,7 @@
             </div>
 
             <div class="text-center space-y-1 pt-1">
-                <div class="text-[11px] text-slate-400">Версия 5.5</div>
+                <div class="text-[11px] text-slate-400">Версия 5.6</div>
                 <div class="inline-flex items-center gap-1.5 text-slate-400 text-xs">
                     <span>🏛️</span>
                     <span class="font-semibold">НовГУ • Студенческий помощник</span>
@@ -575,6 +632,7 @@
         let starostaAuth = null;
         let adminToken = localStorage.getItem(STORAGE_ADMIN_KEY) || null;
         let serverGroupTasks = [];
+        let serverGroupMaterials = [];
 
         let changesData = { dateTitle: 'Изменения в расписании', fileName: '', items: [], portalFiles: [] };
         let activeChangesGroupFilter = 'ALL';
@@ -582,7 +640,12 @@
 
         let localTasks = [];
         let activeTaskFilter = 'ALL';
+        let taskSubTab = 'tasks'; // 'tasks' | 'materials'
         let selectedSubjectInModal = '';
+        let activeMaterialSubjectFilter = 'ALL';
+        let pendingUploadedFileUrl = '';
+        let pendingUploadedFileName = '';
+        let pendingUploadedFileSize = '';
 
         let marksViewMode = 'subjects';
         let cachedSubjectSummaries = {};
@@ -615,6 +678,7 @@
             updateStarostaUI();
             updateAdminUI();
             fetchServerTasksForActiveGroup();
+            fetchServerMaterialsForActiveGroup();
 
             if (schedules.length > 0) switchSection('schedule');
             else if (subjects.length > 0) switchSection('marks');
@@ -671,7 +735,6 @@
             return (Math.ceil(diffDays / 7) % 2 !== 0) ? 'upper' : 'lower';
         }
 
-        // Вычисляет тип недели (верхняя/нижняя) для любой произвольной даты
         function getWeekTypeForDate(dateObj) {
             const year = dateObj.getMonth() >= 8 ? dateObj.getFullYear() : dateObj.getFullYear() - 1;
             const septFirst = new Date(year, 8, 1);
@@ -695,7 +758,7 @@
         // ================= НАВИГАЦИЯ =================
         function switchSection(section) {
             lastActiveSection = section;
-            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addTaskModal', 'profileSection'];
+            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addTaskModal', 'addMaterialModal', 'profileSection'];
             allSecs.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -704,7 +767,7 @@
             const titles = {
                 schedule: 'Расписание',
                 changes: 'Изменения в расписании',
-                tasks: 'Домашние задания',
+                tasks: 'Домашние задания и материалы',
                 marks: 'Оценки'
             };
             if (titles[section]) document.getElementById('topScreenTitle').innerText = titles[section];
@@ -734,7 +797,7 @@
                 if (!changesData.items || changesData.items.length === 0) fetchChangesFromPortal();
             } else if (section === 'tasks') {
                 document.getElementById('tasksSection').classList.remove('hidden');
-                fetchServerTasksForActiveGroup().then(() => renderTasksList());
+                switchTaskSubTab(taskSubTab);
             } else if (section === 'marks') {
                 document.getElementById('marksSection').classList.remove('hidden');
                 renderSubjectTabs();
@@ -749,7 +812,7 @@
         }
 
         function openProfileModal() {
-            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addTaskModal'];
+            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addTaskModal', 'addMaterialModal'];
             allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById('profileSection').classList.remove('hidden');
             document.getElementById('topScreenTitle').innerText = 'Личный кабинет';
@@ -889,6 +952,7 @@
                 keyInput.value = '';
                 updateStarostaUI();
                 await fetchServerTasksForActiveGroup();
+                await fetchServerMaterialsForActiveGroup();
 
                 alert(`✓ Успешно! Вы назначены старостой группы ${data.group}. Одноразовый ключ погашен.`);
             } catch (e) {
@@ -904,7 +968,7 @@
             }
         }
 
-        // ================= ЗАГРУЗКА ЗАДАНИЙ С СЕРВЕРА =================
+        // ================= ЗАГРУЗКА ЗАДАНИЙ И МАТЕРИАЛОВ =================
         async function fetchServerTasksForActiveGroup() {
             const currentGrp = getActiveGroupName();
             if (!currentGrp) return;
@@ -919,7 +983,21 @@
             }
         }
 
-        // ================= РАСПИСАНИЕ И АНАЛИЗ ПАР =================
+        async function fetchServerMaterialsForActiveGroup() {
+            const currentGrp = getActiveGroupName();
+            if (!currentGrp) return;
+            try {
+                const res = await fetch(`${RENDER_URL}/api/materials/${currentGrp}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    serverGroupMaterials = data.materials || [];
+                }
+            } catch (e) {
+                serverGroupMaterials = [];
+            }
+        }
+
+        // ================= РАСПИСАНИЕ =================
         function getMondayOfCurrentWeek() {
             const now = new Date();
             const day = now.getDay();
@@ -1000,7 +1078,6 @@
             return { title, teacher, aud: aud || 'НовГУ ПТК' };
         }
 
-        // Извлекает список предметов на конкретный день и тип недели для активной группы
         function getLessonsForDayAndWeek(targetDayName, weekType) {
             const current = schedules[activeScheduleIndex];
             if (!current || !current.rawRows) return [];
@@ -1074,7 +1151,7 @@
         }
 
         function openAddSchedule() {
-            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'addTaskModal', 'profileSection'];
+            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'addTaskModal', 'addMaterialModal', 'profileSection'];
             allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById('setupScheduleScreen').classList.remove('hidden');
             document.getElementById('excelFileInput').value = '';
@@ -1106,6 +1183,7 @@
                 localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
                 activeChangesGroupFilter = groupName;
                 await fetchServerTasksForActiveGroup();
+                await fetchServerMaterialsForActiveGroup();
                 switchSection('schedule');
             } catch (e) {
                 alert("Ошибка загрузки: " + e.message);
@@ -1130,6 +1208,7 @@
                 };
                 localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
                 await fetchServerTasksForActiveGroup();
+                await fetchServerMaterialsForActiveGroup();
                 loadScheduleForActive();
             } catch (e) {
                 alert("Не удалось обновить: " + e.message);
@@ -1181,6 +1260,7 @@
             activeScheduleIndex = schedules.length - 1;
             activeChangesGroupFilter = groupName;
             fetchServerTasksForActiveGroup();
+            fetchServerMaterialsForActiveGroup();
             switchSection('schedule');
         }
 
@@ -1201,7 +1281,10 @@
         function switchSchedule(idx) {
             activeScheduleIndex = idx;
             renderScheduleTabs();
-            fetchServerTasksForActiveGroup().then(() => loadScheduleForActive());
+            fetchServerTasksForActiveGroup().then(() => {
+                fetchServerMaterialsForActiveGroup();
+                loadScheduleForActive();
+            });
         }
 
         function deleteSchedule(event, idx) {
@@ -1226,7 +1309,6 @@
             return list;
         }
 
-        // ================= ОТОБРАЖЕНИЕ РАСПИСАНИЯ С ДЗ ПРЯМО В КАРТОЧКАХ ПРЕДМЕТОВ =================
         function loadScheduleForActive() {
             const current = schedules[activeScheduleIndex];
             const container = document.getElementById('scheduleList');
@@ -1308,7 +1390,6 @@
                     const dayIdx = scheduleViewMode === 'day' ? selectedDayIndex : DAY_NAMES_FULL.indexOf(dayName);
                     const targetDayDateStr = getDateForDayIndex(dayIdx);
 
-                    // Все задания на эту конкретную дату
                     const dayTasks = allCombinedTasks.filter(t => t.dueDate === targetDayDateStr);
 
                     if (scheduleViewMode === 'week' && lessons.length === 0 && dayTasks.length === 0) return;
@@ -1318,13 +1399,15 @@
                     }
 
                     if (lessons.length === 0) {
-                        html += `
-                            <div class="app-card p-6 rounded-3xl text-center space-y-1">
-                                <div class="text-base">🎉</div>
-                                <div class="text-sm font-semibold text-white">В этот день пар нет</div>
-                                <div class="text-xs text-slate-400">Можно отдохнуть или заняться заданиями</div>
-                            </div>
-                        `;
+                        if (scheduleViewMode === 'day' && dayTasks.length === 0) {
+                            html += `
+                                <div class="app-card p-6 rounded-3xl text-center space-y-1">
+                                    <div class="text-base">🎉</div>
+                                    <div class="text-sm font-semibold text-white">В этот день пар нет</div>
+                                    <div class="text-xs text-slate-400">Можно отдохнуть или заняться заданиями</div>
+                                </div>
+                            `;
+                        }
                     } else {
                         lessons.forEach(l => {
                             const info = parseLessonDetails(l.lesson);
@@ -1332,7 +1415,6 @@
                             const isNow = statusText === 'Сейчас';
                             const statusCls = isNow ? 'blue-glow' : 'pill-bar text-slate-300';
 
-                            // Ищем ДЗ, привязанное именно к этому предмету (по полному или частичному совпадению названия)
                             const lessonTasks = dayTasks.filter(t => {
                                 const tSubj = String(t.subject || '').trim().toLowerCase();
                                 const pTitle = String(info.title || '').trim().toLowerCase();
@@ -1380,7 +1462,6 @@
                         });
                     }
 
-                    // Если в этот день есть задачи без привязки к конкретной паре
                     const unassignedTasks = dayTasks.filter(t => {
                         const tSubj = String(t.subject || '').trim().toLowerCase();
                         return !lessons.some(l => {
@@ -1642,7 +1723,29 @@
             container.innerHTML = html;
         }
 
-        // ================= ЭКРАН 3: ДОМАШНИЕ ЗАДАНИЯ =================
+        // ================= ЭКРАН 3: ДОМАШНИЕ ЗАДАНИЯ И УЧЕБНИКИ =================
+        function switchTaskSubTab(tab) {
+            taskSubTab = tab;
+            const bTasks = document.getElementById('btnSubTabTasks');
+            const bMat = document.getElementById('btnSubTabMaterials');
+            const vTasks = document.getElementById('tasksSubView');
+            const vMat = document.getElementById('materialsSubView');
+
+            if (tab === 'tasks') {
+                bTasks.className = "py-2 rounded-xl text-xs font-semibold transition blue-glow";
+                bMat.className = "py-2 rounded-xl text-xs font-medium transition text-slate-400";
+                vTasks.classList.remove('hidden');
+                vMat.classList.add('hidden');
+                fetchServerTasksForActiveGroup().then(() => renderTasksList());
+            } else {
+                bTasks.className = "py-2 rounded-xl text-xs font-medium transition text-slate-400";
+                bMat.className = "py-2 rounded-xl text-xs font-semibold transition blue-glow";
+                vTasks.classList.add('hidden');
+                vMat.classList.remove('hidden');
+                fetchServerMaterialsForActiveGroup().then(() => renderMaterialsList());
+            }
+        }
+
         function setTaskFilter(filter) {
             activeTaskFilter = filter;
             const ids = { ALL: 'taskFilterAll', TODAY: 'taskFilterToday', WEEK: 'taskFilterWeek', OVERDUE: 'taskFilterOverdue' };
@@ -1654,7 +1757,6 @@
             renderTasksList();
         }
 
-        // ================= УМНЫЙ ВЫБОР ПРЕДМЕТА ПО ДАТЕ В МОДАЛКЕ =================
         function onTaskDateChanged() {
             const dateVal = document.getElementById('taskDateInput').value;
             const container = document.getElementById('modalDayLessonsContainer');
@@ -1724,7 +1826,7 @@
         }
 
         function openAddTaskModal() {
-            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'profileSection'];
+            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addMaterialModal', 'profileSection'];
             allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById('addTaskModal').classList.remove('hidden');
 
@@ -1742,8 +1844,6 @@
             document.getElementById('taskTitleInput').value = '';
             document.getElementById('taskSubjectInput').value = '';
             document.getElementById('taskDateInput').value = new Date().toISOString().slice(0, 10);
-            
-            // Сразу инициализируем список предметов на сегодняшнюю дату
             onTaskDateChanged();
         }
 
@@ -1889,6 +1989,216 @@
             container.innerHTML = html;
         }
 
+        // ================= УЧЕБНИКИ: ЗАГРУЗКА И ОТОБРАЖЕНИЕ =================
+        function formatBytes(bytes) {
+            if (!bytes || isNaN(bytes)) return '';
+            const k = 1024;
+            const sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function openAddMaterialModal() {
+            if (!starostaAuth || !starostaAuth.sessionToken) {
+                alert("Добавлять общие учебники для группы может только староста (по ключу в Личном кабинете).");
+                return;
+            }
+            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addTaskModal', 'profileSection'];
+            allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
+            document.getElementById('addMaterialModal').classList.remove('hidden');
+
+            document.getElementById('matSubjectInput').value = '';
+            document.getElementById('matTitleInput').value = '';
+            document.getElementById('matLinkInput').value = '';
+            document.getElementById('matFileInput').value = '';
+            document.getElementById('uploadProgressStatus').classList.add('hidden');
+            pendingUploadedFileUrl = '';
+            pendingUploadedFileName = '';
+            pendingUploadedFileSize = '';
+        }
+
+        function closeAddMaterialModal() {
+            switchSection('tasks');
+        }
+
+        async function handleMaterialFileSelected(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const progressEl = document.getElementById('uploadProgressStatus');
+            const submitBtn = document.getElementById('submitMaterialBtn');
+            progressEl.classList.remove('hidden');
+            progressEl.innerText = `⏳ Выгружаем файл «${file.name}» в облако...`;
+            submitBtn.disabled = true;
+
+            try {
+                // Прямая выгрузка в облачный хостинг файлов Catbox без нагрузки на Render
+                const formData = new FormData();
+                formData.append('reqtype', 'fileupload');
+                formData.append('fileToUpload', file);
+
+                const response = await fetch('https://catbox.moe/user/api.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('Сбой сети при отправке в облако');
+                const fileUrl = (await response.text()).trim();
+
+                if (!fileUrl.startsWith('http')) throw new Error(fileUrl || 'Ошибка сервера хранилища');
+
+                pendingUploadedFileUrl = fileUrl;
+                pendingUploadedFileName = file.name;
+                pendingUploadedFileSize = formatBytes(file.size);
+
+                progressEl.innerText = `✓ Файл успешно загружен (${pendingUploadedFileSize})!`;
+                if (!document.getElementById('matTitleInput').value) {
+                    document.getElementById('matTitleInput').value = file.name.replace(/\.[^/.]+$/, '');
+                }
+            } catch (err) {
+                progressEl.innerText = `⚠️ Не удалось автоматически выгрузить файл. Вставьте прямую ссылку ниже.`;
+            } finally {
+                submitBtn.disabled = false;
+            }
+        }
+
+        async function saveNewMaterial() {
+            const currentGrp = getActiveGroupName();
+            if (!currentGrp) { alert("Не выбрана группа!"); return; }
+            if (!starostaAuth || !starostaAuth.sessionToken) { alert("Требуются права старосты!"); return; }
+
+            const subject = document.getElementById('matSubjectInput').value.trim() || 'Общий материал';
+            const title = document.getElementById('matTitleInput').value.trim();
+            const manualLink = document.getElementById('matLinkInput').value.trim();
+            const fileUrl = pendingUploadedFileUrl || manualLink;
+
+            if (!title) { alert("Введите название учебника или методички!"); return; }
+            if (!fileUrl) { alert("Прикрепите файл с телефона или укажите ссылку!"); return; }
+
+            const submitBtn = document.getElementById('submitMaterialBtn');
+            submitBtn.innerText = "⏳ Публикуем...";
+
+            try {
+                const res = await fetch(`${RENDER_URL}/api/materials/${currentGrp}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessionToken: starostaAuth.sessionToken,
+                        material: {
+                            subject,
+                            title,
+                            fileUrl,
+                            fileName: pendingUploadedFileName || 'Файл / Ссылка',
+                            fileSize: pendingUploadedFileSize || '',
+                            isDirectUpload: Boolean(pendingUploadedFileUrl)
+                        }
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok || data.error) throw new Error(data.error || "Ошибка сохранения");
+
+                await fetchServerMaterialsForActiveGroup();
+                closeAddMaterialModal();
+                switchTaskSubTab('materials');
+            } catch (e) {
+                alert("Ошибка публикации материала: " + e.message);
+            } finally {
+                submitBtn.innerText = "🚀 Опубликовать учебник";
+            }
+        }
+
+        async function deleteMaterial(id) {
+            if (!starostaAuth || !starostaAuth.sessionToken) {
+                alert("Удалять материалы может только староста группы.");
+                return;
+            }
+            if (confirm("Удалить этот учебник для всей группы?")) {
+                try {
+                    const res = await fetch(`${RENDER_URL}/api/materials/${starostaAuth.group}/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sessionToken: starostaAuth.sessionToken })
+                    });
+                    if (res.ok) {
+                        serverGroupMaterials = serverGroupMaterials.filter(m => m.id !== id);
+                        renderMaterialsList();
+                    }
+                } catch (e) {
+                    alert("Ошибка удаления: " + e.message);
+                }
+            }
+        }
+
+        function renderMaterialsList() {
+            const container = document.getElementById('materialsList');
+            const filterContainer = document.getElementById('materialsSubjectFilter');
+            if (!container) return;
+
+            const allSubjs = new Set(['ALL']);
+            serverGroupMaterials.forEach(m => { if (m.subject) allSubjs.add(m.subject); });
+
+            if (filterContainer) {
+                filterContainer.innerHTML = '';
+                allSubjs.forEach(s => {
+                    const isSel = activeMaterialSubjectFilter === s;
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = `px-3 py-1.5 rounded-xl text-xs font-medium shrink-0 transition ${isSel ? 'blue-glow' : 'pill-bar text-slate-400'}`;
+                    btn.textContent = s === 'ALL' ? 'Все предметы' : s;
+                    btn.onclick = () => { activeMaterialSubjectFilter = s; renderMaterialsList(); };
+                    filterContainer.appendChild(btn);
+                });
+            }
+
+            const filtered = serverGroupMaterials.filter(m => {
+                if (activeMaterialSubjectFilter === 'ALL') return true;
+                return m.subject === activeMaterialSubjectFilter;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="app-card p-6 rounded-3xl text-center space-y-2">
+                        <div class="text-2xl">📚</div>
+                        <div class="text-sm font-semibold text-white">Учебных материалов пока нет</div>
+                        <div class="text-xs text-slate-400">Староста может выгрузить сюда учебники, методички или ссылки</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            filtered.forEach(m => {
+                const icon = getSubjectIcon(m.subject);
+                const canDelete = starostaAuth && starostaAuth.sessionToken;
+
+                html += `
+                    <div class="app-card p-4 rounded-3xl space-y-2.5">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-10 h-10 rounded-2xl pill-bar flex items-center justify-center text-blue-400 font-bold text-base shrink-0">
+                                    ${icon}
+                                </div>
+                                <div class="min-w-0">
+                                    <span class="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-md font-semibold">${m.subject}</span>
+                                    <div class="text-sm font-bold text-white mt-1 leading-snug">${m.title}</div>
+                                </div>
+                            </div>
+                            ${canDelete ? `<button type="button" onclick="deleteMaterial(${m.id})" class="text-slate-400 hover:text-red-400 text-xs shrink-0">✕</button>` : ''}
+                        </div>
+
+                        <div class="flex items-center justify-between pt-1 text-xs border-t border-slate-700/50">
+                            <span class="text-slate-400 text-[11px]">${m.fileSize ? `Файл • ${m.fileSize}` : 'Ссылка'}</span>
+                            <a href="${m.fileUrl}" target="_blank" class="blue-glow px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1">
+                                <span>Открыть / Скачать</span>
+                                <span>↗</span>
+                            </a>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
         // ================= ЭКРАН 4: ОЦЕНКИ =================
         function setMarksViewMode(mode) {
             marksViewMode = mode;
@@ -2020,7 +2330,7 @@
         }
 
         function openAddSubject() {
-            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScheduleScreen', 'addTaskModal', 'profileSection'];
+            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScheduleScreen', 'addTaskModal', 'addMaterialModal', 'profileSection'];
             allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById('setupScreen').classList.remove('hidden');
             document.getElementById('groupSelectBlock').classList.add('hidden');
