@@ -10,25 +10,75 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <style>
+        :root {
+            --bg-main: #080e1a;
+            --bg-card: linear-gradient(180deg, #131f35 0%, #0f192b 100%);
+            --border-card: #1e2f4d;
+            --shadow-card: 0 8px 24px -4px rgba(0, 0, 0, 0.45);
+            --bg-pill: #0d1626;
+            --border-pill: #1b2a46;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --bg-nav: rgba(10, 18, 34, 0.95);
+        }
+
+        body.light-theme {
+            --bg-main: #f1f5f9;
+            --bg-card: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            --border-card: #cbd5e1;
+            --shadow-card: 0 6px 20px -4px rgba(15, 23, 42, 0.08);
+            --bg-pill: #e2e8f0;
+            --border-pill: #cbd5e1;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --bg-nav: rgba(255, 255, 255, 0.95);
+        }
+
         body {
-            background-color: #080e1a;
-            color: #f1f5f9;
+            background-color: var(--bg-main);
+            color: var(--text-main);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             -webkit-tap-highlight-color: transparent;
+            transition: background-color 0.2s ease, color 0.2s ease;
         }
+
         .app-card {
-            background: linear-gradient(180deg, #131f35 0%, #0f192b 100%);
-            border: 1px solid #1e2f4d;
-            box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.45);
+            background: var(--bg-card);
+            border: 1px solid var(--border-card);
+            box-shadow: var(--shadow-card);
         }
+
         .pill-bar {
-            background-color: #0d1626;
-            border: 1px solid #1b2a46;
+            background-color: var(--bg-pill);
+            border: 1px solid var(--border-pill);
         }
+
         .blue-glow {
             background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
-            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.45);
+            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+            color: #ffffff !important;
         }
+
+        .bottom-nav {
+            background-color: var(--bg-nav);
+            border-top: 1px solid var(--border-pill);
+        }
+
+        /* Адаптация цветов текста для светлой темы */
+        body.light-theme .text-white { color: #0f172a !important; }
+        body.light-theme .blue-glow .text-white,
+        body.light-theme .blue-glow { color: #ffffff !important; }
+        body.light-theme .text-slate-200,
+        body.light-theme .text-slate-300 { color: #1e293b !important; }
+        body.light-theme .text-slate-400,
+        body.light-theme .text-slate-500 { color: #64748b !important; }
+        body.light-theme .bg-slate-800,
+        body.light-theme .bg-slate-800\/90,
+        body.light-theme .bg-slate-900 { background-color: #e2e8f0 !important; border-color: #cbd5e1 !important; }
+        body.light-theme .border-slate-800,
+        body.light-theme .border-slate-800\/80,
+        body.light-theme .divide-slate-800\/80 > :not([hidden]) ~ :not([hidden]) { border-color: #e2e8f0 !important; }
+
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
@@ -46,12 +96,12 @@
                 <div>
                     <div class="flex items-center gap-2">
                         <h1 id="topScreenTitle" class="text-lg font-bold tracking-tight text-white">Расписание</h1>
-                        <span class="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full font-mono">v5.1</span>
+                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">v5.3</span>
                     </div>
                     <p id="topScreenSubtitle" class="text-[11px] text-slate-400">НовГУ • Студенческий помощник</p>
                 </div>
             </div>
-            <button type="button" onclick="openProfileModal()" class="w-9 h-9 rounded-full app-card flex items-center justify-center text-slate-300 hover:text-white active:scale-95 transition">
+            <button type="button" id="topProfileBtn" onclick="toggleProfileModal()" class="w-9 h-9 rounded-full app-card flex items-center justify-center text-slate-300 hover:text-white active:scale-95 transition" title="Личный кабинет">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
                 </svg>
@@ -72,12 +122,12 @@
 
             <div class="grid grid-cols-2 gap-2">
                 <div class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1">
-                    <button type="button" id="btnModeDay" onclick="setScheduleViewMode('day')" class="py-1.5 rounded-xl text-xs font-semibold transition blue-glow text-white">День</button>
-                    <button type="button" id="btnModeWeek" onclick="setScheduleViewMode('week')" class="py-1.5 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white">Неделя</button>
+                    <button type="button" id="btnModeDay" onclick="setScheduleViewMode('day')" class="py-1.5 rounded-xl text-xs font-semibold transition blue-glow">День</button>
+                    <button type="button" id="btnModeWeek" onclick="setScheduleViewMode('week')" class="py-1.5 rounded-xl text-xs font-medium transition text-slate-400">Неделя</button>
                 </div>
                 <div class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1">
-                    <button type="button" id="btnUpperWeek" onclick="setWeekType('upper')" class="py-1.5 rounded-xl text-xs font-semibold transition blue-glow text-white">⬆️ Верхняя</button>
-                    <button type="button" id="btnLowerWeek" onclick="setWeekType('lower')" class="py-1.5 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white">⬇️ Нижняя</button>
+                    <button type="button" id="btnUpperWeek" onclick="setWeekType('upper')" class="py-1.5 rounded-xl text-xs font-semibold transition blue-glow">⬆️ Верхняя</button>
+                    <button type="button" id="btnLowerWeek" onclick="setWeekType('lower')" class="py-1.5 rounded-xl text-xs font-medium transition text-slate-400">⬇️ Нижняя</button>
                 </div>
             </div>
 
@@ -91,10 +141,11 @@
 
         <!-- ==================== ЭКРАН 2: ИЗМЕНЕНИЯ В РАСПИСАНИИ ==================== -->
         <section id="changesSection" class="space-y-3.5 hidden">
+            <!-- Фильтры: Все | Замены | Отмены -->
             <div class="pill-bar p-1 rounded-2xl grid grid-cols-3 gap-1">
-                <button type="button" id="chgFilterAll" onclick="setChangesTypeFilter('ALL')" class="py-2 rounded-xl text-xs font-semibold transition blue-glow text-white">Все</button>
-                <button type="button" id="chgFilterMove" onclick="setChangesTypeFilter('MOVE')" class="py-2 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white">Переносы</button>
-                <button type="button" id="chgFilterCancel" onclick="setChangesTypeFilter('CANCEL')" class="py-2 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white">Отмены</button>
+                <button type="button" id="chgFilterAll" onclick="setChangesTypeFilter('ALL')" class="py-2 rounded-xl text-xs font-semibold transition blue-glow">Все</button>
+                <button type="button" id="chgFilterMove" onclick="setChangesTypeFilter('MOVE')" class="py-2 rounded-xl text-xs font-medium transition text-slate-400">Замены</button>
+                <button type="button" id="chgFilterCancel" onclick="setChangesTypeFilter('CANCEL')" class="py-2 rounded-xl text-xs font-medium transition text-slate-400">Отмены</button>
             </div>
 
             <div class="app-card p-3.5 rounded-2xl space-y-3">
@@ -104,11 +155,11 @@
                         <div id="changesStatusText" class="text-[11px] text-slate-400 mt-0.5">Нажмите «С сайта» для обновления</div>
                     </div>
                     <div class="flex gap-1.5 shrink-0">
-                        <label class="cursor-pointer pill-bar px-2.5 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white transition">
+                        <label class="cursor-pointer pill-bar px-2.5 py-1.5 rounded-xl text-xs text-slate-300 transition">
                             📁 .docx
                             <input type="file" accept=".docx,.doc,.xls,.xlsx" onchange="handleManualChangesFile(event)" class="hidden">
                         </label>
-                        <button type="button" id="fetchChangesBtn" onclick="fetchChangesFromPortal()" class="blue-glow text-white px-3 py-1.5 rounded-xl text-xs font-semibold active:scale-95 transition">
+                        <button type="button" id="fetchChangesBtn" onclick="fetchChangesFromPortal()" class="blue-glow px-3 py-1.5 rounded-xl text-xs font-semibold active:scale-95 transition">
                             🔄 С сайта
                         </button>
                     </div>
@@ -137,10 +188,10 @@
         <!-- ==================== ЭКРАН 3: ДОМАШНИЕ ЗАДАНИЯ ==================== -->
         <section id="tasksSection" class="space-y-3.5 hidden">
             <div class="pill-bar p-1 rounded-2xl grid grid-cols-4 gap-1">
-                <button type="button" id="taskFilterAll" onclick="setTaskFilter('ALL')" class="py-2 rounded-xl text-[11px] font-semibold transition blue-glow text-white">Все</button>
-                <button type="button" id="taskFilterToday" onclick="setTaskFilter('TODAY')" class="py-2 rounded-xl text-[11px] font-medium transition text-slate-400 hover:text-white">Сегодня</button>
-                <button type="button" id="taskFilterWeek" onclick="setTaskFilter('WEEK')" class="py-2 rounded-xl text-[11px] font-medium transition text-slate-400 hover:text-white">Неделя</button>
-                <button type="button" id="taskFilterOverdue" onclick="setTaskFilter('OVERDUE')" class="py-2 rounded-xl text-[11px] font-medium transition text-slate-400 hover:text-white">Просрочено</button>
+                <button type="button" id="taskFilterAll" onclick="setTaskFilter('ALL')" class="py-2 rounded-xl text-[11px] font-semibold transition blue-glow">Все</button>
+                <button type="button" id="taskFilterToday" onclick="setTaskFilter('TODAY')" class="py-2 rounded-xl text-[11px] font-medium transition text-slate-400">Сегодня</button>
+                <button type="button" id="taskFilterWeek" onclick="setTaskFilter('WEEK')" class="py-2 rounded-xl text-[11px] font-medium transition text-slate-400">Неделя</button>
+                <button type="button" id="taskFilterOverdue" onclick="setTaskFilter('OVERDUE')" class="py-2 rounded-xl text-[11px] font-medium transition text-slate-400">Просрочено</button>
             </div>
 
             <div class="flex justify-between items-center px-1">
@@ -151,9 +202,8 @@
             <div id="tasksList" class="space-y-2.5"></div>
         </section>
 
-        <!-- ==================== ЭКРАН 4: ОЦЕНКИ ==================== -->
+        <!-- ==================== ЭКРАН 4: ОЦЕНКИ (ТОЛЬКО ПРОСМОТР) ==================== -->
         <section id="marksSection" class="space-y-3.5 hidden">
-            <!-- Главная карточка: Средний балл + круговой процент -->
             <div class="app-card p-5 rounded-3xl space-y-3 relative overflow-hidden">
                 <div class="flex justify-between items-center">
                     <div>
@@ -163,17 +213,15 @@
                             <span class="text-sm text-slate-400 font-medium">из 5</span>
                         </div>
                     </div>
-                    <!-- Круговой индикатор -->
                     <div class="relative w-16 h-16 flex items-center justify-center">
                         <svg class="w-16 h-16 -rotate-90" viewBox="0 0 36 36">
-                            <path class="text-slate-800" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                            <path class="text-slate-700/30" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
                             <path id="avgCircleStroke" class="text-blue-500 transition-all duration-500" stroke-dasharray="0, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
                         </svg>
                         <span id="avgPercentText" class="absolute text-xs font-bold text-white">0%</span>
                     </div>
                 </div>
 
-                <!-- Горизонтальный прогресс-бар -->
                 <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
                     <div id="avgHorizontalBar" class="h-full blue-glow rounded-full transition-all duration-500" style="width: 0%"></div>
                 </div>
@@ -181,43 +229,39 @@
                 <div class="flex justify-between items-center pt-1 text-[11px] text-slate-400">
                     <div>
                         <div>На основе данных из Google Таблиц</div>
-                        <div id="marksUpdatedTime" class="text-slate-500 mt-0.5">Выберите или добавьте предмет</div>
+                        <div id="marksUpdatedTime" class="text-slate-500 mt-0.5">Управление предметами — в профиле</div>
                     </div>
-                    <div class="flex gap-1.5">
-                        <button type="button" onclick="openAddSubject()" class="pill-bar px-3 py-1.5 rounded-xl text-blue-400 font-semibold hover:text-blue-300">➕ Предмет</button>
-                        <button type="button" onclick="loadMarksForActiveSubject()" class="pill-bar p-2 rounded-xl text-slate-300 hover:text-white">🔄</button>
-                    </div>
+                    <button type="button" onclick="loadMarksForActiveSubject()" title="Обновить оценки" class="pill-bar px-3 py-1.5 rounded-xl text-slate-300 hover:text-white active:scale-95 transition">
+                        🔄 Обновить
+                    </button>
                 </div>
             </div>
 
-            <!-- Переключатель: По предметам | Все оценки -->
             <div class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1">
-                <button type="button" id="btnMarksBySubj" onclick="setMarksViewMode('subjects')" class="py-2 rounded-xl text-xs font-semibold transition blue-glow text-white">По предметам</button>
-                <button type="button" id="btnMarksAll" onclick="setMarksViewMode('all')" class="py-2 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white">Все оценки</button>
+                <button type="button" id="btnMarksBySubj" onclick="setMarksViewMode('subjects')" class="py-2 rounded-xl text-xs font-semibold transition blue-glow">По предметам</button>
+                <button type="button" id="btnMarksAll" onclick="setMarksViewMode('all')" class="py-2 rounded-xl text-xs font-medium transition text-slate-400">Все оценки</button>
             </div>
 
-            <!-- Полоска переключения предметов -->
+            <!-- Вкладки переключения предметов (без кнопок удаления) -->
             <div id="subjectsTabs" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5"></div>
-
-            <!-- Список предметов или оценок -->
             <div id="marksList" class="space-y-2.5"></div>
         </section>
 
-        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ ПРЕДМЕТА (GOOGLE ТАБЛИЦА) ==================== -->
+        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ ПРЕДМЕТА (ВЫЗЫВАЕТСЯ ИЗ ПРОФИЛЯ) ==================== -->
         <section id="setupScreen" class="app-card p-5 rounded-3xl space-y-4 hidden">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base text-white">Подключение предмета</h2>
-                <button type="button" onclick="switchSection('marks')" class="text-xs text-slate-400 hover:text-white">✕ Закрыть</button>
+                <button type="button" onclick="openProfileModal()" class="pill-bar px-3 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white">← В профиль</button>
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">1. Название предмета</label>
-                <input type="text" id="subjectNameInput" placeholder="Например: Дискретная математика" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500">
+                <input type="text" id="subjectNameInput" placeholder="Например: Разработка веб-приложений" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500">
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">2. Ссылка на Google Таблицу</label>
                 <div class="flex gap-2">
                     <input type="text" id="sheetLinkInput" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500">
-                    <button type="button" id="scanTabsBtn" onclick="fetchGroupsList()" class="blue-glow text-white px-4 rounded-xl text-xs font-semibold shrink-0">Найти группы</button>
+                    <button type="button" id="scanTabsBtn" onclick="fetchGroupsList()" class="blue-glow px-4 rounded-xl text-xs font-semibold shrink-0">Найти группы</button>
                 </div>
             </div>
             <div id="groupSelectBlock" class="hidden space-y-2 pt-3 border-t border-slate-800">
@@ -229,7 +273,7 @@
                     <label class="block text-xs text-slate-400 mb-1">4. Выберите своё ФИО:</label>
                     <select id="studentSelect" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500"></select>
                 </div>
-                <button type="button" onclick="saveSubjectProfile()" class="w-full blue-glow text-white font-semibold py-3 rounded-xl transition">✅ Сохранить предмет</button>
+                <button type="button" onclick="saveSubjectProfile()" class="w-full blue-glow font-semibold py-3 rounded-xl transition">✅ Сохранить предмет</button>
             </div>
         </section>
 
@@ -237,14 +281,14 @@
         <section id="setupScheduleScreen" class="app-card p-5 rounded-3xl space-y-4 hidden">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base text-white">Добавление расписания</h2>
-                <button type="button" onclick="switchSection('schedule')" class="text-xs text-slate-400 hover:text-white">✕ Закрыть</button>
+                <button type="button" onclick="switchSection('schedule')" class="pill-bar px-3 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white">✕ Закрыть</button>
             </div>
 
             <div class="space-y-2">
                 <label class="block text-xs text-blue-400 font-medium">Способ 1. Автоматически с сайта НовГУ:</label>
                 <div class="flex gap-2">
                     <input type="text" id="serverGroupInput" placeholder="Введите номер группы (например: 5952)" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500">
-                    <button type="button" id="fetchSchedBtn" onclick="addScheduleFromServer()" class="blue-glow text-white px-4 rounded-xl text-xs font-bold shrink-0">
+                    <button type="button" id="fetchSchedBtn" onclick="addScheduleFromServer()" class="blue-glow px-4 rounded-xl text-xs font-bold shrink-0">
                         Найти на сайте
                     </button>
                 </div>
@@ -265,7 +309,7 @@
         <section id="addTaskModal" class="app-card p-5 rounded-3xl space-y-4 hidden">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base text-white">Новое задание</h2>
-                <button type="button" onclick="switchSection('tasks')" class="text-xs text-slate-400 hover:text-white">✕ Закрыть</button>
+                <button type="button" onclick="switchSection('tasks')" class="pill-bar px-3 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white">✕ Закрыть</button>
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Предмет</label>
@@ -279,26 +323,28 @@
                 <label class="block text-xs text-slate-400 mb-1">Срок сдачи (дедлайн)</label>
                 <input type="date" id="taskDateInput" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
             </div>
-            <button type="button" onclick="saveNewTask()" class="w-full blue-glow text-white font-semibold py-3 rounded-xl">✅ Добавить задание</button>
+            <button type="button" onclick="saveNewTask()" class="w-full blue-glow font-semibold py-3 rounded-xl">✅ Добавить задание</button>
         </section>
 
-        <!-- ==================== ЭКРАН 6: ЛИЧНЫЙ КАБИНЕТ (ПРОФИЛЬ) ==================== -->
+        <!-- ==================== ЭКРАН 6: ЛИЧНЫЙ КАБИНЕТ ==================== -->
         <section id="profileSection" class="space-y-4 hidden">
-            <div class="flex justify-between items-center px-1">
-                <h2 class="text-base font-bold text-white">Личный кабинет</h2>
-                <button type="button" onclick="closeProfileModal()" class="text-xs text-slate-400 hover:text-white">✕ Закрыть</button>
+            <!-- Удобная верхняя панель выхода из профиля -->
+            <div class="flex justify-between items-center">
+                <button type="button" onclick="closeProfileModal()" class="app-card px-4 py-2 rounded-2xl text-xs font-bold text-blue-400 flex items-center gap-1.5 active:scale-95 transition">
+                    <span>←</span> Назад
+                </button>
+                <span class="text-xs text-slate-400 font-medium">Настройки и дневники</span>
             </div>
 
+            <!-- Карточка студента -->
             <div class="app-card p-5 rounded-3xl space-y-4">
-                <div class="flex items-center justify-between gap-3">
-                    <div class="flex items-center gap-3.5">
-                        <div class="w-14 h-14 rounded-full bg-slate-700/70 border border-slate-600 flex items-center justify-center text-2xl text-slate-200 shrink-0">
-                            👤
-                        </div>
-                        <div>
-                            <div id="profileStudentName" class="font-bold text-base text-white leading-snug">Студент НовГУ</div>
-                            <div class="text-xs text-slate-400 mt-0.5">Политехнический колледж</div>
-                        </div>
+                <div class="flex items-center gap-3.5">
+                    <div class="w-14 h-14 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-2xl shrink-0">
+                        👤
+                    </div>
+                    <div>
+                        <div id="profileStudentName" class="font-bold text-base text-white leading-snug">Студент НовГУ</div>
+                        <div class="text-xs text-slate-400 mt-0.5">Политехнический колледж</div>
                     </div>
                 </div>
 
@@ -308,56 +354,67 @@
                         <span>НовГУ, Политехнический колледж (ПТК)</span>
                     </div>
                     <div class="flex items-center gap-2.5">
-                        <span class="text-slate-400">💻</span>
-                        <span>Среднее профессиональное образование</span>
-                    </div>
-                    <div class="flex items-center gap-2.5">
                         <span class="text-slate-400">👥</span>
                         <span id="profileGroupText">Группа: не выбрана</span>
                     </div>
                 </div>
 
-                <button type="button" onclick="openAddSchedule()" class="w-full blue-glow text-white font-semibold py-3 rounded-2xl text-xs transition active:scale-95">
-                    Сменить / добавить группу
+                <button type="button" onclick="openAddSchedule()" class="w-full blue-glow font-semibold py-3 rounded-2xl text-xs transition active:scale-95">
+                    Сменить / добавить группу расписания
                 </button>
             </div>
 
-            <div class="app-card rounded-3xl divide-y divide-slate-800/80 overflow-hidden text-xs">
-                <button type="button" onclick="openAddSubject()" class="w-full p-4 flex justify-between items-center hover:bg-slate-800/40 transition text-left">
-                    <div class="flex items-center gap-3">
-                        <span class="text-base">📊</span>
-                        <span class="font-medium text-slate-200">Подключить таблицу оценок</span>
+            <!-- Управление дневниками оценок (ТОЛЬКО В ПРОФИЛЕ) -->
+            <div class="app-card p-5 rounded-3xl space-y-3">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h3 class="text-sm font-bold text-white">📊 Мои дневники оценок</h3>
+                        <p class="text-[11px] text-slate-400">Добавление и удаление таблиц предметов</p>
                     </div>
-                    <span class="text-slate-500">›</span>
-                </button>
-                <button type="button" onclick="openAddTaskModal()" class="w-full p-4 flex justify-between items-center hover:bg-slate-800/40 transition text-left">
+                    <button type="button" onclick="openAddSubject()" class="blue-glow px-3.5 py-2 rounded-xl text-xs font-semibold active:scale-95 transition">
+                        ➕ Добавить
+                    </button>
+                </div>
+
+                <div id="profileSubjectsList" class="space-y-2 pt-1"></div>
+            </div>
+
+            <!-- Переключатель темы оформления и общие настройки -->
+            <div class="app-card rounded-3xl divide-y divide-slate-800/80 overflow-hidden text-xs">
+                <div class="p-4 flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <span id="themeIconDisplay" class="text-lg">🌙</span>
+                        <div>
+                            <div class="font-bold text-white">Тема оформления</div>
+                            <div id="themeSubtitleDisplay" class="text-[11px] text-slate-400">Выберите светлую или тёмную тему</div>
+                        </div>
+                    </div>
+                    <div class="pill-bar p-1 rounded-xl flex gap-1">
+                        <button type="button" id="btnThemeDark" onclick="setAppTheme('dark')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition blue-glow">Тёмная</button>
+                        <button type="button" id="btnThemeLight" onclick="setAppTheme('light')" class="px-3 py-1.5 rounded-lg text-xs font-medium transition text-slate-400">Светлая</button>
+                    </div>
+                </div>
+
+                <button type="button" onclick="openAddTaskModal()" class="w-full p-4 flex justify-between items-center hover:opacity-80 transition text-left">
                     <div class="flex items-center gap-3">
                         <span class="text-base">📝</span>
                         <span class="font-medium text-slate-200">Добавить домашнее задание</span>
                     </div>
                     <span class="text-slate-500">›</span>
                 </button>
-                <div class="p-4 flex justify-between items-center">
-                    <div class="flex items-center gap-3">
-                        <span class="text-base">🌙</span>
-                        <div>
-                            <div class="font-medium text-slate-200">Тема оформления</div>
-                            <div class="text-[11px] text-slate-400">Тёмная (НовГУ Dark)</div>
-                        </div>
-                    </div>
-                </div>
+
                 <button type="button" onclick="hardReset()" class="w-full p-4 flex justify-between items-center hover:bg-red-500/10 transition text-left text-red-400">
                     <div class="flex items-center gap-3">
                         <span class="text-base">🗑️</span>
-                        <span class="font-medium">Сбросить все данные</span>
+                        <span class="font-medium">Сбросить все данные приложения</span>
                     </div>
                     <span>›</span>
                 </button>
             </div>
 
-            <div class="text-center space-y-2 pt-2">
-                <div class="text-[11px] text-slate-500">Версия 5.1</div>
-                <div class="inline-flex items-center gap-2 text-slate-400 text-xs">
+            <div class="text-center space-y-1 pt-1">
+                <div class="text-[11px] text-slate-400">Версия 5.3</div>
+                <div class="inline-flex items-center gap-1.5 text-slate-400 text-xs">
                     <span>🏛️</span>
                     <span class="font-semibold">НовГУ • Студенческий помощник</span>
                 </div>
@@ -367,27 +424,27 @@
     </div>
 
     <!-- НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-[#0a1222]/95 backdrop-blur-md border-t border-[#1b2a46] px-3 py-2 z-50">
+    <nav class="fixed bottom-0 left-0 right-0 bottom-nav backdrop-blur-md px-3 py-2 z-50">
         <div class="max-w-md mx-auto grid grid-cols-4 gap-1">
-            <button type="button" id="navScheduleBtn" onclick="switchSection('schedule')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition blue-glow text-white">
+            <button type="button" id="navScheduleBtn" onclick="switchSection('schedule')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition blue-glow">
                 <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
                 </svg>
                 <span class="text-[10px] font-medium">Расписание</span>
             </button>
-            <button type="button" id="navChangesBtn" onclick="switchSection('changes')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition text-slate-400 hover:text-slate-200">
+            <button type="button" id="navChangesBtn" onclick="switchSection('changes')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition text-slate-400">
                 <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>
                 </svg>
                 <span class="text-[10px] font-medium">Изменения</span>
             </button>
-            <button type="button" id="navTasksBtn" onclick="switchSection('tasks')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition text-slate-400 hover:text-slate-200">
+            <button type="button" id="navTasksBtn" onclick="switchSection('tasks')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition text-slate-400">
                 <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
                 </svg>
                 <span class="text-[10px] font-medium">Задания</span>
             </button>
-            <button type="button" id="navMarksBtn" onclick="switchSection('marks')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition text-slate-400 hover:text-slate-200">
+            <button type="button" id="navMarksBtn" onclick="switchSection('marks')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition text-slate-400">
                 <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
                 </svg>
@@ -407,6 +464,7 @@
         const STORAGE_SCHED_KEY = 'ptk_diary_schedules_v6';
         const STORAGE_CHANGES_KEY = 'ptk_diary_changes_v9';
         const STORAGE_TASKS_KEY = 'ptk_diary_tasks_v1';
+        const STORAGE_THEME_KEY = 'ptk_diary_theme_v1';
         const RENDER_URL = 'https://dnevnik-1.onrender.com';
 
         const DAY_NAMES_FULL = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
@@ -418,6 +476,8 @@
         let currentSelectedWeek = 'upper';
         let scheduleViewMode = 'day';
         let selectedDayIndex = 0;
+        let lastActiveSection = 'schedule';
+        let currentTheme = 'dark';
 
         let changesData = { dateTitle: 'Изменения в расписании', fileName: '', items: [], portalFiles: [] };
         let activeChangesGroupFilter = 'ALL';
@@ -440,6 +500,9 @@
             } catch(e) {}
             try { tasks = JSON.parse(localStorage.getItem(STORAGE_TASKS_KEY)) || getDefaultTasks(); } catch(e) { tasks = getDefaultTasks(); }
 
+            const savedTheme = localStorage.getItem(STORAGE_THEME_KEY) || 'dark';
+            setAppTheme(savedTheme);
+
             const jsDay = new Date().getDay();
             selectedDayIndex = jsDay === 0 ? 6 : jsDay - 1;
 
@@ -454,6 +517,30 @@
             else if (subjects.length > 0) switchSection('marks');
             else switchSection('schedule');
         });
+
+        // ================= ТЕМА ОФОРМЛЕНИЯ (СВЕТЛАЯ / ТЁМНАЯ) =================
+        function setAppTheme(theme) {
+            currentTheme = theme === 'light' ? 'light' : 'dark';
+            localStorage.setItem(STORAGE_THEME_KEY, currentTheme);
+
+            if (currentTheme === 'light') {
+                document.body.classList.add('light-theme');
+            } else {
+                document.body.classList.remove('light-theme');
+            }
+
+            const btnDark = document.getElementById('btnThemeDark');
+            const btnLight = document.getElementById('btnThemeLight');
+            const iconEl = document.getElementById('themeIconDisplay');
+            const subEl = document.getElementById('themeSubtitleDisplay');
+
+            if (btnDark && btnLight) {
+                btnDark.className = currentTheme === 'dark' ? "px-3 py-1.5 rounded-lg text-xs font-semibold transition blue-glow" : "px-3 py-1.5 rounded-lg text-xs font-medium transition text-slate-400";
+                btnLight.className = currentTheme === 'light' ? "px-3 py-1.5 rounded-lg text-xs font-semibold transition blue-glow" : "px-3 py-1.5 rounded-lg text-xs font-medium transition text-slate-400";
+            }
+            if (iconEl) iconEl.innerText = currentTheme === 'light' ? '☀️' : '🌙';
+            if (subEl) subEl.innerText = currentTheme === 'light' ? 'Активна светлая тема' : 'Активна тёмная тема';
+        }
 
         function getDefaultTasks() {
             const d1 = new Date(); d1.setDate(d1.getDate() + 2);
@@ -488,8 +575,22 @@
             return (Math.ceil(diffDays / 7) % 2 !== 0) ? 'upper' : 'lower';
         }
 
-        // ================= НАВИГАЦИЯ ПО ЭКРАНАМ =================
+        function setWeekType(type) {
+            currentSelectedWeek = type;
+            updateWeekButtonsUI();
+            loadScheduleForActive();
+        }
+
+        function updateWeekButtonsUI() {
+            const u = document.getElementById('btnUpperWeek'), l = document.getElementById('btnLowerWeek');
+            if (!u || !l) return;
+            u.className = currentSelectedWeek === 'upper' ? "py-1.5 rounded-xl text-xs font-semibold transition blue-glow" : "py-1.5 rounded-xl text-xs font-medium transition text-slate-400";
+            l.className = currentSelectedWeek === 'lower' ? "py-1.5 rounded-xl text-xs font-semibold transition blue-glow" : "py-1.5 rounded-xl text-xs font-medium transition text-slate-400";
+        }
+
+        // ================= НАВИГАЦИЯ И ПРОФИЛЬ =================
         function switchSection(section) {
+            lastActiveSection = section;
             const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addTaskModal', 'profileSection'];
             allSecs.forEach(id => {
                 const el = document.getElementById(id);
@@ -504,9 +605,12 @@
             };
             if (titles[section]) document.getElementById('topScreenTitle').innerText = titles[section];
 
+            const topProfBtn = document.getElementById('topProfileBtn');
+            if (topProfBtn) topProfBtn.className = "w-9 h-9 rounded-full app-card flex items-center justify-center text-slate-300 hover:text-white active:scale-95 transition";
+
             const navs = { schedule: 'navScheduleBtn', changes: 'navChangesBtn', tasks: 'navTasksBtn', marks: 'navMarksBtn' };
-            const actCls = "flex flex-col items-center justify-center py-1.5 rounded-2xl transition blue-glow text-white";
-            const inactCls = "flex flex-col items-center justify-center py-1.5 rounded-2xl transition text-slate-400 hover:text-slate-200";
+            const actCls = "flex flex-col items-center justify-center py-1.5 rounded-2xl transition blue-glow";
+            const inactCls = "flex flex-col items-center justify-center py-1.5 rounded-2xl transition text-slate-400";
 
             Object.keys(navs).forEach(k => {
                 const btn = document.getElementById(navs[k]);
@@ -534,23 +638,76 @@
             }
         }
 
+        function toggleProfileModal() {
+            const profSec = document.getElementById('profileSection');
+            if (profSec && !profSec.classList.contains('hidden')) {
+                closeProfileModal();
+            } else {
+                openProfileModal();
+            }
+        }
+
         function openProfileModal() {
             const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addTaskModal'];
             allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById('profileSection').classList.remove('hidden');
             document.getElementById('topScreenTitle').innerText = 'Личный кабинет';
 
+            const topProfBtn = document.getElementById('topProfileBtn');
+            if (topProfBtn) topProfBtn.className = "w-9 h-9 rounded-full blue-glow flex items-center justify-center active:scale-95 transition";
+
             const stName = subjects.length > 0 ? subjects[activeSubjectIndex].studentName : 'Студент НовГУ';
             const grp = getKnownUserGroups()[0] || (subjects[0] ? subjects[0].groupName : 'не выбрана');
             document.getElementById('profileStudentName').innerText = stName;
             document.getElementById('profileGroupText').innerText = `Группа: ${grp}`;
+
+            renderProfileSubjectsList();
         }
 
         function closeProfileModal() {
-            switchSection('schedule');
+            switchSection(lastActiveSection || 'schedule');
         }
 
-        // ================= ЭКРАН 1: РАСПИСАНИЕ =================
+        function renderProfileSubjectsList() {
+            const container = document.getElementById('profileSubjectsList');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (subjects.length === 0) {
+                container.innerHTML = `<div class="pill-bar p-3.5 rounded-2xl text-center text-xs text-slate-400">Ни одного дневника оценок ещё не подключено</div>`;
+                return;
+            }
+
+            subjects.forEach((subj, idx) => {
+                const icon = getSubjectIcon(subj.subjectName);
+                const div = document.createElement('div');
+                div.className = "pill-bar p-3 rounded-2xl flex items-center justify-between gap-2";
+                div.innerHTML = `
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-9 h-9 rounded-xl app-card flex items-center justify-center text-blue-400 font-bold text-sm shrink-0">${icon}</div>
+                        <div class="min-w-0">
+                            <div class="text-xs font-bold text-white truncate">${subj.subjectName}</div>
+                            <div class="text-[11px] text-slate-400 truncate">${subj.studentName} • Гр. ${subj.groupName}</div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="deleteSubjectFromProfile(${idx})" class="bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition">
+                        Удалить
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function deleteSubjectFromProfile(idx) {
+            if (confirm(`Удалить дневник оценок «${subjects[idx].subjectName}»?`)) {
+                subjects.splice(idx, 1);
+                localStorage.setItem(STORAGE_MARKS_KEY, JSON.stringify(subjects));
+                if (activeSubjectIndex >= subjects.length) activeSubjectIndex = Math.max(0, subjects.length - 1);
+                renderProfileSubjectsList();
+            }
+        }
+
+        // ================= РАСПИСАНИЕ =================
         function getMondayOfCurrentWeek() {
             const now = new Date();
             const day = now.getDay();
@@ -573,8 +730,8 @@
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = isSelected
-                    ? "py-2 rounded-2xl flex flex-col items-center justify-center transition blue-glow text-white font-bold"
-                    : "py-2 rounded-2xl flex flex-col items-center justify-center transition app-card text-slate-400 hover:text-white";
+                    ? "py-2 rounded-2xl flex flex-col items-center justify-center transition blue-glow font-bold"
+                    : "py-2 rounded-2xl flex flex-col items-center justify-center transition app-card text-slate-400";
                 btn.innerHTML = `<span class="text-[11px]">${DAY_NAMES_SHORT[i]}</span><span class="text-sm font-bold mt-0.5">${dateNum}</span>`;
                 btn.onclick = () => {
                     selectedDayIndex = i;
@@ -605,21 +762,8 @@
 
         function updateScheduleModeUI() {
             const bDay = document.getElementById('btnModeDay'), bWeek = document.getElementById('btnModeWeek');
-            bDay.className = scheduleViewMode === 'day' ? "py-1.5 rounded-xl text-xs font-semibold transition blue-glow text-white" : "py-1.5 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white";
-            bWeek.className = scheduleViewMode === 'week' ? "py-1.5 rounded-xl text-xs font-semibold transition blue-glow text-white" : "py-1.5 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white";
-        }
-
-        function setWeekType(type) {
-            currentSelectedWeek = type;
-            updateWeekButtonsUI();
-            loadScheduleForActive();
-        }
-
-        function updateWeekButtonsUI() {
-            const u = document.getElementById('btnUpperWeek'), l = document.getElementById('btnLowerWeek');
-            if (!u || !l) return;
-            u.className = currentSelectedWeek === 'upper' ? "py-1.5 rounded-xl text-xs font-semibold transition blue-glow text-white" : "py-1.5 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white";
-            l.className = currentSelectedWeek === 'lower' ? "py-1.5 rounded-xl text-xs font-semibold transition blue-glow text-white" : "py-1.5 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white";
+            bDay.className = scheduleViewMode === 'day' ? "py-1.5 rounded-xl text-xs font-semibold transition blue-glow" : "py-1.5 rounded-xl text-xs font-medium transition text-slate-400";
+            bWeek.className = scheduleViewMode === 'week' ? "py-1.5 rounded-xl text-xs font-semibold transition blue-glow" : "py-1.5 rounded-xl text-xs font-medium transition text-slate-400";
         }
 
         function parseLessonDetails(rawText) {
@@ -741,7 +885,7 @@
                     foundGroups.forEach(g => {
                         const btn = document.createElement('button');
                         btn.type = 'button';
-                        btn.className = "blue-glow text-white font-bold px-4 py-2 rounded-xl text-xs";
+                        btn.className = "blue-glow font-bold px-4 py-2 rounded-xl text-xs";
                         btn.textContent = `👥 Группа ${g.groupName}`;
                         btn.onclick = () => saveScheduleGroup(g.groupName, g.sheetName);
                         btnContainer.appendChild(btn);
@@ -768,9 +912,9 @@
             schedules.forEach((sch, idx) => {
                 const isActive = idx === activeScheduleIndex;
                 container.innerHTML += `
-                    <div onclick="switchSchedule(${idx})" class="flex items-center rounded-xl px-3 py-1.5 text-xs font-semibold shrink-0 cursor-pointer transition ${isActive ? 'blue-glow text-white' : 'app-card text-slate-400'}">
+                    <div onclick="switchSchedule(${idx})" class="flex items-center rounded-xl px-3 py-1.5 text-xs font-semibold shrink-0 cursor-pointer transition ${isActive ? 'blue-glow' : 'app-card text-slate-400'}">
                         <span>Гр. ${sch.groupName}</span>
-                        <button type="button" onclick="deleteSchedule(event, ${idx})" class="ml-2 text-slate-300 hover:text-red-400">✕</button>
+                        <button type="button" onclick="deleteSchedule(event, ${idx})" class="ml-2 opacity-75 hover:opacity-100">✕</button>
                     </div>
                 `;
             });
@@ -800,7 +944,7 @@
                     <div class="app-card rounded-3xl p-6 text-center space-y-3">
                         <div class="text-slate-300 text-sm font-semibold">Группа ещё не выбрана</div>
                         <div class="text-slate-400 text-xs">Подключите расписание вашей группы напрямую с портала НовГУ</div>
-                        <button type="button" onclick="openAddSchedule()" class="blue-glow text-white text-xs font-semibold px-5 py-2.5 rounded-xl transition">➕ Выбрать группу</button>
+                        <button type="button" onclick="openAddSchedule()" class="blue-glow text-xs font-semibold px-5 py-2.5 rounded-xl transition">➕ Выбрать группу</button>
                     </div>
                 `;
                 return;
@@ -887,10 +1031,10 @@
                             const info = parseLessonDetails(l.lesson);
                             const statusText = getLessonLiveStatus(l.time, l.pairNum);
                             const isNow = statusText === 'Сейчас';
-                            const statusCls = isNow ? 'blue-glow text-white' : 'bg-slate-800/90 text-slate-300 border border-slate-700';
+                            const statusCls = isNow ? 'blue-glow' : 'pill-bar text-slate-300';
 
                             html += `
-                                <div class="app-card p-4 rounded-3xl space-y-2 relative transition hover:border-blue-500/40">
+                                <div class="app-card p-4 rounded-3xl space-y-2 relative transition">
                                     <div class="flex justify-between items-center">
                                         <span class="text-xs font-mono text-slate-400 font-medium">${l.time}</span>
                                         <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${statusCls}">${statusText}</span>
@@ -902,7 +1046,7 @@
                                             <span class="text-blue-400">📍</span>
                                             <span>${info.aud}</span>
                                         </div>
-                                        ${l.onlyThisWeek ? `<span class="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-md">${currentSelectedWeek === 'upper' ? 'Верхняя нед.' : 'Нижняя нед.'}</span>` : '<span class="text-slate-600">›</span>'}
+                                        ${l.onlyThisWeek ? `<span class="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-md font-medium">${currentSelectedWeek === 'upper' ? 'Верхняя нед.' : 'Нижняя нед.'}</span>` : '<span class="text-slate-400">›</span>'}
                                     </div>
                                 </div>
                             `;
@@ -916,14 +1060,14 @@
             }
         }
 
-        // ================= ЭКРАН 2: ИЗМЕНЕНИЯ В РАСПИСАНИИ =================
+        // ================= ЭКРАН 2: ИЗМЕНЕНИЯ В РАСПИСАНИИ (БЕЗ ЗАЧЕРКИВАНИЙ) =================
         function setChangesTypeFilter(type) {
             activeChangesTypeFilter = type;
             const ids = { ALL: 'chgFilterAll', MOVE: 'chgFilterMove', CANCEL: 'chgFilterCancel' };
             Object.keys(ids).forEach(k => {
                 document.getElementById(ids[k]).className = (k === type)
-                    ? "py-2 rounded-xl text-xs font-semibold transition blue-glow text-white"
-                    : "py-2 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white";
+                    ? "py-2 rounded-xl text-xs font-semibold transition blue-glow"
+                    : "py-2 rounded-xl text-xs font-medium transition text-slate-400";
             });
             renderChangesList();
         }
@@ -986,7 +1130,7 @@
             block.classList.remove('hidden');
             cleanFiles.forEach(f => {
                 const isActive = changesData.fileName === f.title;
-                const cls = isActive ? "blue-glow text-white" : "pill-bar text-slate-300 hover:text-white";
+                const cls = isActive ? "blue-glow" : "pill-bar text-slate-300";
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = `px-3 py-1.5 rounded-xl text-xs font-medium transition ${cls}`;
@@ -1067,7 +1211,7 @@
 
             groupsSet.forEach(g => {
                 const isSelected = activeChangesGroupFilter === g;
-                const cls = isSelected ? "blue-glow text-white" : "pill-bar text-slate-400 hover:text-white";
+                const cls = isSelected ? "blue-glow" : "pill-bar text-slate-400";
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = `px-3 py-1.5 rounded-xl text-xs font-medium shrink-0 transition ${cls}`;
@@ -1107,20 +1251,43 @@
 
                 const typeLabel = isCancelled
                     ? `<span class="text-xs font-bold text-red-400">Отмена</span>`
-                    : `<span class="text-xs font-bold text-blue-400">Перенос / Замена</span>`;
+                    : `<span class="text-xs font-bold text-blue-400">Замена</span>`;
+
+                // Новое оформление убранного предмета: без зачеркивания, выделено красным блоком с крестиком ✕
+                const removedBlock = `
+                    <div class="flex items-start gap-2 bg-red-500/10 border border-red-500/30 p-2.5 rounded-2xl text-xs">
+                        <span class="text-red-400 font-bold shrink-0 mt-0.5">✕</span>
+                        <div>
+                            <span class="text-[10px] uppercase tracking-wider text-red-400/80 font-semibold block">Убрано из расписания:</span>
+                            <span class="text-red-400 font-medium leading-snug">${it.oldLesson}</span>
+                        </div>
+                    </div>
+                `;
+
+                const replacementBlock = (!isCancelled && it.newLesson)
+                    ? `
+                        <div class="flex items-start gap-2 bg-emerald-500/10 border border-emerald-500/30 p-2.5 rounded-2xl text-xs">
+                            <span class="text-emerald-400 font-bold shrink-0 mt-0.5">✓</span>
+                            <div>
+                                <span class="text-[10px] uppercase tracking-wider text-emerald-400/80 font-semibold block">Назначена замена:</span>
+                                <span class="text-white font-bold leading-snug">${it.newLesson}</span>
+                            </div>
+                        </div>
+                    `
+                    : '';
 
                 html += `
                     <div class="app-card p-4 rounded-3xl flex gap-3.5 items-start">
                         ${iconBox}
-                        <div class="flex-1 min-w-0 space-y-1">
+                        <div class="flex-1 min-w-0 space-y-2">
                             <div class="flex justify-between items-center">
                                 ${typeLabel}
-                                <span class="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-full font-semibold">Гр. ${it.groupRaw} • ${it.pair} пара</span>
+                                <span class="text-[11px] pill-bar text-slate-300 px-2.5 py-0.5 rounded-full font-semibold">Гр. ${it.groupRaw} • ${it.pair} пара</span>
                             </div>
-                            <div class="text-xs text-slate-400 line-through">${it.oldLesson}</div>
-                            <div class="text-sm font-bold text-white leading-snug">${it.newLesson || (isCancelled ? 'Занятие отменено' : it.oldLesson)}</div>
-                            <div class="text-xs text-slate-400 pt-0.5">
-                                ${isCancelled ? '🚫 Занятие не состоится' : `📍 Ауд. ${it.aud || 'по расписанию'}`}
+                            ${removedBlock}
+                            ${replacementBlock}
+                            <div class="text-xs text-slate-400 pt-0.5 flex items-center gap-1.5">
+                                ${isCancelled ? '<span class="text-red-400 font-medium">🚫 Занятие отменено (Не будет)</span>' : `<span>📍 Ауд. <b>${it.aud || 'по расписанию'}</b></span>`}
                             </div>
                         </div>
                     </div>
@@ -1135,8 +1302,8 @@
             const ids = { ALL: 'taskFilterAll', TODAY: 'taskFilterToday', WEEK: 'taskFilterWeek', OVERDUE: 'taskFilterOverdue' };
             Object.keys(ids).forEach(k => {
                 document.getElementById(ids[k]).className = (k === filter)
-                    ? "py-2 rounded-xl text-[11px] font-semibold transition blue-glow text-white"
-                    : "py-2 rounded-xl text-[11px] font-medium transition text-slate-400 hover:text-white";
+                    ? "py-2 rounded-xl text-[11px] font-semibold transition blue-glow"
+                    : "py-2 rounded-xl text-[11px] font-medium transition text-slate-400";
             });
             renderTasksList();
         }
@@ -1204,9 +1371,9 @@
                 const daysText = diffDays === 0 ? 'Сегодня' : (diffDays > 0 ? `${diffDays} дн.` : 'Просрочено');
 
                 let badgeHtml = '';
-                if (t.status === 'done') badgeHtml = `<span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">Готово</span>`;
-                else if (t.status === 'progress') badgeHtml = `<span class="bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">В процессе</span>`;
-                else badgeHtml = `<span class="bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-0.5 rounded-full text-[11px] font-medium">Не начато</span>`;
+                if (t.status === 'done') badgeHtml = `<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">Готово</span>`;
+                else if (t.status === 'progress') badgeHtml = `<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">В процессе</span>`;
+                else badgeHtml = `<span class="pill-bar text-slate-300 px-2.5 py-0.5 rounded-full text-[11px] font-medium">Не начато</span>`;
 
                 html += `
                     <div onclick="toggleTaskStatus(${t.id})" class="app-card p-4 rounded-3xl flex items-center gap-3.5 cursor-pointer active:scale-[0.99] transition">
@@ -1215,12 +1382,12 @@
                         </div>
                         <div class="flex-1 min-w-0">
                             <div class="text-xs text-slate-400 truncate">${t.subject}</div>
-                            <div class="text-sm font-bold text-white truncate ${t.status === 'done' ? 'line-through text-slate-500' : ''}">${t.title}</div>
+                            <div class="text-sm font-bold text-white truncate ${t.status === 'done' ? 'opacity-50' : ''}">${t.title}</div>
                             <div class="text-[11px] text-slate-400 mt-0.5">До ${dateFormatted} • ${daysText}</div>
                         </div>
                         <div class="flex flex-col items-end gap-1.5 shrink-0">
                             ${badgeHtml}
-                            <button type="button" onclick="deleteTask(event, ${t.id})" class="text-[10px] text-slate-500 hover:text-red-400">Удалить</button>
+                            <button type="button" onclick="deleteTask(event, ${t.id})" class="text-[10px] text-slate-400 hover:text-red-400">Удалить</button>
                         </div>
                     </div>
                 `;
@@ -1228,20 +1395,17 @@
             container.innerHTML = html;
         }
 
-        // ================= ЭКРАН 4: ОЦЕНКИ (ТОЧНЫЙ ИТОГ ИЗ ТАБЛИЦЫ) =================
+        // ================= ЭКРАН 4: ОЦЕНКИ =================
         function setMarksViewMode(mode) {
             marksViewMode = mode;
-            document.getElementById('btnMarksBySubj').className = mode === 'subjects' ? "py-2 rounded-xl text-xs font-semibold transition blue-glow text-white" : "py-2 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white";
-            document.getElementById('btnMarksAll').className = mode === 'all' ? "py-2 rounded-xl text-xs font-semibold transition blue-glow text-white" : "py-2 rounded-xl text-xs font-medium transition text-slate-400 hover:text-white";
+            document.getElementById('btnMarksBySubj').className = mode === 'subjects' ? "py-2 rounded-xl text-xs font-semibold transition blue-glow" : "py-2 rounded-xl text-xs font-medium transition text-slate-400";
+            document.getElementById('btnMarksAll').className = mode === 'all' ? "py-2 rounded-xl text-xs font-semibold transition blue-glow" : "py-2 rounded-xl text-xs font-medium transition text-slate-400";
             loadMarksForActiveSubject();
         }
 
-        // Проверяем, является ли колонка итоговым средним баллом в таблице преподавателя
         function isSummaryGradeColumn(headerText) {
             const h = String(headerText || '').trim();
-            // Срабатывает на "Итог", "ИТОГ ПРАКТИКА", "ИТОГ 1 СЕМЕСТР", "итог ДМ", "Средний балл"
-            // НЕ срабатывает на обычные проверочные работы типа "Итог Мн-ва стр 63№1.12,1.18"
-            return /^(итог|итог\s+практика|итог\s+1\s*семестр|итог\s+дм|средний\s+балл)(\s*•.*)?$/i.test(h);
+            return /^(итог|итог\s+практика|итог\s+1\s*семестр|итог\s+дм|средний\s+балл|в\s+зач[её]тку)(\s*•.*)?$/i.test(h);
         }
 
         function updateAverageSummaryCard(finalAvgValue, displayStr) {
@@ -1251,7 +1415,7 @@
             const barEl = document.getElementById('avgHorizontalBar');
 
             if (finalAvgValue === null || isNaN(finalAvgValue)) {
-                bigEl.innerText = '—';
+                bigEl.innerText = displayStr || '—';
                 pctEl.innerText = '0%';
                 circleEl.setAttribute('stroke-dasharray', '0, 100');
                 barEl.style.width = '0%';
@@ -1293,7 +1457,7 @@
             container.innerHTML = '';
             tabs.forEach(tabName => {
                 const isSelected = selectedGroupForMarks === tabName;
-                const cls = isSelected ? "blue-glow text-white" : "pill-bar text-slate-200";
+                const cls = isSelected ? "blue-glow" : "pill-bar text-slate-200";
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = `px-3.5 py-2 rounded-xl text-xs font-bold transition ${cls}`;
@@ -1358,8 +1522,7 @@
             subjects.push({ subjectName: subjName, sheetId: extractSheetId(link), groupName: selectedGroupForMarks, studentName });
             localStorage.setItem(STORAGE_MARKS_KEY, JSON.stringify(subjects));
             activeSubjectIndex = subjects.length - 1;
-            marksViewMode = 'all';
-            switchSection('marks');
+            openProfileModal();
         }
 
         function openAddSubject() {
@@ -1374,6 +1537,7 @@
             tempMarksWorkbook = null;
         }
 
+        // Вкладки в разделе Оценки (БЕЗ крестиков удаления — удаление только в профиле)
         function renderSubjectTabs() {
             const container = document.getElementById('subjectsTabs');
             container.innerHTML = '';
@@ -1381,9 +1545,8 @@
             subjects.forEach((subj, idx) => {
                 const isActive = idx === activeSubjectIndex;
                 container.innerHTML += `
-                    <div onclick="switchSubject(${idx})" class="flex items-center rounded-xl px-3 py-1.5 text-xs font-semibold shrink-0 cursor-pointer transition ${isActive ? 'blue-glow text-white' : 'app-card text-slate-400'}">
+                    <div onclick="switchSubject(${idx})" class="flex items-center rounded-xl px-3.5 py-1.5 text-xs font-semibold shrink-0 cursor-pointer transition ${isActive ? 'blue-glow' : 'app-card text-slate-400'}">
                         <span>${subj.subjectName}</span>
-                        <button type="button" onclick="deleteSubject(event, ${idx})" class="ml-2 text-slate-300 hover:text-red-400">✕</button>
                     </div>
                 `;
             });
@@ -1395,16 +1558,6 @@
             setMarksViewMode('all');
         }
 
-        function deleteSubject(event, idx) {
-            event.stopPropagation();
-            if (confirm(`Удалить предмет «${subjects[idx].subjectName}»?`)) {
-                subjects.splice(idx, 1);
-                localStorage.setItem(STORAGE_MARKS_KEY, JSON.stringify(subjects));
-                activeSubjectIndex = 0;
-                switchSection('marks');
-            }
-        }
-
         async function loadMarksForActiveSubject() {
             const current = subjects[activeSubjectIndex];
             const container = document.getElementById('marksList');
@@ -1414,8 +1567,9 @@
                 updateAverageSummaryCard(null, '—');
                 container.innerHTML = `
                     <div class="app-card rounded-3xl p-6 text-center space-y-3">
-                        <div class="text-slate-300 text-sm font-semibold">Таблицы с оценками пока не добавлены</div>
-                        <button type="button" onclick="openAddSubject()" class="blue-glow text-white text-xs font-semibold px-5 py-2.5 rounded-xl">➕ Подключить Google Таблицу</button>
+                        <div class="text-slate-300 text-sm font-semibold">Дневники оценок не подключены</div>
+                        <div class="text-slate-400 text-xs">Добавление и удаление таблиц доступно в Личном кабинете</div>
+                        <button type="button" onclick="openProfileModal()" class="blue-glow text-xs font-semibold px-5 py-2.5 rounded-xl">👤 Перейти в профиль</button>
                     </div>
                 `;
                 return;
@@ -1461,29 +1615,31 @@
                             if (!val || val === '—' || val === '-' || /#(DIV|ДЕЛ|VALUE|ЗНАЧ|REF|Н\/Д)/i.test(val)) continue;
                             if (/^(№|п\/п|№\s*п\/п)$/i.test(rawHeader)) continue;
 
+                            // Отсекаем колонки посещаемости (чистые даты вида "6.9", "13.9" или "Посещаемость")
+                            if (/посещаем/i.test(rawHeader) || /^\d{1,2}\.\d{1,2}(\.\d{2,4})?$/.test(rawHeader)) continue;
+
                             const isSummaryCol = isSummaryGradeColumn(rawHeader);
                             const num = parseFloat(val.replace(',', '.'));
 
                             if (!isNaN(num) && !val.includes('%')) {
                                 if (isSummaryCol) {
-                                    // Берем точный итоговый балл из колонки "Итог" / "ИТОГ ПРАКТИКА" таблицы преподавателя
                                     officialFinalNum = num;
                                     officialFinalStr = val.replace('.', ',');
                                 } else if (num >= 0 && num <= 10) {
-                                    // Учитываем все реальные оценки за работы (включая 0, 0.1, 1, 2, 3, 4, 5, 5.5)
                                     regularGrades.push(num);
                                 }
+                            } else if (isSummaryCol && val) {
+                                officialFinalStr = val;
                             }
                             gradeItems.push({ header: rawHeader, val: val.replace('.', ','), isSummary: isSummaryCol });
                         }
 
-                        // Приоритет: официальная колонка "Итог" из таблицы, иначе среднее всех работ
                         let finalAvgNum = officialFinalNum;
                         let finalAvgStr = officialFinalStr;
 
                         if (finalAvgNum === null && regularGrades.length > 0) {
                             finalAvgNum = regularGrades.reduce((a, b) => a + b, 0) / regularGrades.length;
-                            finalAvgStr = finalAvgNum.toFixed(2).replace(/\.?0+$/, '').replace('.', ',');
+                            if (!finalAvgStr) finalAvgStr = finalAvgNum.toFixed(2).replace(/\.?0+$/, '').replace('.', ',');
                         }
 
                         updateAverageSummaryCard(finalAvgNum, finalAvgStr);
@@ -1498,7 +1654,7 @@
                                 const summary = cachedSubjectSummaries[idx] || { avg: '•', count: '' };
                                 const icon = getSubjectIcon(s.subjectName);
                                 subjHtml += `
-                                    <div onclick="switchSubject(${idx})" class="app-card p-4 rounded-3xl flex items-center justify-between cursor-pointer hover:border-blue-500/40 transition">
+                                    <div onclick="switchSubject(${idx})" class="app-card p-4 rounded-3xl flex items-center justify-between cursor-pointer transition">
                                         <div class="flex items-center gap-3.5">
                                             <div class="w-11 h-11 rounded-2xl pill-bar flex items-center justify-center text-blue-400 font-bold text-base">${icon}</div>
                                             <div>
@@ -1508,7 +1664,7 @@
                                         </div>
                                         <div class="flex items-center gap-2">
                                             <span class="text-xl font-extrabold text-white">${summary.avg}</span>
-                                            <span class="text-slate-500">›</span>
+                                            <span class="text-slate-400">›</span>
                                         </div>
                                     </div>
                                 `;
@@ -1517,11 +1673,11 @@
                         } else {
                             let html = '';
                             gradeItems.forEach(item => {
-                                const cardBorder = item.isSummary ? 'border-blue-500/60 bg-blue-950/20' : '';
-                                const badgeCls = item.isSummary ? 'blue-glow text-white' : 'pill-bar text-blue-400';
+                                const cardBorder = item.isSummary ? 'border-blue-500/60' : '';
+                                const badgeCls = item.isSummary ? 'blue-glow' : 'pill-bar text-blue-400';
                                 html += `
                                     <div class="app-card p-3.5 rounded-2xl flex justify-between items-center gap-3 ${cardBorder}">
-                                        <span class="text-xs ${item.isSummary ? 'font-bold text-blue-300 uppercase' : 'text-slate-200'} leading-snug">${item.header}</span>
+                                        <span class="text-xs ${item.isSummary ? 'font-bold text-blue-400 uppercase' : 'text-slate-200'} leading-snug">${item.header}</span>
                                         <span class="${badgeCls} font-extrabold px-3 py-1.5 rounded-xl text-sm shrink-0">${item.val}</span>
                                     </div>
                                 `;
