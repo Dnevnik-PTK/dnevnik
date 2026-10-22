@@ -95,7 +95,7 @@
                 <div>
                     <div class="flex items-center gap-2">
                         <h1 id="topScreenTitle" class="text-lg font-bold tracking-tight text-white">Расписание</h1>
-                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">v5.6</span>
+                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">v5.7</span>
                     </div>
                     <p id="topScreenSubtitle" class="text-[11px] text-slate-400">НовГУ • Студенческий помощник</p>
                 </div>
@@ -185,9 +185,9 @@
 
         <!-- ==================== ЭКРАН 3: ДОМАШНИЕ ЗАДАНИЯ И УЧЕБНИКИ ==================== -->
         <section id="tasksSection" class="space-y-3.5 hidden">
-            <!-- Главный переключатель раздела: Задания / Учебники -->
+            <!-- Аккуратный переключатель: Задания / Учебники -->
             <div class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1">
-                <button type="button" id="btnSubTabTasks" onclick="switchTaskSubTab('tasks')" class="py-2 rounded-xl text-xs font-semibold transition blue-glow">📝 Домашние задания</button>
+                <button type="button" id="btnSubTabTasks" onclick="switchTaskSubTab('tasks')" class="py-2 rounded-xl text-xs font-semibold transition blue-glow">📝 Задания</button>
                 <button type="button" id="btnSubTabMaterials" onclick="switchTaskSubTab('materials')" class="py-2 rounded-xl text-xs font-medium transition text-slate-400">📚 Учебники и файлы</button>
             </div>
 
@@ -216,16 +216,14 @@
             <div id="materialsSubView" class="space-y-3.5 hidden">
                 <div class="flex justify-between items-center px-1">
                     <div class="text-xs text-slate-400">
-                        Учебники, методички и ссылки группы
+                        Файлы и методички для вашей группы
                     </div>
                     <button type="button" onclick="openAddMaterialModal()" class="blue-glow px-3 py-1.5 rounded-xl text-xs font-bold active:scale-95 transition">
-                        ➕ Загрузить файл
+                        ➕ Добавить учебник
                     </button>
                 </div>
 
-                <!-- Фильтр по предметам материалов -->
                 <div id="materialsSubjectFilter" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5"></div>
-
                 <div id="materialsList" class="space-y-2.5"></div>
             </div>
         </section>
@@ -369,41 +367,71 @@
             <button type="button" id="saveTaskSubmitBtn" onclick="saveNewTask()" class="w-full blue-glow font-semibold py-3 rounded-xl">✅ Добавить задание</button>
         </section>
 
-        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ УЧЕБНИКА / МАТЕРИАЛА ==================== -->
+        <!-- ==================== СОВРЕМЕННАЯ МОДАЛКА: ДОБАВЛЕНИЕ УЧЕБНИКА С АВТОКОМПЛИТОМ ==================== -->
         <section id="addMaterialModal" class="app-card p-5 rounded-3xl space-y-4 hidden">
             <div class="flex justify-between items-center">
-                <h2 class="font-bold text-base text-white">Добавление материала</h2>
-                <button type="button" onclick="closeAddMaterialModal()" class="pill-bar px-3 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white">✕ Закрыть</button>
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">📚</span>
+                    <h2 class="font-bold text-base text-white">Новый материал</h2>
+                </div>
+                <button type="button" onclick="closeAddMaterialModal()" class="w-8 h-8 rounded-full pill-bar flex items-center justify-center text-xs text-slate-400 hover:text-white transition">✕</button>
             </div>
 
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">1. Название предмета:</label>
-                <input type="text" id="matSubjectInput" placeholder="Например: Разработка веб-приложений" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
+            <!-- Поле 1: Умный автокомплит предмета -->
+            <div class="relative space-y-1">
+                <label class="block text-xs text-slate-400 font-medium">Предмет:</label>
+                <div class="relative">
+                    <input type="text" id="matSubjectInput" 
+                           autocomplete="off"
+                           placeholder="Начните вводить (например: Дискретная...)" 
+                           oninput="onMaterialSubjectInput(this.value)"
+                           onfocus="onMaterialSubjectInput(this.value)"
+                           class="w-full pill-bar rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-blue-500 pr-9">
+                    <span class="absolute right-3 top-3 text-xs text-slate-500">🔍</span>
+                </div>
+                <!-- Выпадающий список совпадений -->
+                <div id="matSubjectSuggestions" class="hidden absolute left-0 right-0 top-full mt-1.5 z-20 pill-bar rounded-2xl p-1.5 shadow-2xl max-h-48 overflow-y-auto no-scrollbar border border-blue-500/30 space-y-1"></div>
             </div>
 
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">2. Описание материала / Название книги:</label>
-                <input type="text" id="matTitleInput" placeholder="Например: Методичка к лабораторным работам 2026" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
+            <!-- Поле 2: Название учебника -->
+            <div class="space-y-1">
+                <label class="block text-xs text-slate-400 font-medium">Название материала:</label>
+                <input type="text" id="matTitleInput" placeholder="Например: Методичка по лабораторным 2026" class="w-full pill-bar rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
             </div>
 
-            <!-- Способ прикрепления: Файл с телефона или Ссылка -->
-            <div class="space-y-3 pt-1">
-                <label class="block text-xs text-blue-400 font-semibold">3. Выберите файл с телефона или вставьте ссылку:</label>
-                
-                <div class="pill-bar p-3.5 rounded-2xl space-y-2">
-                    <span class="text-xs text-slate-300 font-medium block">Вариант А: Загрузить файл с телефона</span>
-                    <input type="file" id="matFileInput" onchange="handleMaterialFileSelected(event)" class="w-full text-xs text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white">
-                    <div id="uploadProgressStatus" class="text-[11px] text-emerald-400 hidden pt-1"></div>
+            <!-- Переключатель способа прикрепления -->
+            <div class="space-y-2 pt-1">
+                <div class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1 text-xs">
+                    <button type="button" id="btnMatModeFile" onclick="setMaterialMode('file')" class="py-2 rounded-xl font-semibold transition blue-glow">
+                        📄 Файл с телефона
+                    </button>
+                    <button type="button" id="btnMatModeLink" onclick="setMaterialMode('link')" class="py-2 rounded-xl font-medium transition text-slate-400">
+                        🔗 Ссылка
+                    </button>
                 </div>
 
-                <div class="pill-bar p-3.5 rounded-2xl space-y-2">
-                    <span class="text-xs text-slate-300 font-medium block">Вариант Б: Или вставьте готовую ссылку (ТГ / Диск / Сайт)</span>
-                    <input type="url" id="matLinkInput" placeholder="https://..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none">
+                <!-- Блок А: Загрузка файла (стильная карточка) -->
+                <div id="matFileUploadBox" class="p-4 rounded-2xl border-2 border-dashed border-slate-700/80 hover:border-blue-500/60 bg-blue-500/5 transition text-center space-y-2 relative cursor-pointer">
+                    <input type="file" id="matFileInput" onchange="handleMaterialFileSelected(event)" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+                    <div class="w-10 h-10 rounded-full bg-blue-500/20 text-blue-400 mx-auto flex items-center justify-center text-lg">
+                        ☁️
+                    </div>
+                    <div>
+                        <div id="matFileSelectLabel" class="text-xs font-bold text-white">Нажмите, чтобы выбрать файл</div>
+                        <div id="matFileSelectSub" class="text-[10px] text-slate-400 mt-0.5">PDF, DOCX, ZIP, книги до 200 МБ</div>
+                    </div>
+                    <div id="uploadProgressStatus" class="text-[11px] text-emerald-400 font-semibold hidden pt-1"></div>
+                </div>
+
+                <!-- Блок Б: Ввод ссылки -->
+                <div id="matLinkInputBox" class="hidden space-y-1.5 pt-1">
+                    <input type="url" id="matLinkInput" placeholder="Вставьте ссылку (Telegram, Google Диск, НовГУ...)" class="w-full pill-bar rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
+                    <div class="text-[10px] text-slate-400 px-1">Файл будет открываться напрямую по указанной ссылке</div>
                 </div>
             </div>
 
-            <button type="button" id="submitMaterialBtn" onclick="saveNewMaterial()" class="w-full blue-glow font-semibold py-3 rounded-xl transition">
-                🚀 Опубликовать учебник
+            <button type="button" id="submitMaterialBtn" onclick="saveNewMaterial()" class="w-full blue-glow font-bold py-3.5 rounded-2xl text-xs active:scale-95 transition shadow-lg">
+                Опубликовать для группы
             </button>
         </section>
 
@@ -560,7 +588,7 @@
             </div>
 
             <div class="text-center space-y-1 pt-1">
-                <div class="text-[11px] text-slate-400">Версия 5.6</div>
+                <div class="text-[11px] text-slate-400">Версия 5.7</div>
                 <div class="inline-flex items-center gap-1.5 text-slate-400 text-xs">
                     <span>🏛️</span>
                     <span class="font-semibold">НовГУ • Студенческий помощник</span>
@@ -640,9 +668,10 @@
 
         let localTasks = [];
         let activeTaskFilter = 'ALL';
-        let taskSubTab = 'tasks'; // 'tasks' | 'materials'
+        let taskSubTab = 'tasks';
         let selectedSubjectInModal = '';
         let activeMaterialSubjectFilter = 'ALL';
+        let materialInputMode = 'file'; // 'file' | 'link'
         let pendingUploadedFileUrl = '';
         let pendingUploadedFileName = '';
         let pendingUploadedFileSize = '';
@@ -767,7 +796,7 @@
             const titles = {
                 schedule: 'Расписание',
                 changes: 'Изменения в расписании',
-                tasks: 'Домашние задания и материалы',
+                tasks: 'Задания',
                 marks: 'Оценки'
             };
             if (titles[section]) document.getElementById('topScreenTitle').innerText = titles[section];
@@ -997,7 +1026,7 @@
             }
         }
 
-        // ================= РАСПИСАНИЕ =================
+        // ================= РАСПИСАНИЕ И АНАЛИЗ ПАР =================
         function getMondayOfCurrentWeek() {
             const now = new Date();
             const day = now.getDay();
@@ -1132,6 +1161,75 @@
             }
             return foundLessons;
         }
+
+        // Возвращает список всех уникальных предметов группы (из расписания и дневников)
+        function getAllGroupSubjectNames() {
+            const set = new Set();
+            const current = schedules[activeScheduleIndex];
+            if (current && current.rawRows) {
+                current.rawRows.forEach(r => {
+                    (r || []).forEach(cell => {
+                        const str = String(cell || '').trim();
+                        if (str && !/понедельник|вторник|среда|четверг|пятница|суббота|воскресенье|зам\.|директор/i.test(str)) {
+                            if (/[а-яА-ЯёЁ]{3,}/.test(str) && !/^\d{4}/.test(str) && !/\d{1,2}[\.:]\d{2}/.test(str)) {
+                                const parsed = parseLessonDetails(str);
+                                if (parsed.title && parsed.title.length > 2) {
+                                    set.add(parsed.title);
+                                }
+                            }
+                        }
+                    });
+                });
+            }
+            subjects.forEach(s => {
+                if (s.subjectName) set.add(s.subjectName);
+            });
+            return Array.from(set).sort();
+        }
+
+        // ================= АВТОКОМПЛИТ ПРЕДМЕТА ПРИ ДОБАВЛЕНИИ УЧЕБНИКА =================
+        function onMaterialSubjectInput(query) {
+            const container = document.getElementById('matSubjectSuggestions');
+            if (!container) return;
+
+            const allSubjects = getAllGroupSubjectNames();
+            const q = String(query || '').trim().toLowerCase();
+
+            const matches = allSubjects.filter(s => s.toLowerCase().includes(q));
+
+            if (matches.length === 0) {
+                container.innerHTML = '';
+                container.classList.add('hidden');
+                return;
+            }
+
+            container.innerHTML = '';
+            container.classList.remove('hidden');
+
+            matches.slice(0, 6).forEach(subj => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = "w-full text-left px-3 py-2 text-xs rounded-xl hover:bg-blue-600/30 text-white font-medium transition flex items-center justify-between";
+                btn.innerHTML = `
+                    <span class="truncate">${subj}</span>
+                    <span class="text-blue-400 text-[10px] shrink-0 font-bold ml-2">Выбрать</span>
+                `;
+                btn.onmousedown = (e) => {
+                    e.preventDefault();
+                    document.getElementById('matSubjectInput').value = subj;
+                    container.classList.add('hidden');
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        document.addEventListener('click', function(e) {
+            const suggestions = document.getElementById('matSubjectSuggestions');
+            const input = document.getElementById('matSubjectInput');
+            if (suggestions && input && !input.contains(e.target) && !suggestions.contains(e.target)) {
+                suggestions.classList.add('hidden');
+            }
+        });
 
         function getLessonLiveStatus(timeStr, pairIdx) {
             const m = String(timeStr).match(/(\d{1,2})[\.:](\d{2})\s*-\s*(\d{1,2})[\.:](\d{2})/);
@@ -1989,7 +2087,7 @@
             container.innerHTML = html;
         }
 
-        // ================= УЧЕБНИКИ: ЗАГРУЗКА И ОТОБРАЖЕНИЕ =================
+        // ================= УЧЕБНИКИ: УПРАВЛЕНИЕ И ЗАГРУЗКА =================
         function formatBytes(bytes) {
             if (!bytes || isNaN(bytes)) return '';
             const k = 1024;
@@ -1998,9 +2096,29 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
         }
 
+        function setMaterialMode(mode) {
+            materialInputMode = mode;
+            const btnFile = document.getElementById('btnMatModeFile');
+            const btnLink = document.getElementById('btnMatModeLink');
+            const boxFile = document.getElementById('matFileUploadBox');
+            const boxLink = document.getElementById('matLinkInputBox');
+
+            if (mode === 'file') {
+                btnFile.className = "py-2 rounded-xl font-semibold transition blue-glow";
+                btnLink.className = "py-2 rounded-xl font-medium transition text-slate-400";
+                boxFile.classList.remove('hidden');
+                boxLink.classList.add('hidden');
+            } else {
+                btnFile.className = "py-2 rounded-xl font-medium transition text-slate-400";
+                btnLink.className = "py-2 rounded-xl font-semibold transition blue-glow";
+                boxFile.classList.add('hidden');
+                boxLink.classList.remove('hidden');
+            }
+        }
+
         function openAddMaterialModal() {
             if (!starostaAuth || !starostaAuth.sessionToken) {
-                alert("Добавлять общие учебники для группы может только староста (по ключу в Личном кабинете).");
+                alert("Добавлять учебные материалы для всей группы может только староста (по ключу в Личном кабинете).");
                 return;
             }
             const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addTaskModal', 'profileSection'];
@@ -2011,7 +2129,12 @@
             document.getElementById('matTitleInput').value = '';
             document.getElementById('matLinkInput').value = '';
             document.getElementById('matFileInput').value = '';
+            document.getElementById('matFileSelectLabel').innerText = "Нажмите, чтобы выбрать файл";
+            document.getElementById('matFileSelectSub').innerText = "PDF, DOCX, ZIP, книги до 200 МБ";
             document.getElementById('uploadProgressStatus').classList.add('hidden');
+            document.getElementById('matSubjectSuggestions').classList.add('hidden');
+
+            setMaterialMode('file');
             pendingUploadedFileUrl = '';
             pendingUploadedFileName = '';
             pendingUploadedFileSize = '';
@@ -2027,12 +2150,16 @@
 
             const progressEl = document.getElementById('uploadProgressStatus');
             const submitBtn = document.getElementById('submitMaterialBtn');
+            const labelEl = document.getElementById('matFileSelectLabel');
+            const subEl = document.getElementById('matFileSelectSub');
+
             progressEl.classList.remove('hidden');
-            progressEl.innerText = `⏳ Выгружаем файл «${file.name}» в облако...`;
+            progressEl.innerText = `⏳ Выгружаем в защищенное облако...`;
+            labelEl.innerText = file.name;
+            subEl.innerText = formatBytes(file.size);
             submitBtn.disabled = true;
 
             try {
-                // Прямая выгрузка в облачный хостинг файлов Catbox без нагрузки на Render
                 const formData = new FormData();
                 formData.append('reqtype', 'fileupload');
                 formData.append('fileToUpload', file);
@@ -2051,12 +2178,12 @@
                 pendingUploadedFileName = file.name;
                 pendingUploadedFileSize = formatBytes(file.size);
 
-                progressEl.innerText = `✓ Файл успешно загружен (${pendingUploadedFileSize})!`;
+                progressEl.innerText = `✓ Файл готов к публикации!`;
                 if (!document.getElementById('matTitleInput').value) {
                     document.getElementById('matTitleInput').value = file.name.replace(/\.[^/.]+$/, '');
                 }
             } catch (err) {
-                progressEl.innerText = `⚠️ Не удалось автоматически выгрузить файл. Вставьте прямую ссылку ниже.`;
+                progressEl.innerText = `⚠️ Ошибка автовыгрузки. Вы можете переключиться на «Ссылка» и вставить ссылку.`;
             } finally {
                 submitBtn.disabled = false;
             }
@@ -2070,10 +2197,10 @@
             const subject = document.getElementById('matSubjectInput').value.trim() || 'Общий материал';
             const title = document.getElementById('matTitleInput').value.trim();
             const manualLink = document.getElementById('matLinkInput').value.trim();
-            const fileUrl = pendingUploadedFileUrl || manualLink;
+            const fileUrl = (materialInputMode === 'file' ? pendingUploadedFileUrl : manualLink) || manualLink || pendingUploadedFileUrl;
 
-            if (!title) { alert("Введите название учебника или методички!"); return; }
-            if (!fileUrl) { alert("Прикрепите файл с телефона или укажите ссылку!"); return; }
+            if (!title) { alert("Введите название учебника или книги!"); return; }
+            if (!fileUrl) { alert("Выберите файл с телефона или вставьте ссылку!"); return; }
 
             const submitBtn = document.getElementById('submitMaterialBtn');
             submitBtn.innerText = "⏳ Публикуем...";
@@ -2103,7 +2230,7 @@
             } catch (e) {
                 alert("Ошибка публикации материала: " + e.message);
             } finally {
-                submitBtn.innerText = "🚀 Опубликовать учебник";
+                submitBtn.innerText = "Опубликовать для группы";
             }
         }
 
@@ -2124,7 +2251,7 @@
                         renderMaterialsList();
                     }
                 } catch (e) {
-                    alert("Ошибка удаления: " + e.message);
+                    alert("Ошибка: " + e.message);
                 }
             }
         }
@@ -2160,7 +2287,7 @@
                     <div class="app-card p-6 rounded-3xl text-center space-y-2">
                         <div class="text-2xl">📚</div>
                         <div class="text-sm font-semibold text-white">Учебных материалов пока нет</div>
-                        <div class="text-xs text-slate-400">Староста может выгрузить сюда учебники, методички или ссылки</div>
+                        <div class="text-xs text-slate-400">Староста может загрузить сюда учебники или методички</div>
                     </div>
                 `;
                 return;
