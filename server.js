@@ -20,7 +20,14 @@ app.use((req, res, next) => {
     next();
 });
 
-// Извлекаем все ссылки <a> со страницы НовГУ (даже если href без кавычек)
+// ================= МГНОВЕННЫЙ КЭШ В ПАМЯТИ СЕРВЕРА =================
+const scheduleCache = new Map();       // groupName -> готовый JSON расписания
+let changesListCache = [];             // список последних 5 файлов замен
+const changesBufferCache = new Map();  // url -> скачанный Buffer файла .docx
+let lastCacheUpdate = null;
+let isSyncing = false;
+
+// Извлекаем все ссылки <a> со страницы НовГУ
 function extractLinksFromHtml(html, baseUrl) {
     const links = [];
     const regex = /<a\s+[^>]*href=(?:["']([^"']+)["']|([^\s>]+))[^>]*>([\s\S]*?)<\/a>/gi;
@@ -37,8 +44,76 @@ function extractLinksFromHtml(html, baseUrl) {
     return links;
 }
 
-// Замены (.docx) — строго последние 5 файлов с датой ДД.ММ.ГГ в названии
-async function getReplacementFilesList() {
+// Индексируем ВСЕ группы внутри скачанной книги Excel и кладем в кэш
+function indexWorkbookGroups(workbook, fileLabel) {
+    let count = 0;
+    for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        const merges = sheet['!merges'] || [];
+        if (rows.length < 4) continue;
+
+        for (let r = 0; r < Math.min(30, rows.length); r++) {
+            const row = rows[r] || [];
+            for (let c = 0; c < row.length; c++) {
+                const cellVal = String(row[c] || '').trim();
+                const matches = cellVal.match(/\b([2-9]\d{3}[а-яa-z]*)\b/gi);
+                if (matches) {
+                    for (const grp of matches) {
+                        if (/^202\d$/.test(grp)) continue; // пропускаем годы (2024-2029)
+                        scheduleCache.set(grp, {
+                            group: grp,
+                            sheet: sheetName,
+                            fileName: fileLabel || sheetName,
+                            rows: rows,
+                            merges: merges,
+                            groupColIdx: c,
+                            headerRowIdx: r
+                        });
+                        count++;
+                    }
+                }
+            }
+        }
+    }
+    return count;
+}
+
+// Поиск конкретной группы внутри книги Excel
+function findGroupInWorkbook(workbook, targetGroup) {
+    const cleanTarget = targetGroup.replace(/\s+/g, '');
+    for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        const merges = sheet['!merges'] || [];
+        if (rows.length < 4) continue;
+
+        for (let r = 0; r < Math.min(35, rows.length); r++) {
+            const row = rows[r] || [];
+            for (let c = 0; c < row.length; c++) {
+                const cellVal = String(row[c] || '').replace(/\s+/g, '');
+                if (cellVal === cleanTarget || cellVal.includes(cleanTarget)) {
+                    return { rows, merges, groupColIdx: c, headerRowIdx: r, sheet: sheetName };
+                }
+            }
+        }
+
+        for (let r = 0; r < Math.min(25, rows.length); r++) {
+            const row = rows[r] || [];
+            const c0 = String(row[0] || '').trim().toLowerCase();
+            if (c0 === 'понедельник') {
+                const headerRow = Math.max(0, r - 1);
+                if (!rows[headerRow]) rows[headerRow] = [];
+                rows[headerRow][2] = targetGroup;
+                return { rows, merges, groupColIdx: 2, headerRowIdx: headerRow, sheet: sheetName };
+            }
+        }
+    }
+    return null;
+}
+
+// Загрузка списка последних 5 файлов замен
+async function fetchReplacementFilesList() {
     const pageUrl = 'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999';
     const response = await fetch(pageUrl, { headers: BROWSER_HEADERS });
     if (!response.ok) throw new Error(`Портал НовГУ ответил кодом ${response.status}`);
@@ -66,11 +141,90 @@ async function getReplacementFilesList() {
     return files.slice(0, 5).map(f => ({ title: f.title, url: f.url }));
 }
 
+// ФОНОВАЯ ФУНКЦИЯ: Заранее выгружает ВСЕ расписания и замены в память сервера
+async function syncAllDataFromNovsu() {
+    if (isSyncing) return;
+    isSyncing = true;
+    console.log('[CACHE] Начинаем фоновое обновление всех расписаний и замен...');
+
+    try {
+        // 1. Кэшируем последние 5 файлов замен (.docx)
+        const chgFiles = await fetchReplacementFilesList();
+        if (chgFiles.length > 0) {
+            changesListCache = chgFiles;
+            for (const f of chgFiles) {
+                try {
+                    const r = await fetch(f.url, { headers: BROWSER_HEADERS });
+                    if (r.ok) {
+                        const buf = Buffer.from(await r.arrayBuffer());
+                        changesBufferCache.set(f.url, { buffer: buf, title: f.title });
+                    }
+                } catch (e) {}
+            }
+            console.log(`[CACHE] Замены обновлены: ${chgFiles.length} файлов в памяти.`);
+        }
+
+        // 2. Кэшируем все файлы расписания СПО (.xls / .xlsx)
+        const pagesToScan = [
+            'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999',
+            'https://portal.novsu.ru/univer/timetable/spo/'
+        ];
+
+        const excelUrls = new Map();
+        for (const pageUrl of pagesToScan) {
+            try {
+                const r = await fetch(pageUrl, { headers: BROWSER_HEADERS });
+                if (!r.ok) continue;
+                const html = await r.text();
+                const links = extractLinksFromHtml(html, pageUrl);
+
+                for (const link of links) {
+                    if (/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(link.text)) continue;
+                    if (/\b[2-9]\d{3}\b/.test(link.text) || /\.(xlsx?|xls)($|\?)/i.test(link.url)) {
+                        if (!excelUrls.has(link.url)) {
+                            excelUrls.set(link.url, link.text);
+                        }
+                    }
+                }
+            } catch (e) {}
+        }
+
+        for (const [url, label] of excelUrls.entries()) {
+            try {
+                const fileRes = await fetch(url, { headers: BROWSER_HEADERS });
+                if (!fileRes.ok) continue;
+                const buffer = Buffer.from(await fileRes.arrayBuffer());
+                const headStr = buffer.slice(0, 100).toString('utf8').trim().toLowerCase();
+                if (headStr.startsWith('<!doctype') || headStr.startsWith('<html')) continue;
+
+                const workbook = XLSX.read(buffer, { type: 'buffer' });
+                indexWorkbookGroups(workbook, label);
+            } catch (e) {}
+        }
+
+        lastCacheUpdate = new Date().toISOString();
+        console.log(`[CACHE] Готово! В памяти закэшировано групп: ${scheduleCache.size}`);
+    } catch (err) {
+        console.error('[CACHE] Ошибка фонового обновления:', err.message);
+    } finally {
+        isSyncing = false;
+    }
+}
+
+// Запускаем автообновление каждые 30 минут
+setInterval(syncAllDataFromNovsu, 30 * 60 * 1000);
+
+// ================= API ЭНДПОИНТЫ (ОТВЕЧАЮТ МГНОВЕННО ИЗ КЭША) =================
+
 // 1. Список последних 5 файлов замен
 app.get('/api/changes-list', async (req, res) => {
     try {
-        const files = await getReplacementFilesList();
-        res.json({ files });
+        if (changesListCache.length > 0) {
+            return res.json({ files: changesListCache, cached: true });
+        }
+        const files = await fetchReplacementFilesList();
+        changesListCache = files;
+        res.json({ files, cached: false });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -83,168 +237,95 @@ app.get('/api/changes', async (req, res) => {
         let fileTitle = req.query.title || 'changes.docx';
 
         if (!targetUrl) {
-            const files = await getReplacementFilesList();
-            if (files.length === 0) return res.status(404).json({ error: 'Файлы замен не найдены' });
-            targetUrl = files[0].url;
-            fileTitle = files[0].title;
+            if (changesListCache.length === 0) {
+                changesListCache = await fetchReplacementFilesList();
+            }
+            if (changesListCache.length === 0) {
+                return res.status(404).json({ error: 'Файлы замен не найдены' });
+            }
+            targetUrl = changesListCache[0].url;
+            fileTitle = changesListCache[0].title;
+        }
+
+        // Если файл уже в памяти сервера — отдаем мгновенно!
+        if (changesBufferCache.has(targetUrl)) {
+            const cachedItem = changesBufferCache.get(targetUrl);
+            res.setHeader('Content-Type', 'application/octet-stream');
+            res.setHeader('X-File-Title', encodeURIComponent(cachedItem.title || fileTitle));
+            return res.send(cachedItem.buffer);
         }
 
         const fileRes = await fetch(targetUrl, { headers: BROWSER_HEADERS });
         if (!fileRes.ok) throw new Error(`Не удалось скачать файл (${fileRes.status})`);
 
-        const arrayBuffer = await fileRes.arrayBuffer();
+        const buffer = Buffer.from(await fileRes.arrayBuffer());
+        changesBufferCache.set(targetUrl, { buffer, title: fileTitle });
+
         res.setHeader('Content-Type', 'application/octet-stream');
         res.setHeader('X-File-Title', encodeURIComponent(fileTitle));
-        res.send(Buffer.from(arrayBuffer));
+        res.send(buffer);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// Поиск столбца нужной группы внутри скачанной книги Excel (.xls / .xlsx)
-function findGroupInWorkbook(workbook, targetGroup) {
-    const cleanTarget = targetGroup.replace(/\s+/g, '');
-
-    for (const sheetName of workbook.SheetNames) {
-        const sheet = workbook.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-        const merges = sheet['!merges'] || [];
-        if (rows.length < 4) continue;
-
-        // 1. Ищем ячейку, где написан номер нашей группы (например "5952")
-        for (let r = 0; r < Math.min(35, rows.length); r++) {
-            const row = rows[r] || [];
-            for (let c = 0; c < row.length; c++) {
-                const cellVal = String(row[c] || '').replace(/\s+/g, '');
-                if (cellVal === cleanTarget || cellVal.includes(cleanTarget)) {
-                    return { rows, merges, groupColIdx: c, headerRowIdx: r, sheet: sheetName };
-                }
-            }
-        }
-
-        // 2. Если книга скачалась по прямой ссылке группы (на 1 группу), а шапка без номера — ищем строку "понедельник"
-        for (let r = 0; r < Math.min(25, rows.length); r++) {
-            const row = rows[r] || [];
-            const c0 = String(row[0] || '').trim().toLowerCase();
-            if (c0 === 'понедельник') {
-                const headerRow = Math.max(0, r - 1);
-                if (!rows[headerRow]) rows[headerRow] = [];
-                rows[headerRow][2] = targetGroup;
-                return { rows, merges, groupColIdx: 2, headerRowIdx: headerRow, sheet: sheetName };
-            }
-        }
-    }
-    return null;
-}
-
-// 3. Точечный поиск и разбор расписания группы с сайта НовГУ
+// 3. Получение расписания группы (сначала мгновенно из кэша, иначе точечный поиск)
 app.get('/api/schedule/:group', async (req, res) => {
     try {
         const targetGroup = String(req.params.group || '').trim();
         if (!targetGroup) return res.status(400).json({ error: 'Не указан номер группы' });
 
-        // Сканируем обе страницы расписаний СПО НовГУ
+        // МГНОВЕННЫЙ ОТВЕТ ИЗ ПАМЯТИ СЕРВЕРА (0.01 сек)
+        if (scheduleCache.has(targetGroup)) {
+            return res.json(scheduleCache.get(targetGroup));
+        }
+
         const pagesToScan = [
             'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999',
             'https://portal.novsu.ru/univer/timetable/spo/'
         ];
 
-        const exactGroupLinks = [];
-        const neighborGroupLinks = [];
-        const collegeSubPages = [];
-        const seenUrls = new Set();
-
         const exactRegex = new RegExp(`(^|\\D)${targetGroup}(\\D|$)`);
         const prefix3 = targetGroup.slice(0, 3);
         const prefixRegex = new RegExp(`(^|\\D)${prefix3}\\d(\\D|$)`);
+        const candidates = [];
+        const seenUrls = new Set();
 
-        async function scanPage(pageUrl) {
-            const r = await fetch(pageUrl, { headers: BROWSER_HEADERS });
-            if (!r.ok) return;
-            const html = await r.text();
-            const links = extractLinksFromHtml(html, pageUrl);
-
-            for (const link of links) {
-                const decodedUrl = decodeURIComponent(link.url);
-                const combinedText = `${link.text} ${decodedUrl}`;
-
-                // Пропускаем файлы замен с датами вида 21.10.2026
-                if (/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(link.text)) continue;
-
-                // 1. Точное совпадение номера группы в тексте ссылки или в URL (например "5952" или "5951 5952 5953.xls")
-                if (link.text.trim() === targetGroup || exactRegex.test(combinedText)) {
-                    if (!seenUrls.has(link.url)) {
-                        exactGroupLinks.push(link);
-                        seenUrls.add(link.url);
+        for (const pageUrl of pagesToScan) {
+            try {
+                const r = await fetch(pageUrl, { headers: BROWSER_HEADERS });
+                if (!r.ok) continue;
+                const html = await r.text();
+                const links = extractLinksFromHtml(html, pageUrl);
+                for (const link of links) {
+                    const combined = `${link.text} ${decodeURIComponent(link.url)}`;
+                    if (/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(link.text)) continue;
+                    if (link.text.trim() === targetGroup || exactRegex.test(combined)) {
+                        if (!seenUrls.has(link.url)) { candidates.unshift(link); seenUrls.add(link.url); }
+                    } else if (prefix3.length === 3 && prefixRegex.test(combined)) {
+                        if (!seenUrls.has(link.url)) { candidates.push(link); seenUrls.add(link.url); }
                     }
                 }
-                // 2. Ссылка на соседние группы того же потока (например "5951" когда ищем "5952")
-                else if (prefix3.length === 3 && prefixRegex.test(combinedText)) {
-                    if (!seenUrls.has(link.url)) {
-                        neighborGroupLinks.push(link);
-                        seenUrls.add(link.url);
-                    }
-                }
-                // 3. Ссылки на подстраницы других колледжей СПО
-                else if (/univer\/timetable\/spo\/i\./i.test(link.url) && !pagesToScan.includes(link.url)) {
-                    if (!collegeSubPages.includes(link.url)) collegeSubPages.push(link.url);
-                }
-            }
+            } catch (e) {}
         }
-
-        for (const url of pagesToScan) {
-            try { await scanPage(url); } catch (e) {}
-        }
-
-        // Если на главных страницах не нашли, заглядываем в подстраницы колледжей
-        if (exactGroupLinks.length === 0 && neighborGroupLinks.length === 0) {
-            for (const subUrl of collegeSubPages.slice(0, 5)) {
-                try { await scanPage(subUrl); } catch (e) {}
-            }
-        }
-
-        const candidates = [...exactGroupLinks, ...neighborGroupLinks];
-        if (candidates.length === 0) {
-            return res.status(404).json({
-                error: `Группа ${targetGroup} не найдена в списке ссылок на сайте НовГУ`
-            });
-        }
-
-        const checkedFiles = [];
 
         for (const cand of candidates) {
             try {
                 const fileRes = await fetch(cand.url, { headers: BROWSER_HEADERS });
                 if (!fileRes.ok) continue;
+                const buffer = Buffer.from(await fileRes.arrayBuffer());
+                const headStr = buffer.slice(0, 100).toString('utf8').trim().toLowerCase();
+                if (headStr.startsWith('<!doctype') || headStr.startsWith('<html')) continue;
 
-                const arrayBuffer = await fileRes.arrayBuffer();
-                const buffer = Buffer.from(arrayBuffer);
-
-                // Если по ссылке открылась HTML-страница, ищем внутри неё прямые ссылки на .xls файлы
-                const headStr = buffer.slice(0, 120).toString('utf8').trim().toLowerCase();
-                if (headStr.startsWith('<!doctype') || headStr.startsWith('<html')) {
-                    const innerLinks = extractLinksFromHtml(buffer.toString('utf8'), cand.url);
-                    for (const inner of innerLinks) {
-                        const decInner = decodeURIComponent(inner.url);
-                        if (exactRegex.test(`${inner.text} ${decInner}`) || /\.(xlsx?|xls)($|\?)/i.test(inner.url)) {
-                            if (!seenUrls.has(inner.url)) {
-                                candidates.push(inner);
-                                seenUrls.add(inner.url);
-                            }
-                        }
-                    }
-                    continue;
-                }
-
-                checkedFiles.push(cand.text || cand.url.split('/').pop());
                 const workbook = XLSX.read(buffer, { type: 'buffer' });
-                const result = findGroupInWorkbook(workbook, targetGroup);
+                indexWorkbookGroups(workbook, cand.text);
 
+                const result = findGroupInWorkbook(workbook, targetGroup);
                 if (result) {
                     if (!result.rows[result.headerRowIdx]) result.rows[result.headerRowIdx] = [];
                     result.rows[result.headerRowIdx][result.groupColIdx] = targetGroup;
 
-                    return res.json({
+                    const payload = {
                         group: targetGroup,
                         sheet: result.sheet,
                         fileName: cand.text || result.sheet,
@@ -252,23 +333,34 @@ app.get('/api/schedule/:group', async (req, res) => {
                         merges: result.merges,
                         groupColIdx: result.groupColIdx,
                         headerRowIdx: result.headerRowIdx
-                    });
+                    };
+                    scheduleCache.set(targetGroup, payload);
+                    return res.json(payload);
                 }
             } catch (e) {}
         }
 
-        return res.status(404).json({
-            error: `Проверены файлы (${checkedFiles.join(', ') || '0'}), но таблица группы ${targetGroup} не распознана`
-        });
+        return res.status(404).json({ error: `Группа ${targetGroup} не найдена на сайте НовГУ` });
     } catch (error) {
         res.status(500).json({ error: 'Ошибка сервера: ' + error.message });
     }
 });
 
+// Эндпоинт для проверки кэша и пинга (чтобы сервер не засыпал)
+app.get('/ping', (req, res) => {
+    res.json({
+        status: 'ok',
+        cachedGroupsCount: scheduleCache.size,
+        cachedChangesCount: changesListCache.length,
+        lastCacheUpdate
+    });
+});
+
 app.get('/', (req, res) => {
-    res.send('PTK Server v4.3 is Live!');
+    res.send(`PTK Fast Cache Server v5.0 is Live! Cached groups: ${scheduleCache.size}`);
 });
 
 app.listen(PORT, () => {
-    console.log(`Server v4.3 is running on port ${PORT}`);
+    console.log(`Server v5.0 running on port ${PORT}`);
+    syncAllDataFromNovsu();
 });
