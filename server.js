@@ -35,6 +35,8 @@ const starostaOneTimeKeys = new Map();
 const starostaSessions = new Map();
 // Задания групп (groupName -> Array of tasks)
 const groupTasksStorage = new Map();
+// Учебники и материалы групп (groupName -> Array of materials)
+const groupMaterialsStorage = new Map();
 
 // Сессии подтверждённых админов
 const adminSessions = new Set();
@@ -105,7 +107,7 @@ app.post('/api/tasks/auth', (req, res) => {
     }
 
     const group = starostaOneTimeKeys.get(cleanKey);
-    starostaOneTimeKeys.delete(cleanKey); // Сгорает
+    starostaOneTimeKeys.delete(cleanKey);
 
     const sessionToken = `STAROSTA-${group}-${generateRandomCode(16)}`;
     starostaSessions.set(group, sessionToken);
@@ -113,13 +115,12 @@ app.post('/api/tasks/auth', (req, res) => {
     res.json({ success: true, group, sessionToken });
 });
 
-// 5. ПОЛУЧИТЬ ЗАДАНИЯ ГРУППЫ
+// 5. ЗАДАНИЯ ГРУППЫ
 app.get('/api/tasks/:group', (req, res) => {
     const group = String(req.params.group || '').trim();
     res.json({ tasks: groupTasksStorage.get(group) || [] });
 });
 
-// 6. ДОБАВИТЬ ЗАДАНИЕ СТАРОСТОЙ
 app.post('/api/tasks/:group', (req, res) => {
     const group = String(req.params.group || '').trim();
     const { task, sessionToken } = req.body || {};
@@ -148,7 +149,6 @@ app.post('/api/tasks/:group', (req, res) => {
     res.json({ success: true, task: newTask });
 });
 
-// 7. УДАЛИТЬ ЗАДАНИЕ СТАРОСТОЙ
 app.delete('/api/tasks/:group/:id', (req, res) => {
     const group = String(req.params.group || '').trim();
     const taskId = parseInt(req.params.id, 10);
@@ -162,6 +162,61 @@ app.delete('/api/tasks/:group/:id', (req, res) => {
     if (groupTasksStorage.has(group)) {
         const filtered = groupTasksStorage.get(group).filter(t => t.id !== taskId);
         groupTasksStorage.set(group, filtered);
+    }
+
+    res.json({ success: true });
+});
+
+// ================= УЧЕБНИКИ И МАТЕРИАЛЫ ГРУППЫ =================
+app.get('/api/materials/:group', (req, res) => {
+    const group = String(req.params.group || '').trim();
+    res.json({ materials: groupMaterialsStorage.get(group) || [] });
+});
+
+app.post('/api/materials/:group', (req, res) => {
+    const group = String(req.params.group || '').trim();
+    const { material, sessionToken } = req.body || {};
+
+    const activeToken = starostaSessions.get(group);
+    if (!activeToken || activeToken !== sessionToken) {
+        return res.status(403).json({ error: 'Сессия старосты недействительна' });
+    }
+
+    if (!material || !material.title || !material.fileUrl) {
+        return res.status(400).json({ error: 'Заполните название и прикрепите файл или ссылку' });
+    }
+
+    if (!groupMaterialsStorage.has(group)) groupMaterialsStorage.set(group, []);
+
+    const newMaterial = {
+        id: Date.now(),
+        title: String(material.title || '').trim(),
+        subject: String(material.subject || 'Общий материал').trim(),
+        fileUrl: String(material.fileUrl || '').trim(),
+        fileName: String(material.fileName || 'Файл').trim(),
+        fileSize: String(material.fileSize || '').trim(),
+        isDirectUpload: Boolean(material.isDirectUpload),
+        author: 'Староста',
+        createdAt: new Date().toISOString()
+    };
+
+    groupMaterialsStorage.get(group).unshift(newMaterial);
+    res.json({ success: true, material: newMaterial });
+});
+
+app.delete('/api/materials/:group/:id', (req, res) => {
+    const group = String(req.params.group || '').trim();
+    const materialId = parseInt(req.params.id, 10);
+    const { sessionToken } = req.body || {};
+
+    const activeToken = starostaSessions.get(group);
+    if (!activeToken || activeToken !== sessionToken) {
+        return res.status(403).json({ error: 'Сессия старосты недействительна' });
+    }
+
+    if (groupMaterialsStorage.has(group)) {
+        const filtered = groupMaterialsStorage.get(group).filter(m => m.id !== materialId);
+        groupMaterialsStorage.set(group, filtered);
     }
 
     res.json({ success: true });
@@ -435,10 +490,6 @@ app.get('/api/schedule/:group', async (req, res) => {
 
 app.get('/ping', (req, res) => {
     res.json({ status: 'ok', cachedGroupsCount: scheduleCache.size, lastCacheUpdate });
-});
-
-app.get('/', (req, res) => {
-    res.send(`PTK Fast Cache Server v5.4 is Live!`);
 });
 
 app.listen(PORT, () => {
