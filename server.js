@@ -17,7 +17,55 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
     next();
+});
+
+// ================= НАДЁЖНЫЙ ПРОКСИ-АПЛОАДЕР ФАЙЛОВ =================
+// Принимает файл с телефона без CORS-ошибок, пересылает в облако и тут же очищает память
+app.post('/api/upload', express.raw({ type: '*/*', limit: '100mb' }), async (req, res) => {
+    try {
+        if (!req.body || req.body.length === 0) {
+            return res.status(400).json({ error: 'Файл не передан' });
+        }
+
+        const originalName = decodeURIComponent(req.query.filename || 'material.pdf');
+        const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
+
+        const pre = Buffer.from(
+            `--${boundary}\r\n` +
+            `Content-Disposition: form-data; name="reqtype"\r\n\r\n` +
+            `fileupload\r\n` +
+            `--${boundary}\r\n` +
+            `Content-Disposition: form-data; name="fileToUpload"; filename="${originalName}"\r\n` +
+            `Content-Type: application/octet-stream\r\n\r\n`
+        );
+        const post = Buffer.from(`\r\n--${boundary}--\r\n`);
+        const fullBody = Buffer.concat([pre, req.body, post]);
+
+        const uploadRes = await fetch('https://catbox.moe/user/api.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': `multipart/form-data; boundary=${boundary}`,
+                'User-Agent': BROWSER_HEADERS['User-Agent']
+            },
+            body: fullBody
+        });
+
+        if (!uploadRes.ok) {
+            throw new Error(`Хранилище ответило статусом ${uploadRes.status}`);
+        }
+
+        const fileUrl = (await uploadRes.text()).trim();
+        if (!fileUrl.startsWith('http')) {
+            throw new Error(fileUrl || 'Сбой получения ссылки из хранилища');
+        }
+
+        res.json({ success: true, url: fileUrl });
+    } catch (err) {
+        console.error('[UPLOAD ERROR]', err.message);
+        res.status(500).json({ error: 'Ошибка загрузки в облако: ' + err.message });
+    }
 });
 
 app.use(express.json());
@@ -48,14 +96,13 @@ function generateRandomCode(len = 6) {
     return res;
 }
 
-// Одноразовый ключ создателя при старте сервера
 let currentRootOneTimeKey = `ROOT-${generateRandomCode(8)}`;
 console.log('====================================================');
 console.log('🔑 ОДНОРАЗОВЫЙ КЛЮЧ СОЗДАТЕЛЯ ДЛЯ ВХОДА В АДМИНКУ:');
 console.log(currentRootOneTimeKey);
 console.log('====================================================');
 
-// 1. АВТОРИЗАЦИЯ СОЗДАТЕЛЯ (ОДНОРАЗОВЫЙ ROOT-КЛЮЧ)
+// 1. АВТОРИЗАЦИЯ СОЗДАТЕЛЯ
 app.post('/api/admin/auth', (req, res) => {
     const { rootKey } = req.body || {};
     const cleanKey = String(rootKey || '').trim();
@@ -64,14 +111,14 @@ app.post('/api/admin/auth', (req, res) => {
         return res.status(403).json({ error: 'Одноразовый ключ создателя недействителен или уже сгорел' });
     }
 
-    currentRootOneTimeKey = null; // Сгорает моментально
+    currentRootOneTimeKey = null;
     const adminToken = `ADMIN-${generateRandomCode(20)}`;
     adminSessions.add(adminToken);
 
     res.json({ success: true, adminToken });
 });
 
-// 2. ВЫПУСК ОДНОРАЗОВОГО КЛЮЧА ДЛЯ СТАРОСТЫ ЛЮБОЙ ГРУППЫ
+// 2. ВЫПУСК ОДНОРАЗОВОГО КЛЮЧА СТАРОСТЕ
 app.post('/api/admin/generate-starosta-key', (req, res) => {
     const { adminToken, group } = req.body || {};
     if (!adminSessions.has(adminToken)) {
@@ -86,7 +133,7 @@ app.post('/api/admin/generate-starosta-key', (req, res) => {
     res.json({ success: true, group: cleanGroup, key });
 });
 
-// 3. СБРОС СТАРОСТЫ ГРУППЫ
+// 3. СБРОС СТАРОСТЫ
 app.post('/api/admin/revoke-starosta', (req, res) => {
     const { adminToken, group } = req.body || {};
     if (!adminSessions.has(adminToken)) {
@@ -97,7 +144,7 @@ app.post('/api/admin/revoke-starosta', (req, res) => {
     res.json({ success: true, message: `Староста группы ${cleanGroup} сброшен` });
 });
 
-// 4. АВТОРИЗАЦИЯ СТАРОСТЫ (ОДНОРАЗОВЫЙ КЛЮЧ)
+// 4. АВТОРИЗАЦИЯ СТАРОСТЫ
 app.post('/api/tasks/auth', (req, res) => {
     const { secretKey } = req.body || {};
     const cleanKey = String(secretKey || '').trim();
@@ -167,7 +214,7 @@ app.delete('/api/tasks/:group/:id', (req, res) => {
     res.json({ success: true });
 });
 
-// ================= УЧЕБНИКИ И МАТЕРИАЛЫ ГРУППЫ =================
+// 6. УЧЕБНИКИ И МАТЕРИАЛЫ ГРУППЫ
 app.get('/api/materials/:group', (req, res) => {
     const group = String(req.params.group || '').trim();
     res.json({ materials: groupMaterialsStorage.get(group) || [] });
