@@ -95,7 +95,7 @@
                 <div>
                     <div class="flex items-center gap-2">
                         <h1 id="topScreenTitle" class="text-lg font-bold tracking-tight text-white">Расписание</h1>
-                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">v5.8</span>
+                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">v5.9</span>
                     </div>
                     <p id="topScreenSubtitle" class="text-[11px] text-slate-400">НовГУ • Студенческий помощник</p>
                 </div>
@@ -185,7 +185,6 @@
 
         <!-- ==================== ЭКРАН 3: ЗАДАНИЯ И УЧЕБНИКИ ==================== -->
         <section id="tasksSection" class="space-y-3.5 hidden">
-            <!-- Аккуратный переключатель подраздела -->
             <div class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1">
                 <button type="button" id="btnSubTabTasks" onclick="switchTaskSubTab('tasks')" class="py-2 rounded-xl text-xs font-semibold transition blue-glow">📝 Задания</button>
                 <button type="button" id="btnSubTabMaterials" onclick="switchTaskSubTab('materials')" class="py-2 rounded-xl text-xs font-medium transition text-slate-400">📚 Учебники и файлы</button>
@@ -367,7 +366,7 @@
             <button type="button" id="saveTaskSubmitBtn" onclick="saveNewTask()" class="w-full blue-glow font-semibold py-3 rounded-xl">✅ Добавить задание</button>
         </section>
 
-        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ МАТЕРИАЛА (ЛИЧНЫЙ / ГРУППОВОЙ) ==================== -->
+        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ МАТЕРИАЛА ==================== -->
         <section id="addMaterialModal" class="app-card p-5 rounded-3xl space-y-4 hidden">
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-2">
@@ -414,7 +413,7 @@
                 <input type="text" id="matTitleInput" placeholder="Например: Методичка к практикам 2026" class="w-full pill-bar rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
             </div>
 
-            <!-- ПЕРЕКЛЮЧАТЕЛЬ СПОСОБА: ФАЙЛ ИЛИ ССЫЛКА -->
+            <!-- ПЕРЕКЛЮЧАТЕЛЬ: ФАЙЛ ИЛИ ССЫЛКА -->
             <div class="space-y-2 pt-1">
                 <div class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1 text-xs">
                     <button type="button" id="btnMatModeFile" onclick="setMaterialMode('file')" class="py-2 rounded-xl font-semibold transition blue-glow">
@@ -425,7 +424,6 @@
                     </button>
                 </div>
 
-                <!-- Блок А: Загрузка файла через надёжный сервер-прокси -->
                 <div id="matFileUploadBox" class="p-4 rounded-2xl border-2 border-dashed border-slate-700/80 hover:border-blue-500/60 bg-blue-500/5 transition text-center space-y-2 relative cursor-pointer">
                     <input type="file" id="matFileInput" onchange="handleMaterialFileSelected(event)" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
                     <div class="w-10 h-10 rounded-full bg-blue-500/20 text-blue-400 mx-auto flex items-center justify-center text-lg">
@@ -438,7 +436,6 @@
                     <div id="uploadProgressStatus" class="text-[11px] text-emerald-400 font-semibold hidden pt-1"></div>
                 </div>
 
-                <!-- Блок Б: Ввод ссылки -->
                 <div id="matLinkInputBox" class="hidden space-y-1.5 pt-1">
                     <input type="url" id="matLinkInput" placeholder="Вставьте ссылку (Telegram, Google Диск, НовГУ...)" class="w-full pill-bar rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
                     <div class="text-[10px] text-slate-400 px-1">Файл будет открываться напрямую по ссылке</div>
@@ -600,7 +597,7 @@
             </div>
 
             <div class="text-center space-y-1 pt-1">
-                <div class="text-[11px] text-slate-400">Версия 5.8</div>
+                <div class="text-[11px] text-slate-400">Версия 5.9</div>
                 <div class="inline-flex items-center gap-1.5 text-slate-400 text-xs">
                     <span>🏛️</span>
                     <span class="font-semibold">НовГУ • Студенческий помощник</span>
@@ -669,7 +666,6 @@
         let lastActiveSection = 'schedule';
         let currentTheme = 'dark';
 
-        // Доступ старосты и создателя
         let starostaAuth = null;
         let adminToken = localStorage.getItem(STORAGE_ADMIN_KEY) || null;
         let serverGroupTasks = [];
@@ -685,8 +681,8 @@
         let taskSubTab = 'tasks';
         let selectedSubjectInModal = '';
         let activeMaterialSubjectFilter = 'ALL';
-        let materialInputMode = 'file'; // 'file' | 'link'
-        let materialTarget = 'personal'; // 'personal' | 'group'
+        let materialInputMode = 'file';
+        let materialTarget = 'personal';
         let pendingUploadedFileUrl = '';
         let pendingUploadedFileName = '';
         let pendingUploadedFileSize = '';
@@ -1013,7 +1009,7 @@
             }
         }
 
-        // ================= ЗАГРУЗКА ЗАДАНИЙ И МАТЕРИАЛОВ =================
+        // ================= ЗАГРУЗКА ДАННЫХ =================
         async function fetchServerTasksForActiveGroup() {
             const currentGrp = getActiveGroupName();
             if (!currentGrp) return;
@@ -2198,7 +2194,6 @@
             submitBtn.disabled = true;
 
             try {
-                // Отправляем через наш серверный эндпоинт без ограничений CORS
                 const response = await fetch(`${RENDER_URL}/api/upload?filename=${encodeURIComponent(file.name)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/octet-stream' },
@@ -2243,6 +2238,7 @@
                     fileUrl,
                     fileName: pendingUploadedFileName || 'Файл / Ссылка',
                     fileSize: pendingUploadedFileSize || '',
+                    isDirectUpload: Boolean(pendingUploadedFileUrl),
                     isGroup: false,
                     createdAt: new Date().toISOString()
                 });
@@ -2369,6 +2365,12 @@
                     ? `<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-md text-[10px] font-bold">👥 Группа</span>`
                     : `<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-md text-[10px] font-bold">👤 Личный</span>`;
 
+                // Сквозная ссылка: если файл был загружен напрямую, качаем через транзитный стрим Render без блокировок
+                const isUploadedFile = Boolean(m.isDirectUpload || (m.fileUrl && m.fileUrl.includes('catbox.moe')));
+                const targetLink = isUploadedFile
+                    ? `${RENDER_URL}/api/download?url=${encodeURIComponent(m.fileUrl)}&filename=${encodeURIComponent(m.fileName || m.title)}`
+                    : m.fileUrl;
+
                 html += `
                     <div class="app-card p-4 rounded-3xl space-y-2.5">
                         <div class="flex items-start justify-between gap-3">
@@ -2389,9 +2391,9 @@
 
                         <div class="flex items-center justify-between pt-1 text-xs border-t border-slate-700/50">
                             <span class="text-slate-400 text-[11px]">${m.fileSize ? `Файл • ${m.fileSize}` : 'Ссылка'}</span>
-                            <a href="${m.fileUrl}" target="_blank" class="blue-glow px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1">
-                                <span>Открыть / Скачать</span>
-                                <span>↗</span>
+                            <a href="${targetLink}" target="_blank" download="${m.fileName || 'file'}" class="blue-glow px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 active:scale-95 transition">
+                                <span>${isUploadedFile ? 'Скачать файл' : 'Перейти по ссылке'}</span>
+                                <span>${isUploadedFile ? '↓' : '↗'}</span>
                             </a>
                         </div>
                     </div>
