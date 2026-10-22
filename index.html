@@ -64,7 +64,6 @@
             border-top: 1px solid var(--border-pill);
         }
 
-        /* Адаптация цветов текста для светлой темы */
         body.light-theme .text-white { color: #0f172a !important; }
         body.light-theme .blue-glow .text-white,
         body.light-theme .blue-glow { color: #ffffff !important; }
@@ -96,7 +95,7 @@
                 <div>
                     <div class="flex items-center gap-2">
                         <h1 id="topScreenTitle" class="text-lg font-bold tracking-tight text-white">Расписание</h1>
-                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">v5.3</span>
+                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">v5.4</span>
                     </div>
                     <p id="topScreenSubtitle" class="text-[11px] text-slate-400">НовГУ • Студенческий помощник</p>
                 </div>
@@ -141,7 +140,6 @@
 
         <!-- ==================== ЭКРАН 2: ИЗМЕНЕНИЯ В РАСПИСАНИИ ==================== -->
         <section id="changesSection" class="space-y-3.5 hidden">
-            <!-- Фильтры: Все | Замены | Отмены -->
             <div class="pill-bar p-1 rounded-2xl grid grid-cols-3 gap-1">
                 <button type="button" id="chgFilterAll" onclick="setChangesTypeFilter('ALL')" class="py-2 rounded-xl text-xs font-semibold transition blue-glow">Все</button>
                 <button type="button" id="chgFilterMove" onclick="setChangesTypeFilter('MOVE')" class="py-2 rounded-xl text-xs font-medium transition text-slate-400">Замены</button>
@@ -194,15 +192,20 @@
                 <button type="button" id="taskFilterOverdue" onclick="setTaskFilter('OVERDUE')" class="py-2 rounded-xl text-[11px] font-medium transition text-slate-400">Просрочено</button>
             </div>
 
+            <!-- Статус старосты и кнопка добавления -->
             <div class="flex justify-between items-center px-1">
-                <span class="text-xs text-slate-400">Нажмите на статус задачи, чтобы изменить его</span>
-                <button type="button" onclick="openAddTaskModal()" class="text-xs text-blue-400 font-semibold hover:text-blue-300">➕ Добавить</button>
+                <div id="starostaStatusBadge" class="text-xs text-slate-400 flex items-center gap-1.5">
+                    <span>Личные и групповые задания</span>
+                </div>
+                <button type="button" onclick="openAddTaskModal()" class="text-xs text-blue-400 font-bold hover:text-blue-300 flex items-center gap-1">
+                    <span>➕ Добавить</span>
+                </button>
             </div>
 
             <div id="tasksList" class="space-y-2.5"></div>
         </section>
 
-        <!-- ==================== ЭКРАН 4: ОЦЕНКИ (ТОЛЬКО ПРОСМОТР) ==================== -->
+        <!-- ==================== ЭКРАН 4: ОЦЕНКИ ==================== -->
         <section id="marksSection" class="space-y-3.5 hidden">
             <div class="app-card p-5 rounded-3xl space-y-3 relative overflow-hidden">
                 <div class="flex justify-between items-center">
@@ -242,12 +245,11 @@
                 <button type="button" id="btnMarksAll" onclick="setMarksViewMode('all')" class="py-2 rounded-xl text-xs font-medium transition text-slate-400">Все оценки</button>
             </div>
 
-            <!-- Вкладки переключения предметов (без кнопок удаления) -->
             <div id="subjectsTabs" class="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5"></div>
             <div id="marksList" class="space-y-2.5"></div>
         </section>
 
-        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ ПРЕДМЕТА (ВЫЗЫВАЕТСЯ ИЗ ПРОФИЛЯ) ==================== -->
+        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ ПРЕДМЕТА ==================== -->
         <section id="setupScreen" class="app-card p-5 rounded-3xl space-y-4 hidden">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base text-white">Подключение предмета</h2>
@@ -305,15 +307,24 @@
             </div>
         </section>
 
-        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ ЗАДАНИЯ ==================== -->
+        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ ЗАДАНИЯ (ЛИЧНОЕ ИЛИ ДЛЯ ГРУППЫ) ==================== -->
         <section id="addTaskModal" class="app-card p-5 rounded-3xl space-y-4 hidden">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base text-white">Новое задание</h2>
                 <button type="button" onclick="switchSection('tasks')" class="pill-bar px-3 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white">✕ Закрыть</button>
             </div>
+
+            <div id="starostaPublishChoice" class="hidden p-3 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-xs space-y-1.5">
+                <div class="font-bold text-blue-400">👑 Вы авторизованы как староста!</div>
+                <label class="flex items-center gap-2 cursor-pointer pt-1 text-slate-200">
+                    <input type="checkbox" id="taskForGroupCheckbox" checked class="w-4 h-4 accent-blue-600 rounded">
+                    <span>Опубликовать для всей группы (<span id="starostaGroupNameSpan"></span>)</span>
+                </label>
+            </div>
+
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Предмет</label>
-                <input type="text" id="taskSubjectInput" placeholder="Например: Программирование" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
+                <input type="text" id="taskSubjectInput" placeholder="Например: Разработка веб-приложений" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Что нужно сделать</label>
@@ -323,12 +334,11 @@
                 <label class="block text-xs text-slate-400 mb-1">Срок сдачи (дедлайн)</label>
                 <input type="date" id="taskDateInput" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
             </div>
-            <button type="button" onclick="saveNewTask()" class="w-full blue-glow font-semibold py-3 rounded-xl">✅ Добавить задание</button>
+            <button type="button" id="saveTaskSubmitBtn" onclick="saveNewTask()" class="w-full blue-glow font-semibold py-3 rounded-xl">✅ Добавить задание</button>
         </section>
 
         <!-- ==================== ЭКРАН 6: ЛИЧНЫЙ КАБИНЕТ ==================== -->
         <section id="profileSection" class="space-y-4 hidden">
-            <!-- Удобная верхняя панель выхода из профиля -->
             <div class="flex justify-between items-center">
                 <button type="button" onclick="closeProfileModal()" class="app-card px-4 py-2 rounded-2xl text-xs font-bold text-blue-400 flex items-center gap-1.5 active:scale-95 transition">
                     <span>←</span> Назад
@@ -364,29 +374,54 @@
                 </button>
             </div>
 
-            <!-- Управление дневниками оценок (ТОЛЬКО В ПРОФИЛЕ) -->
+            <!-- Управление дневниками оценок -->
             <div class="app-card p-5 rounded-3xl space-y-3">
                 <div class="flex justify-between items-center">
                     <div>
                         <h3 class="text-sm font-bold text-white">📊 Мои дневники оценок</h3>
-                        <p class="text-[11px] text-slate-400">Добавление и удаление таблиц предметов</p>
+                        <p class="text-[11px] text-slate-400">Таблицы предметов и баллов</p>
                     </div>
                     <button type="button" onclick="openAddSubject()" class="blue-glow px-3.5 py-2 rounded-xl text-xs font-semibold active:scale-95 transition">
                         ➕ Добавить
                     </button>
                 </div>
-
                 <div id="profileSubjectsList" class="space-y-2 pt-1"></div>
             </div>
 
-            <!-- Переключатель темы оформления и общие настройки -->
+            <!-- Доступ старосты (Ввод секретного ключа) -->
+            <div class="app-card p-5 rounded-3xl space-y-3">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-lg">👑</span>
+                    <div>
+                        <h3 class="text-sm font-bold text-white">Доступ старосты группы</h3>
+                        <p class="text-[11px] text-slate-400">Публикуйте ДЗ для всех одногруппников</p>
+                    </div>
+                </div>
+
+                <div id="starostaActiveBlock" class="hidden p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-xs flex justify-between items-center">
+                    <div>
+                        <div class="font-bold text-emerald-400">✓ Права старосты активны</div>
+                        <div id="starostaActiveGroupLabel" class="text-slate-300 text-[11px] mt-0.5">Группа: 5953</div>
+                    </div>
+                    <button type="button" onclick="logoutStarosta()" class="text-red-400 hover:text-red-300 font-semibold text-xs">Выйти</button>
+                </div>
+
+                <div id="starostaLoginForm" class="space-y-2 pt-1">
+                    <input type="password" id="starostaKeyInput" placeholder="Введите секретный ключ старосты..." class="w-full pill-bar rounded-xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
+                    <button type="button" onclick="activateStarostaKey()" class="w-full pill-bar hover:bg-slate-800 text-blue-400 font-bold py-2.5 rounded-xl text-xs transition">
+                        Активировать статус старосты
+                    </button>
+                </div>
+            </div>
+
+            <!-- Настройки темы и сброс -->
             <div class="app-card rounded-3xl divide-y divide-slate-800/80 overflow-hidden text-xs">
                 <div class="p-4 flex justify-between items-center">
                     <div class="flex items-center gap-3">
                         <span id="themeIconDisplay" class="text-lg">🌙</span>
                         <div>
                             <div class="font-bold text-white">Тема оформления</div>
-                            <div id="themeSubtitleDisplay" class="text-[11px] text-slate-400">Выберите светлую или тёмную тему</div>
+                            <div id="themeSubtitleDisplay" class="text-[11px] text-slate-400">Выберите тему</div>
                         </div>
                     </div>
                     <div class="pill-bar p-1 rounded-xl flex gap-1">
@@ -394,14 +429,6 @@
                         <button type="button" id="btnThemeLight" onclick="setAppTheme('light')" class="px-3 py-1.5 rounded-lg text-xs font-medium transition text-slate-400">Светлая</button>
                     </div>
                 </div>
-
-                <button type="button" onclick="openAddTaskModal()" class="w-full p-4 flex justify-between items-center hover:opacity-80 transition text-left">
-                    <div class="flex items-center gap-3">
-                        <span class="text-base">📝</span>
-                        <span class="font-medium text-slate-200">Добавить домашнее задание</span>
-                    </div>
-                    <span class="text-slate-500">›</span>
-                </button>
 
                 <button type="button" onclick="hardReset()" class="w-full p-4 flex justify-between items-center hover:bg-red-500/10 transition text-left text-red-400">
                     <div class="flex items-center gap-3">
@@ -413,7 +440,7 @@
             </div>
 
             <div class="text-center space-y-1 pt-1">
-                <div class="text-[11px] text-slate-400">Версия 5.3</div>
+                <div class="text-[11px] text-slate-400">Версия 5.4</div>
                 <div class="inline-flex items-center gap-1.5 text-slate-400 text-xs">
                     <span>🏛️</span>
                     <span class="font-semibold">НовГУ • Студенческий помощник</span>
@@ -465,6 +492,7 @@
         const STORAGE_CHANGES_KEY = 'ptk_diary_changes_v9';
         const STORAGE_TASKS_KEY = 'ptk_diary_tasks_v1';
         const STORAGE_THEME_KEY = 'ptk_diary_theme_v1';
+        const STORAGE_STAROSTA_KEY = 'ptk_diary_starosta_v1';
         const RENDER_URL = 'https://dnevnik-1.onrender.com';
 
         const DAY_NAMES_FULL = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
@@ -479,11 +507,15 @@
         let lastActiveSection = 'schedule';
         let currentTheme = 'dark';
 
+        // Доступ старосты: { group: '5953', key: 'ptk5953star' }
+        let starostaAuth = null;
+        let serverGroupTasks = []; // Задания, загруженные с сервера для текущей группы
+
         let changesData = { dateTitle: 'Изменения в расписании', fileName: '', items: [], portalFiles: [] };
         let activeChangesGroupFilter = 'ALL';
         let activeChangesTypeFilter = 'ALL';
 
-        let tasks = [];
+        let localTasks = [];
         let activeTaskFilter = 'ALL';
 
         let marksViewMode = 'subjects';
@@ -498,7 +530,8 @@
                 const sc = JSON.parse(localStorage.getItem(STORAGE_CHANGES_KEY));
                 if (sc && Array.isArray(sc.items)) changesData = sc;
             } catch(e) {}
-            try { tasks = JSON.parse(localStorage.getItem(STORAGE_TASKS_KEY)) || getDefaultTasks(); } catch(e) { tasks = getDefaultTasks(); }
+            try { localTasks = JSON.parse(localStorage.getItem(STORAGE_TASKS_KEY)) || []; } catch(e) { localTasks = []; }
+            try { starostaAuth = JSON.parse(localStorage.getItem(STORAGE_STAROSTA_KEY)) || null; } catch(e) { starostaAuth = null; }
 
             const savedTheme = localStorage.getItem(STORAGE_THEME_KEY) || 'dark';
             setAppTheme(savedTheme);
@@ -513,21 +546,21 @@
             const known = getKnownUserGroups();
             if (known.length > 0) activeChangesGroupFilter = known[0];
 
+            updateStarostaUI();
+            fetchServerTasksForActiveGroup();
+
             if (schedules.length > 0) switchSection('schedule');
             else if (subjects.length > 0) switchSection('marks');
             else switchSection('schedule');
         });
 
-        // ================= ТЕМА ОФОРМЛЕНИЯ (СВЕТЛАЯ / ТЁМНАЯ) =================
+        // ================= ТЕМА ОФОРМЛЕНИЯ =================
         function setAppTheme(theme) {
             currentTheme = theme === 'light' ? 'light' : 'dark';
             localStorage.setItem(STORAGE_THEME_KEY, currentTheme);
 
-            if (currentTheme === 'light') {
-                document.body.classList.add('light-theme');
-            } else {
-                document.body.classList.remove('light-theme');
-            }
+            if (currentTheme === 'light') document.body.classList.add('light-theme');
+            else document.body.classList.remove('light-theme');
 
             const btnDark = document.getElementById('btnThemeDark');
             const btnLight = document.getElementById('btnThemeLight');
@@ -540,15 +573,6 @@
             }
             if (iconEl) iconEl.innerText = currentTheme === 'light' ? '☀️' : '🌙';
             if (subEl) subEl.innerText = currentTheme === 'light' ? 'Активна светлая тема' : 'Активна тёмная тема';
-        }
-
-        function getDefaultTasks() {
-            const d1 = new Date(); d1.setDate(d1.getDate() + 2);
-            const d2 = new Date(); d2.setDate(d2.getDate() + 4);
-            return [
-                { id: 1, subject: 'Математика', title: 'Контрольная работа', dueDate: d1.toISOString().slice(0,10), status: 'todo' },
-                { id: 2, subject: 'Программирование', title: 'Практическая работа', dueDate: d2.toISOString().slice(0,10), status: 'progress' }
-            ];
         }
 
         function getSubjectIcon(name) {
@@ -565,6 +589,11 @@
             schedules.forEach(x => { if (x && x.groupName) s.add(String(x.groupName)); });
             subjects.forEach(x => { if (x && x.groupName && /^\d{4}$/.test(String(x.groupName))) s.add(String(x.groupName)); });
             return Array.from(s);
+        }
+
+        function getActiveGroupName() {
+            const known = getKnownUserGroups();
+            return known[0] || '';
         }
 
         function getInitialWeekType() {
@@ -588,7 +617,7 @@
             l.className = currentSelectedWeek === 'lower' ? "py-1.5 rounded-xl text-xs font-semibold transition blue-glow" : "py-1.5 rounded-xl text-xs font-medium transition text-slate-400";
         }
 
-        // ================= НАВИГАЦИЯ И ПРОФИЛЬ =================
+        // ================= НАВИГАЦИЯ =================
         function switchSection(section) {
             lastActiveSection = section;
             const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addTaskModal', 'profileSection'];
@@ -621,7 +650,7 @@
                 document.getElementById('scheduleSection').classList.remove('hidden');
                 renderScheduleTabs();
                 renderWeekDaysBar();
-                loadScheduleForActive();
+                fetchServerTasksForActiveGroup().then(() => loadScheduleForActive());
             } else if (section === 'changes') {
                 document.getElementById('changesSection').classList.remove('hidden');
                 renderPortalFilesButtons();
@@ -630,7 +659,7 @@
                 if (!changesData.items || changesData.items.length === 0) fetchChangesFromPortal();
             } else if (section === 'tasks') {
                 document.getElementById('tasksSection').classList.remove('hidden');
-                renderTasksList();
+                fetchServerTasksForActiveGroup().then(() => renderTasksList());
             } else if (section === 'marks') {
                 document.getElementById('marksSection').classList.remove('hidden');
                 renderSubjectTabs();
@@ -640,11 +669,8 @@
 
         function toggleProfileModal() {
             const profSec = document.getElementById('profileSection');
-            if (profSec && !profSec.classList.contains('hidden')) {
-                closeProfileModal();
-            } else {
-                openProfileModal();
-            }
+            if (profSec && !profSec.classList.contains('hidden')) closeProfileModal();
+            else openProfileModal();
         }
 
         function openProfileModal() {
@@ -657,62 +683,115 @@
             if (topProfBtn) topProfBtn.className = "w-9 h-9 rounded-full blue-glow flex items-center justify-center active:scale-95 transition";
 
             const stName = subjects.length > 0 ? subjects[activeSubjectIndex].studentName : 'Студент НовГУ';
-            const grp = getKnownUserGroups()[0] || (subjects[0] ? subjects[0].groupName : 'не выбрана');
+            const grp = getActiveGroupName() || 'не выбрана';
             document.getElementById('profileStudentName').innerText = stName;
             document.getElementById('profileGroupText').innerText = `Группа: ${grp}`;
 
             renderProfileSubjectsList();
+            updateStarostaUI();
         }
 
         function closeProfileModal() {
             switchSection(lastActiveSection || 'schedule');
         }
 
-        function renderProfileSubjectsList() {
-            const container = document.getElementById('profileSubjectsList');
-            if (!container) return;
-            container.innerHTML = '';
+        // ================= СТАРОСТА: АВТОРИЗАЦИЯ И УПРАВЛЕНИЕ =================
+        function updateStarostaUI() {
+            const activeBlock = document.getElementById('starostaActiveBlock');
+            const loginForm = document.getElementById('starostaLoginForm');
+            const groupLabel = document.getElementById('starostaActiveGroupLabel');
+            const statusBadge = document.getElementById('starostaStatusBadge');
 
-            if (subjects.length === 0) {
-                container.innerHTML = `<div class="pill-bar p-3.5 rounded-2xl text-center text-xs text-slate-400">Ни одного дневника оценок ещё не подключено</div>`;
-                return;
-            }
-
-            subjects.forEach((subj, idx) => {
-                const icon = getSubjectIcon(subj.subjectName);
-                const div = document.createElement('div');
-                div.className = "pill-bar p-3 rounded-2xl flex items-center justify-between gap-2";
-                div.innerHTML = `
-                    <div class="flex items-center gap-3 min-w-0">
-                        <div class="w-9 h-9 rounded-xl app-card flex items-center justify-center text-blue-400 font-bold text-sm shrink-0">${icon}</div>
-                        <div class="min-w-0">
-                            <div class="text-xs font-bold text-white truncate">${subj.subjectName}</div>
-                            <div class="text-[11px] text-slate-400 truncate">${subj.studentName} • Гр. ${subj.groupName}</div>
-                        </div>
-                    </div>
-                    <button type="button" onclick="deleteSubjectFromProfile(${idx})" class="bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition">
-                        Удалить
-                    </button>
-                `;
-                container.appendChild(div);
-            });
-        }
-
-        function deleteSubjectFromProfile(idx) {
-            if (confirm(`Удалить дневник оценок «${subjects[idx].subjectName}»?`)) {
-                subjects.splice(idx, 1);
-                localStorage.setItem(STORAGE_MARKS_KEY, JSON.stringify(subjects));
-                if (activeSubjectIndex >= subjects.length) activeSubjectIndex = Math.max(0, subjects.length - 1);
-                renderProfileSubjectsList();
+            if (starostaAuth && starostaAuth.key) {
+                if (activeBlock) activeBlock.classList.remove('hidden');
+                if (loginForm) loginForm.classList.add('hidden');
+                if (groupLabel) groupLabel.innerText = `Группа: ${starostaAuth.group}`;
+                if (statusBadge) statusBadge.innerHTML = `<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full font-bold text-[10px]">👑 Вы староста гр. ${starostaAuth.group}</span>`;
+            } else {
+                if (activeBlock) activeBlock.classList.add('hidden');
+                if (loginForm) loginForm.classList.remove('hidden');
+                if (statusBadge) statusBadge.innerHTML = `<span>Личные и групповые задания</span>`;
             }
         }
 
-        // ================= РАСПИСАНИЕ =================
+        async function activateStarostaKey() {
+            const key = document.getElementById('starostaKeyInput').value.trim();
+            const currentGrp = getActiveGroupName();
+            if (!currentGrp) { alert("Сначала выберите вашу группу в расписании!"); return; }
+            if (!key) { alert("Введите секретный ключ!"); return; }
+
+            // Пробуем тестовый запрос к серверу с этим ключом
+            try {
+                const res = await fetch(`${RENDER_URL}/api/tasks/${currentGrp}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        secretKey: key,
+                        task: { subject: 'Тест', title: '__test_verify__', dueDate: '2099-01-01' }
+                    })
+                });
+
+                const data = await res.json();
+                if (!res.ok || data.error) {
+                    alert("Ошибка: " + (data.error || "Неверный ключ для группы " + currentGrp));
+                    return;
+                }
+
+                // Сразу удаляем тестовое задание
+                if (data.task && data.task.id) {
+                    await fetch(`${RENDER_URL}/api/tasks/${currentGrp}/${data.task.id}`, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ secretKey: key })
+                    });
+                }
+
+                starostaAuth = { group: currentGrp, key: key };
+                localStorage.setItem(STORAGE_STAROSTA_KEY, JSON.stringify(starostaAuth));
+                document.getElementById('starostaKeyInput').value = '';
+                updateStarostaUI();
+                alert(`Успешно! Вы получили статус старосты группы ${currentGrp}. Теперь добавленные вами задания будут видеть все студенты группы.`);
+            } catch (e) {
+                alert("Ошибка связи с сервером: " + e.message);
+            }
+        }
+
+        function logoutStarosta() {
+            if (confirm("Выйти из режима старосты?")) {
+                starostaAuth = null;
+                localStorage.removeItem(STORAGE_STAROSTA_KEY);
+                updateStarostaUI();
+            }
+        }
+
+        // ================= ЗАГРУЗКА ЗАДАНИЙ С СЕРВЕРА ДЛЯ ГРУППЫ =================
+        async function fetchServerTasksForActiveGroup() {
+            const currentGrp = getActiveGroupName();
+            if (!currentGrp) return;
+            try {
+                const res = await fetch(`${RENDER_URL}/api/tasks/${currentGrp}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    serverGroupTasks = (data.tasks || []).map(t => ({ ...t, isGroupTask: true }));
+                }
+            } catch (e) {
+                serverGroupTasks = [];
+            }
+        }
+
+        // ================= ЭКРАН 1: РАСПИСАНИЕ С ПОДВЯЗКОЙ ДЗ =================
         function getMondayOfCurrentWeek() {
             const now = new Date();
             const day = now.getDay();
             const diff = now.getDate() - day + (day === 0 ? -6 : 1);
             return new Date(now.setDate(diff));
+        }
+
+        function getDateForDayIndex(dayIdx) {
+            const monday = getMondayOfCurrentWeek();
+            const d = new Date(monday);
+            d.setDate(monday.getDate() + dayIdx);
+            return d.toISOString().slice(0, 10); // YYYY-MM-DD
         }
 
         function renderWeekDaysBar() {
@@ -830,6 +909,7 @@
 
                 localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
                 activeChangesGroupFilter = groupName;
+                await fetchServerTasksForActiveGroup();
                 switchSection('schedule');
             } catch (e) {
                 alert("Ошибка загрузки: " + e.message);
@@ -853,6 +933,7 @@
                     merges: data.merges || []
                 };
                 localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
+                await fetchServerTasksForActiveGroup();
                 loadScheduleForActive();
             } catch (e) {
                 alert("Не удалось обновить: " + e.message);
@@ -903,6 +984,7 @@
             localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
             activeScheduleIndex = schedules.length - 1;
             activeChangesGroupFilter = groupName;
+            fetchServerTasksForActiveGroup();
             switchSection('schedule');
         }
 
@@ -920,7 +1002,12 @@
             });
         }
 
-        function switchSchedule(idx) { activeScheduleIndex = idx; renderScheduleTabs(); loadScheduleForActive(); }
+        function switchSchedule(idx) {
+            activeScheduleIndex = idx;
+            renderScheduleTabs();
+            fetchServerTasksForActiveGroup().then(() => loadScheduleForActive());
+        }
+
         function deleteSchedule(event, idx) {
             event.stopPropagation();
             if (confirm(`Удалить группу ${schedules[idx].groupName}?`)) {
@@ -933,6 +1020,14 @@
 
         function isCellMergedVertically(merges, r, c) {
             return (merges || []).some(m => m.s.r === r && m.e.r > r && c >= m.s.c && c <= m.e.c);
+        }
+
+        function getAllCombinedTasks() {
+            const list = [...serverGroupTasks];
+            localTasks.forEach(lt => {
+                if (!list.some(st => st.id === lt.id)) list.push(lt);
+            });
+            return list;
         }
 
         function loadScheduleForActive() {
@@ -1009,23 +1104,55 @@
 
                 let html = '';
                 const targetDays = scheduleViewMode === 'day' ? [DAY_NAMES_FULL[selectedDayIndex]] : DAY_NAMES_FULL;
+                const allCombinedTasks = getAllCombinedTasks();
 
-                targetDays.forEach(dayName => {
+                targetDays.forEach((dayName, idxOffset) => {
                     const lessons = daysSchedule[dayName] || [];
-                    if (scheduleViewMode === 'week' && lessons.length === 0) return;
+                    const dayIdx = scheduleViewMode === 'day' ? selectedDayIndex : DAY_NAMES_FULL.indexOf(dayName);
+                    const targetDayDateStr = getDateForDayIndex(dayIdx);
+
+                    // Ищем домашку на эту дату
+                    const dayTasks = allCombinedTasks.filter(t => t.dueDate === targetDayDateStr);
+
+                    if (scheduleViewMode === 'week' && lessons.length === 0 && dayTasks.length === 0) return;
 
                     if (scheduleViewMode === 'week') {
                         html += `<div class="text-xs font-bold text-blue-400 uppercase tracking-wider px-1 pt-2">${dayName}</div>`;
                     }
 
-                    if (lessons.length === 0) {
+                    // Блок ДЗ прямо в расписании на этот день!
+                    if (dayTasks.length > 0) {
                         html += `
-                            <div class="app-card p-6 rounded-3xl text-center space-y-1">
-                                <div class="text-base">🎉</div>
-                                <div class="text-sm font-semibold text-white">В этот день пар нет</div>
-                                <div class="text-xs text-slate-400">Можно отдохнуть или заняться заданиями</div>
-                            </div>
+                            <div class="app-card p-3.5 rounded-3xl border-blue-500/50 bg-blue-500/10 space-y-1.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[11px] font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                                        <span>📝</span> Домашнее задание на этот день:
+                                    </span>
+                                    <span class="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full font-semibold">${dayTasks.length}</span>
+                                </div>
+                                <div class="space-y-1 pt-0.5">
                         `;
+                        dayTasks.forEach(dt => {
+                            html += `
+                                <div class="text-xs flex items-start gap-1.5 text-slate-200">
+                                    <span class="text-blue-400">•</span>
+                                    <div><b class="text-white">${dt.subject}:</b> ${dt.title} ${dt.isGroupTask ? '<span class="text-[9px] bg-blue-500/20 text-blue-300 px-1 rounded ml-1">от старосты</span>' : ''}</div>
+                                </div>
+                            `;
+                        });
+                        html += `</div></div>`;
+                    }
+
+                    if (lessons.length === 0) {
+                        if (scheduleViewMode === 'day' && dayTasks.length === 0) {
+                            html += `
+                                <div class="app-card p-6 rounded-3xl text-center space-y-1">
+                                    <div class="text-base">🎉</div>
+                                    <div class="text-sm font-semibold text-white">В этот день пар нет</div>
+                                    <div class="text-xs text-slate-400">Можно отдохнуть или заняться заданиями</div>
+                                </div>
+                            `;
+                        }
                     } else {
                         lessons.forEach(l => {
                             const info = parseLessonDetails(l.lesson);
@@ -1060,7 +1187,7 @@
             }
         }
 
-        // ================= ЭКРАН 2: ИЗМЕНЕНИЯ В РАСПИСАНИИ (БЕЗ ЗАЧЕРКИВАНИЙ) =================
+        // ================= ЭКРАН 2: ИЗМЕНЕНИЯ В РАСПИСАНИИ =================
         function setChangesTypeFilter(type) {
             activeChangesTypeFilter = type;
             const ids = { ALL: 'chgFilterAll', MOVE: 'chgFilterMove', CANCEL: 'chgFilterCancel' };
@@ -1253,7 +1380,6 @@
                     ? `<span class="text-xs font-bold text-red-400">Отмена</span>`
                     : `<span class="text-xs font-bold text-blue-400">Замена</span>`;
 
-                // Новое оформление убранного предмета: без зачеркивания, выделено красным блоком с крестиком ✕
                 const removedBlock = `
                     <div class="flex items-start gap-2 bg-red-500/10 border border-red-500/30 p-2.5 rounded-2xl text-xs">
                         <span class="text-red-400 font-bold shrink-0 mt-0.5">✕</span>
@@ -1312,44 +1438,106 @@
             const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'profileSection'];
             allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById('addTaskModal').classList.remove('hidden');
+
+            const currentGrp = getActiveGroupName();
+            const choiceBox = document.getElementById('starostaPublishChoice');
+            const groupSpan = document.getElementById('starostaGroupNameSpan');
+
+            if (starostaAuth && starostaAuth.key && starostaAuth.group === currentGrp) {
+                if (choiceBox) choiceBox.classList.remove('hidden');
+                if (groupSpan) groupSpan.innerText = currentGrp;
+            } else {
+                if (choiceBox) choiceBox.classList.add('hidden');
+            }
+
             document.getElementById('taskSubjectInput').value = '';
             document.getElementById('taskTitleInput').value = '';
             document.getElementById('taskDateInput').value = new Date().toISOString().slice(0, 10);
         }
 
-        function saveNewTask() {
+        async function saveNewTask() {
             const subject = document.getElementById('taskSubjectInput').value.trim() || 'Общее';
             const title = document.getElementById('taskTitleInput').value.trim();
             const dueDate = document.getElementById('taskDateInput').value;
             if (!title) { alert("Введите описание задания!"); return; }
 
-            tasks.unshift({ id: Date.now(), subject, title, dueDate, status: 'todo' });
-            localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(tasks));
+            const currentGrp = getActiveGroupName();
+            const isGroupPublish = starostaAuth && starostaAuth.key && document.getElementById('taskForGroupCheckbox')?.checked;
+
+            if (isGroupPublish && currentGrp) {
+                const btn = document.getElementById('saveTaskSubmitBtn');
+                btn.innerText = "⏳ Публикуем для группы...";
+                try {
+                    const res = await fetch(`${RENDER_URL}/api/tasks/${currentGrp}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            secretKey: starostaAuth.key,
+                            task: { subject, title, dueDate }
+                        })
+                    });
+                    const data = await res.json();
+                    if (!res.ok || data.error) throw new Error(data.error || "Ошибка сохранения");
+                    await fetchServerTasksForActiveGroup();
+                } catch (e) {
+                    alert("Ошибка публикации на сервере: " + e.message);
+                } finally {
+                    btn.innerText = "✅ Добавить задание";
+                }
+            } else {
+                localTasks.unshift({ id: Date.now(), subject, title, dueDate, status: 'todo' });
+                localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
+            }
+
             switchSection('tasks');
         }
 
-        function toggleTaskStatus(id) {
-            const t = tasks.find(x => x.id === id);
+        function toggleTaskStatus(id, isGroupTask) {
+            if (isGroupTask) return; // статус переключается для личных заметок
+            const t = localTasks.find(x => x.id === id);
             if (!t) return;
             const order = ['todo', 'progress', 'done'];
             t.status = order[(order.indexOf(t.status) + 1) % order.length];
-            localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(tasks));
+            localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
             renderTasksList();
         }
 
-        function deleteTask(event, id) {
+        async function deleteTask(event, id, isGroupTask) {
             event.stopPropagation();
-            tasks = tasks.filter(x => x.id !== id);
-            localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(tasks));
-            renderTasksList();
+            if (isGroupTask) {
+                if (!starostaAuth || !starostaAuth.key) {
+                    alert("Это задание опубликовано старостой группы. Удалить его может только староста.");
+                    return;
+                }
+                if (confirm("Удалить это групповое задание для всех студентов?")) {
+                    try {
+                        const res = await fetch(`${RENDER_URL}/api/tasks/${starostaAuth.group}/${id}`, {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ secretKey: starostaAuth.key })
+                        });
+                        if (res.ok) {
+                            serverGroupTasks = serverGroupTasks.filter(t => t.id !== id);
+                            renderTasksList();
+                        }
+                    } catch (e) {
+                        alert("Ошибка удаления с сервера: " + e.message);
+                    }
+                }
+            } else {
+                localTasks = localTasks.filter(x => x.id !== id);
+                localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
+                renderTasksList();
+            }
         }
 
         function renderTasksList() {
             const container = document.getElementById('tasksList');
             const todayStr = new Date().toISOString().slice(0, 10);
             const nowTime = new Date(todayStr).getTime();
+            const allTasks = getAllCombinedTasks();
 
-            const filtered = tasks.filter(t => {
+            const filtered = allTasks.filter(t => {
                 if (!t.dueDate) return true;
                 const diffDays = Math.round((new Date(t.dueDate).getTime() - nowTime) / (1000 * 60 * 60 * 24));
                 if (activeTaskFilter === 'TODAY') return diffDays === 0;
@@ -1371,12 +1559,20 @@
                 const daysText = diffDays === 0 ? 'Сегодня' : (diffDays > 0 ? `${diffDays} дн.` : 'Просрочено');
 
                 let badgeHtml = '';
-                if (t.status === 'done') badgeHtml = `<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">Готово</span>`;
-                else if (t.status === 'progress') badgeHtml = `<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">В процессе</span>`;
-                else badgeHtml = `<span class="pill-bar text-slate-300 px-2.5 py-0.5 rounded-full text-[11px] font-medium">Не начато</span>`;
+                if (t.isGroupTask) {
+                    badgeHtml = `<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-0.5 rounded-full text-[10px] font-bold">👥 От старосты</span>`;
+                } else if (t.status === 'done') {
+                    badgeHtml = `<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">Готово</span>`;
+                } else if (t.status === 'progress') {
+                    badgeHtml = `<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">В процессе</span>`;
+                } else {
+                    badgeHtml = `<span class="pill-bar text-slate-300 px-2.5 py-0.5 rounded-full text-[11px] font-medium">Не начато</span>`;
+                }
+
+                const canDelete = !t.isGroupTask || (starostaAuth && starostaAuth.key);
 
                 html += `
-                    <div onclick="toggleTaskStatus(${t.id})" class="app-card p-4 rounded-3xl flex items-center gap-3.5 cursor-pointer active:scale-[0.99] transition">
+                    <div onclick="toggleTaskStatus(${t.id}, ${!!t.isGroupTask})" class="app-card p-4 rounded-3xl flex items-center gap-3.5 cursor-pointer active:scale-[0.99] transition">
                         <div class="w-11 h-11 rounded-2xl pill-bar flex items-center justify-center text-blue-400 font-bold text-base shrink-0">
                             ${icon}
                         </div>
@@ -1387,7 +1583,7 @@
                         </div>
                         <div class="flex flex-col items-end gap-1.5 shrink-0">
                             ${badgeHtml}
-                            <button type="button" onclick="deleteTask(event, ${t.id})" class="text-[10px] text-slate-400 hover:text-red-400">Удалить</button>
+                            ${canDelete ? `<button type="button" onclick="deleteTask(event, ${t.id}, ${!!t.isGroupTask})" class="text-[10px] text-slate-400 hover:text-red-400">Удалить</button>` : ''}
                         </div>
                     </div>
                 `;
@@ -1537,7 +1733,6 @@
             tempMarksWorkbook = null;
         }
 
-        // Вкладки в разделе Оценки (БЕЗ крестиков удаления — удаление только в профиле)
         function renderSubjectTabs() {
             const container = document.getElementById('subjectsTabs');
             container.innerHTML = '';
@@ -1556,6 +1751,45 @@
             activeSubjectIndex = idx;
             marksViewMode = 'all';
             setMarksViewMode('all');
+        }
+
+        function renderProfileSubjectsList() {
+            const container = document.getElementById('profileSubjectsList');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (subjects.length === 0) {
+                container.innerHTML = `<div class="pill-bar p-3.5 rounded-2xl text-center text-xs text-slate-400">Ни одного дневника оценок ещё не подключено</div>`;
+                return;
+            }
+
+            subjects.forEach((subj, idx) => {
+                const icon = getSubjectIcon(subj.subjectName);
+                const div = document.createElement('div');
+                div.className = "pill-bar p-3 rounded-2xl flex items-center justify-between gap-2";
+                div.innerHTML = `
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-9 h-9 rounded-xl app-card flex items-center justify-center text-blue-400 font-bold text-sm shrink-0">${icon}</div>
+                        <div class="min-w-0">
+                            <div class="text-xs font-bold text-white truncate">${subj.subjectName}</div>
+                            <div class="text-[11px] text-slate-400 truncate">${subj.studentName} • Гр. ${subj.groupName}</div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="deleteSubjectFromProfile(${idx})" class="bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition">
+                        Удалить
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function deleteSubjectFromProfile(idx) {
+            if (confirm(`Удалить дневник оценок «${subjects[idx].subjectName}»?`)) {
+                subjects.splice(idx, 1);
+                localStorage.setItem(STORAGE_MARKS_KEY, JSON.stringify(subjects));
+                if (activeSubjectIndex >= subjects.length) activeSubjectIndex = Math.max(0, subjects.length - 1);
+                renderProfileSubjectsList();
+            }
         }
 
         async function loadMarksForActiveSubject() {
@@ -1614,8 +1848,6 @@
                             let val = String(studentRow[c] || '').trim();
                             if (!val || val === '—' || val === '-' || /#(DIV|ДЕЛ|VALUE|ЗНАЧ|REF|Н\/Д)/i.test(val)) continue;
                             if (/^(№|п\/п|№\s*п\/п)$/i.test(rawHeader)) continue;
-
-                            // Отсекаем колонки посещаемости (чистые даты вида "6.9", "13.9" или "Посещаемость")
                             if (/посещаем/i.test(rawHeader) || /^\d{1,2}\.\d{1,2}(\.\d{2,4})?$/.test(rawHeader)) continue;
 
                             const isSummaryCol = isSummaryGradeColumn(rawHeader);
