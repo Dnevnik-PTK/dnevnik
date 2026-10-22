@@ -22,25 +22,152 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-// ================= МГНОВЕННЫЙ КЭШ РАСПИСАНИЙ И ЗАМЕН =================
+// ================= КЭШ И ХРАНИЛИЩА =================
 const scheduleCache = new Map();
 let changesListCache = [];
 const changesBufferCache = new Map();
 let lastCacheUpdate = null;
 let isSyncing = false;
 
-// ================= ХРАНИЛИЩЕ ДОМАШНИХ ЗАДАНИЙ ГРУПП =================
-// groupName -> Array of { id, subject, title, dueDate, createdAt }
+// Одноразовые ключи для старост (key -> groupName)
+const starostaOneTimeKeys = new Map();
+// Сессии авторизованных старост (groupName -> sessionToken)
+const starostaSessions = new Map();
+// Задания групп (groupName -> Array of tasks)
 const groupTasksStorage = new Map();
 
-// Секретные ключи для старост групп (можешь менять или дополнять любыми своими группами)
-const STAROSTA_KEYS = {
-    '5953': 'ptk5953star',
-    '5952': 'ptk5952star',
-    '5951': 'ptk5951star',
-    '5996': 'ptk5996star'
-};
+// Сессии подтверждённых админов
+const adminSessions = new Set();
 
+function generateRandomCode(len = 6) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let res = '';
+    for (let i = 0; i < len; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
+    return res;
+}
+
+// Одноразовый ключ создателя при старте сервера
+let currentRootOneTimeKey = `ROOT-${generateRandomCode(8)}`;
+console.log('====================================================');
+console.log('🔑 ОДНОРАЗОВЫЙ КЛЮЧ СОЗДАТЕЛЯ ДЛЯ ВХОДА В АДМИНКУ:');
+console.log(currentRootOneTimeKey);
+console.log('====================================================');
+
+// 1. АВТОРИЗАЦИЯ СОЗДАТЕЛЯ (ОДНОРАЗОВЫЙ ROOT-КЛЮЧ)
+app.post('/api/admin/auth', (req, res) => {
+    const { rootKey } = req.body || {};
+    const cleanKey = String(rootKey || '').trim();
+
+    if (!currentRootOneTimeKey || cleanKey !== currentRootOneTimeKey) {
+        return res.status(403).json({ error: 'Одноразовый ключ создателя недействителен или уже сгорел' });
+    }
+
+    currentRootOneTimeKey = null; // Сгорает моментально
+    const adminToken = `ADMIN-${generateRandomCode(20)}`;
+    adminSessions.add(adminToken);
+
+    res.json({ success: true, adminToken });
+});
+
+// 2. ВЫПУСК ОДНОРАЗОВОГО КЛЮЧА ДЛЯ СТАРОСТЫ ЛЮБОЙ ГРУППЫ
+app.post('/api/admin/generate-starosta-key', (req, res) => {
+    const { adminToken, group } = req.body || {};
+    if (!adminSessions.has(adminToken)) {
+        return res.status(403).json({ error: 'Сессия администратора не подтверждена' });
+    }
+    const cleanGroup = String(group || '').trim();
+    if (!cleanGroup) return res.status(400).json({ error: 'Укажите номер группы' });
+
+    const key = `KEY-${cleanGroup}-${generateRandomCode(6)}`;
+    starostaOneTimeKeys.set(key, cleanGroup);
+
+    res.json({ success: true, group: cleanGroup, key });
+});
+
+// 3. СБРОС СТАРОСТЫ ГРУППЫ
+app.post('/api/admin/revoke-starosta', (req, res) => {
+    const { adminToken, group } = req.body || {};
+    if (!adminSessions.has(adminToken)) {
+        return res.status(403).json({ error: 'Доступ запрещён' });
+    }
+    const cleanGroup = String(group || '').trim();
+    starostaSessions.delete(cleanGroup);
+    res.json({ success: true, message: `Староста группы ${cleanGroup} сброшен` });
+});
+
+// 4. АВТОРИЗАЦИЯ СТАРОСТЫ (ОДНОРАЗОВЫЙ КЛЮЧ)
+app.post('/api/tasks/auth', (req, res) => {
+    const { secretKey } = req.body || {};
+    const cleanKey = String(secretKey || '').trim();
+
+    if (!starostaOneTimeKeys.has(cleanKey)) {
+        return res.status(403).json({ error: 'Одноразовый ключ недействителен или уже был активирован' });
+    }
+
+    const group = starostaOneTimeKeys.get(cleanKey);
+    starostaOneTimeKeys.delete(cleanKey); // Сгорает
+
+    const sessionToken = `STAROSTA-${group}-${generateRandomCode(16)}`;
+    starostaSessions.set(group, sessionToken);
+
+    res.json({ success: true, group, sessionToken });
+});
+
+// 5. ПОЛУЧИТЬ ЗАДАНИЯ ГРУППЫ
+app.get('/api/tasks/:group', (req, res) => {
+    const group = String(req.params.group || '').trim();
+    res.json({ tasks: groupTasksStorage.get(group) || [] });
+});
+
+// 6. ДОБАВИТЬ ЗАДАНИЕ СТАРОСТОЙ
+app.post('/api/tasks/:group', (req, res) => {
+    const group = String(req.params.group || '').trim();
+    const { task, sessionToken } = req.body || {};
+
+    const activeToken = starostaSessions.get(group);
+    if (!activeToken || activeToken !== sessionToken) {
+        return res.status(403).json({ error: 'Сессия старосты недействительна' });
+    }
+
+    if (!task || !task.title || !task.dueDate) {
+        return res.status(400).json({ error: 'Заполните название задания и срок сдачи' });
+    }
+
+    if (!groupTasksStorage.has(group)) groupTasksStorage.set(group, []);
+
+    const newTask = {
+        id: Date.now(),
+        subject: String(task.subject || 'Общее').trim(),
+        title: String(task.title || '').trim(),
+        dueDate: String(task.dueDate || '').trim(),
+        author: 'Староста',
+        createdAt: new Date().toISOString()
+    };
+
+    groupTasksStorage.get(group).unshift(newTask);
+    res.json({ success: true, task: newTask });
+});
+
+// 7. УДАЛИТЬ ЗАДАНИЕ СТАРОСТОЙ
+app.delete('/api/tasks/:group/:id', (req, res) => {
+    const group = String(req.params.group || '').trim();
+    const taskId = parseInt(req.params.id, 10);
+    const { sessionToken } = req.body || {};
+
+    const activeToken = starostaSessions.get(group);
+    if (!activeToken || activeToken !== sessionToken) {
+        return res.status(403).json({ error: 'Сессия старосты недействительна' });
+    }
+
+    if (groupTasksStorage.has(group)) {
+        const filtered = groupTasksStorage.get(group).filter(t => t.id !== taskId);
+        groupTasksStorage.set(group, filtered);
+    }
+
+    res.json({ success: true });
+});
+
+// ================= РАСПИСАНИЕ И ЗАМЕНЫ =================
 function extractLinksFromHtml(html, baseUrl) {
     const links = [];
     const regex = /<a\s+[^>]*href=(?:["']([^"']+)["']|([^\s>]+))[^>]*>([\s\S]*?)<\/a>/gi;
@@ -126,27 +253,23 @@ function findGroupInWorkbook(workbook, targetGroup) {
 async function fetchReplacementFilesList() {
     const pageUrl = 'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999';
     const response = await fetch(pageUrl, { headers: BROWSER_HEADERS });
-    if (!response.ok) throw new Error(`Портал НовГУ ответил кодом ${response.status}`);
+    if (!response.ok) throw new Error(`Портал ответил ${response.status}`);
     const html = await response.text();
-
     const allLinks = extractLinksFromHtml(html, pageUrl);
     const files = [];
 
     for (const link of allLinks) {
         const dateMatch = link.text.match(/\b(\d{1,2})\.(\d{1,2})\.(\d{2,4})\b/);
         if (!dateMatch) continue;
-
         const d = parseInt(dateMatch[1], 10);
         const m = parseInt(dateMatch[2], 10) - 1;
         let y = parseInt(dateMatch[3], 10);
         if (y < 100) y += 2000;
         const timestamp = new Date(y, m, d).getTime();
-
         if (!files.some(f => f.url === link.url || f.title === link.text)) {
             files.push({ title: link.text, url: link.url, timestamp });
         }
     }
-
     files.sort((a, b) => b.timestamp - a.timestamp);
     return files.slice(0, 5).map(f => ({ title: f.title, url: f.url }));
 }
@@ -154,8 +277,6 @@ async function fetchReplacementFilesList() {
 async function syncAllDataFromNovsu() {
     if (isSyncing) return;
     isSyncing = true;
-    console.log('[CACHE] Фоновое обновление данных...');
-
     try {
         const chgFiles = await fetchReplacementFilesList();
         if (chgFiles.length > 0) {
@@ -175,7 +296,6 @@ async function syncAllDataFromNovsu() {
             'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999',
             'https://portal.novsu.ru/univer/timetable/spo/'
         ];
-
         const excelUrls = new Map();
         for (const pageUrl of pagesToScan) {
             try {
@@ -183,13 +303,10 @@ async function syncAllDataFromNovsu() {
                 if (!r.ok) continue;
                 const html = await r.text();
                 const links = extractLinksFromHtml(html, pageUrl);
-
                 for (const link of links) {
                     if (/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(link.text)) continue;
                     if (/\b[2-9]\d{3}\b/.test(link.text) || /\.(xlsx?|xls)($|\?)/i.test(link.url)) {
-                        if (!excelUrls.has(link.url)) {
-                            excelUrls.set(link.url, link.text);
-                        }
+                        if (!excelUrls.has(link.url)) excelUrls.set(link.url, link.text);
                     }
                 }
             } catch (e) {}
@@ -207,78 +324,13 @@ async function syncAllDataFromNovsu() {
                 indexWorkbookGroups(workbook, label);
             } catch (e) {}
         }
-
         lastCacheUpdate = new Date().toISOString();
-        console.log(`[CACHE] Обновлено. Групп в кэше: ${scheduleCache.size}`);
     } catch (err) {
-        console.error('[CACHE] Ошибка обновления:', err.message);
     } finally {
         isSyncing = false;
     }
 }
-
 setInterval(syncAllDataFromNovsu, 30 * 60 * 1000);
-
-// ================= API: ДОМАШНИЕ ЗАДАНИЯ ГРУПП (СТАРОСТА) =================
-
-// 1. Получить задания конкретной группы
-app.get('/api/tasks/:group', (req, res) => {
-    const group = String(req.params.group || '').trim();
-    const tasks = groupTasksStorage.get(group) || [];
-    res.json({ tasks });
-});
-
-// 2. Добавить задание от старосты (с проверкой секретного ключа)
-app.post('/api/tasks/:group', (req, res) => {
-    const group = String(req.params.group || '').trim();
-    const { task, secretKey } = req.body || {};
-
-    const expectedKey = STAROSTA_KEYS[group];
-    if (!expectedKey || expectedKey !== secretKey) {
-        return res.status(403).json({ error: 'Неверный ключ доступа старосты этой группы' });
-    }
-
-    if (!task || !task.title || !task.dueDate) {
-        return res.status(400).json({ error: 'Заполните название задания и дату' });
-    }
-
-    if (!groupTasksStorage.has(group)) {
-        groupTasksStorage.set(group, []);
-    }
-
-    const newTask = {
-        id: Date.now(),
-        subject: String(task.subject || 'Общее').trim(),
-        title: String(task.title || '').trim(),
-        dueDate: String(task.dueDate || '').trim(), // YYYY-MM-DD
-        author: 'Староста',
-        createdAt: new Date().toISOString()
-    };
-
-    groupTasksStorage.get(group).unshift(newTask);
-    res.json({ success: true, task: newTask });
-});
-
-// 3. Удалить задание старостой
-app.delete('/api/tasks/:group/:id', (req, res) => {
-    const group = String(req.params.group || '').trim();
-    const taskId = parseInt(req.params.id, 10);
-    const { secretKey } = req.body || {};
-
-    const expectedKey = STAROSTA_KEYS[group];
-    if (!expectedKey || expectedKey !== secretKey) {
-        return res.status(403).json({ error: 'Неверный ключ доступа старосты' });
-    }
-
-    if (groupTasksStorage.has(group)) {
-        const filtered = groupTasksStorage.get(group).filter(t => t.id !== taskId);
-        groupTasksStorage.set(group, filtered);
-    }
-
-    res.json({ success: true });
-});
-
-// ================= API: РАСПИСАНИЕ И ЗАМЕНЫ =================
 
 app.get('/api/changes-list', async (req, res) => {
     try {
@@ -286,58 +338,45 @@ app.get('/api/changes-list', async (req, res) => {
         const files = await fetchReplacementFilesList();
         changesListCache = files;
         res.json({ files, cached: false });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.get('/api/changes', async (req, res) => {
     try {
         let targetUrl = req.query.url;
         let fileTitle = req.query.title || 'changes.docx';
-
         if (!targetUrl) {
             if (changesListCache.length === 0) changesListCache = await fetchReplacementFilesList();
             if (changesListCache.length === 0) return res.status(404).json({ error: 'Файлы не найдены' });
             targetUrl = changesListCache[0].url;
             fileTitle = changesListCache[0].title;
         }
-
         if (changesBufferCache.has(targetUrl)) {
             const cachedItem = changesBufferCache.get(targetUrl);
             res.setHeader('Content-Type', 'application/octet-stream');
             res.setHeader('X-File-Title', encodeURIComponent(cachedItem.title || fileTitle));
             return res.send(cachedItem.buffer);
         }
-
         const fileRes = await fetch(targetUrl, { headers: BROWSER_HEADERS });
-        if (!fileRes.ok) throw new Error(`Не удалось скачать файл (${fileRes.status})`);
-
+        if (!fileRes.ok) throw new Error(`Не удалось скачать (${fileRes.status})`);
         const buffer = Buffer.from(await fileRes.arrayBuffer());
         changesBufferCache.set(targetUrl, { buffer, title: fileTitle });
-
         res.setHeader('Content-Type', 'application/octet-stream');
         res.setHeader('X-File-Title', encodeURIComponent(fileTitle));
         res.send(buffer);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.get('/api/schedule/:group', async (req, res) => {
     try {
         const targetGroup = String(req.params.group || '').trim();
-        if (!targetGroup) return res.status(400).json({ error: 'Не указан номер группы' });
-
-        if (scheduleCache.has(targetGroup)) {
-            return res.json(scheduleCache.get(targetGroup));
-        }
+        if (!targetGroup) return res.status(400).json({ error: 'Не указана группа' });
+        if (scheduleCache.has(targetGroup)) return res.json(scheduleCache.get(targetGroup));
 
         const pagesToScan = [
             'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999',
             'https://portal.novsu.ru/univer/timetable/spo/'
         ];
-
         const exactRegex = new RegExp(`(^|\\D)${targetGroup}(\\D|$)`);
         const prefix3 = targetGroup.slice(0, 3);
         const prefixRegex = new RegExp(`(^|\\D)${prefix3}\\d(\\D|$)`);
@@ -372,12 +411,10 @@ app.get('/api/schedule/:group', async (req, res) => {
 
                 const workbook = XLSX.read(buffer, { type: 'buffer' });
                 indexWorkbookGroups(workbook, cand.text);
-
                 const result = findGroupInWorkbook(workbook, targetGroup);
                 if (result) {
                     if (!result.rows[result.headerRowIdx]) result.rows[result.headerRowIdx] = [];
                     result.rows[result.headerRowIdx][result.groupColIdx] = targetGroup;
-
                     const payload = {
                         group: targetGroup,
                         sheet: result.sheet,
@@ -392,20 +429,12 @@ app.get('/api/schedule/:group', async (req, res) => {
                 }
             } catch (e) {}
         }
-
-        return res.status(404).json({ error: `Группа ${targetGroup} не найдена на сайте НовГУ` });
-    } catch (error) {
-        res.status(500).json({ error: 'Ошибка сервера: ' + error.message });
-    }
+        return res.status(404).json({ error: `Группа ${targetGroup} не найдена` });
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.get('/ping', (req, res) => {
-    res.json({
-        status: 'ok',
-        cachedGroupsCount: scheduleCache.size,
-        cachedChangesCount: changesListCache.length,
-        lastCacheUpdate
-    });
+    res.json({ status: 'ok', cachedGroupsCount: scheduleCache.size, lastCacheUpdate });
 });
 
 app.get('/', (req, res) => {
@@ -413,6 +442,6 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Server v5.4 running on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
     syncAllDataFromNovsu();
 });
