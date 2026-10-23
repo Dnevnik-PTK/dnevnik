@@ -7,7 +7,7 @@ try {
 // ================= НАСТРОЙКИ СЕРВЕРА И GOOGLE APPS SCRIPT =================
 const RENDER_URL = 'https://dnevnik-1.onrender.com';
 // ВСТАВЬТЕ СЮДА URL РАЗВЕРНУТОГО ВЕБ-ПРИЛОЖЕНИЯ GOOGLE APPS SCRIPT:
-const GOOGLE_SCRIPT_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyb55_ВАШ_URL_СКРИПТА/exec';
+const GOOGLE_SCRIPT_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycby0OHCGp42wNiBPWnqxO7Z3jImgL5_qhE2s0FODcKEe65cfoaLNh6Ho6njABsbtB5aDaw/exec';
 
 const STORAGE_MARKS_KEY = 'ptk_diary_subjects_v3';
 const STORAGE_SCHED_KEY = 'ptk_diary_schedules_v6';
