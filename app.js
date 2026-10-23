@@ -33,6 +33,12 @@ let currentTheme = 'dark';
 let starostaAuth = null;
 let creatorMasterPassword = localStorage.getItem(STORAGE_CREATOR_PASS_KEY) || null;
 
+let serverGroupTasks = [];
+let localTasks = [];
+let activeTaskFilter = 'ALL';
+let taskSubTab = 'tasks';
+let selectedSubjectInModal = '';
+
 let personalMaterials = [];
 let googleDriveMaterials = [];
 let activeMaterialSubjectFilter = 'ALL';
@@ -46,11 +52,6 @@ let selectedFileType = '';
 let changesData = { dateTitle: 'Изменения в расписании', fileName: '', items: [], portalFiles: [] };
 let activeChangesGroupFilter = 'ALL';
 let activeChangesTypeFilter = 'ALL';
-
-let localTasks = [];
-let activeTaskFilter = 'ALL';
-let taskSubTab = 'tasks';
-let selectedSubjectInModal = '';
 
 let marksViewMode = 'subjects';
 let cachedSubjectSummaries = {};
@@ -83,6 +84,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     updateStarostaUI();
     updateCreatorUI();
+    fetchGoogleGroupTasks();
     fetchGoogleDriveMaterials();
 
     if (schedules.length > 0) switchSection('schedule');
@@ -128,6 +130,9 @@ function getKnownUserGroups() {
 }
 
 function getActiveGroupName() {
+    if (schedules[activeScheduleIndex] && schedules[activeScheduleIndex].groupName) {
+        return String(schedules[activeScheduleIndex].groupName);
+    }
     const known = getKnownUserGroups();
     return known[0] || '';
 }
@@ -193,7 +198,7 @@ function switchSection(section) {
         document.getElementById('scheduleSection').classList.remove('hidden');
         renderScheduleTabs();
         renderWeekDaysBar();
-        loadScheduleForActive();
+        fetchGoogleGroupTasks().then(() => loadScheduleForActive());
     } else if (section === 'changes') {
         document.getElementById('changesSection').classList.remove('hidden');
         renderPortalFilesButtons();
@@ -327,16 +332,19 @@ function updateStarostaUI() {
     const activeBlock = document.getElementById('starostaActiveBlock');
     const loginForm = document.getElementById('starostaLoginForm');
     const groupLabel = document.getElementById('starostaActiveGroupLabel');
+    const statusBadge = document.getElementById('starostaStatusBadge');
     const notice = document.getElementById('matTargetGroupNotice');
 
     if (starostaAuth && starostaAuth.sessionToken) {
         if (activeBlock) activeBlock.classList.remove('hidden');
         if (loginForm) loginForm.classList.add('hidden');
         if (groupLabel) groupLabel.innerText = `Группа: ${starostaAuth.group}`;
+        if (statusBadge) statusBadge.innerHTML = `<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full font-bold text-[10px]">👑 Вы староста гр. ${starostaAuth.group}</span>`;
         if (notice) notice.classList.add('hidden');
     } else {
         if (activeBlock) activeBlock.classList.add('hidden');
         if (loginForm) loginForm.classList.remove('hidden');
+        if (statusBadge) statusBadge.innerHTML = `<span>Личные и групповые задания</span>`;
         if (notice) notice.classList.remove('hidden');
     }
 }
@@ -377,6 +385,8 @@ async function activateStarostaOneTimeKey() {
         localStorage.setItem(STORAGE_STAROSTA_SESSION_KEY, JSON.stringify(starostaAuth));
         keyInput.value = '';
         updateStarostaUI();
+        await fetchGoogleGroupTasks();
+        await fetchGoogleDriveMaterials();
         alert(`✓ Поздравляем! Вы активировали права старосты группы ${data.group}. Одноразовый ключ сгорел.`);
     } catch (e) {
         alert("Ошибка: " + e.message);
@@ -392,6 +402,33 @@ function logoutStarosta() {
         localStorage.removeItem(STORAGE_STAROSTA_SESSION_KEY);
         updateStarostaUI();
     }
+}
+
+// ================= ЗАГРУЗКА ОБЩИХ ЗАДАНИЙ ИЗ GOOGLE APPS SCRIPT =================
+async function fetchGoogleGroupTasks() {
+    const currentGrp = getActiveGroupName();
+    if (!currentGrp || !GOOGLE_SCRIPT_WEBAPP_URL || GOOGLE_SCRIPT_WEBAPP_URL.includes('ВАШ_URL')) {
+        return;
+    }
+    try {
+        const res = await fetch(`${GOOGLE_SCRIPT_WEBAPP_URL}?action=getTasks&group=${encodeURIComponent(currentGrp)}`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success && Array.isArray(data.tasks)) {
+                serverGroupTasks = data.tasks.map(t => ({ ...t, isGroupTask: true }));
+            }
+        }
+    } catch (e) {
+        console.log('Group tasks sync skipped:', e.message);
+    }
+}
+
+function getAllCombinedTasks() {
+    const list = [...serverGroupTasks];
+    localTasks.forEach(lt => {
+        if (!list.some(st => st.id === lt.id)) list.push(lt);
+    });
+    return list;
 }
 
 // ================= РАСПИСАНИЕ И АНАЛИЗ ПАР =================
@@ -646,7 +683,8 @@ async function addScheduleFromServer() {
 
         localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
         activeChangesGroupFilter = groupName;
-        fetchGoogleDriveMaterials();
+        await fetchGoogleGroupTasks();
+        await fetchGoogleDriveMaterials();
         switchSection('schedule');
     } catch (e) {
         alert("Ошибка загрузки: " + e.message);
@@ -670,6 +708,8 @@ async function refreshActiveScheduleFromServer() {
             merges: data.merges || []
         };
         localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
+        await fetchGoogleGroupTasks();
+        await fetchGoogleDriveMaterials();
         loadScheduleForActive();
     } catch (e) {
         alert("Не удалось обновить: " + e.message);
@@ -720,6 +760,7 @@ function saveScheduleGroup(groupName, sheetName) {
     localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
     activeScheduleIndex = schedules.length - 1;
     activeChangesGroupFilter = groupName;
+    fetchGoogleGroupTasks();
     fetchGoogleDriveMaterials();
     switchSection('schedule');
 }
@@ -741,8 +782,10 @@ function renderScheduleTabs() {
 function switchSchedule(idx) {
     activeScheduleIndex = idx;
     renderScheduleTabs();
-    fetchGoogleDriveMaterials();
-    loadScheduleForActive();
+    fetchGoogleGroupTasks().then(() => {
+        fetchGoogleDriveMaterials();
+        loadScheduleForActive();
+    });
 }
 
 function deleteSchedule(event, idx) {
@@ -833,13 +876,14 @@ function loadScheduleForActive() {
 
         let html = '';
         const targetDays = scheduleViewMode === 'day' ? [DAY_NAMES_FULL[selectedDayIndex]] : DAY_NAMES_FULL;
+        const allCombinedTasks = getAllCombinedTasks();
 
         targetDays.forEach((dayName) => {
             const lessons = daysSchedule[dayName] || [];
             const dayIdx = scheduleViewMode === 'day' ? selectedDayIndex : DAY_NAMES_FULL.indexOf(dayName);
             const targetDayDateStr = getDateForDayIndex(dayIdx);
 
-            const dayTasks = localTasks.filter(t => t.dueDate === targetDayDateStr);
+            const dayTasks = allCombinedTasks.filter(t => t.dueDate === targetDayDateStr);
 
             if (scheduleViewMode === 'week' && lessons.length === 0 && dayTasks.length === 0) return;
 
@@ -877,7 +921,10 @@ function loadScheduleForActive() {
                             taskInsideCardHtml += `
                                 <div class="bg-blue-500/10 border border-blue-500/30 p-2 rounded-xl text-xs flex items-start justify-between gap-2">
                                     <div class="min-w-0">
-                                        <div class="text-[10px] text-blue-400 font-bold uppercase tracking-wider">📝 Задание:</div>
+                                        <div class="text-[10px] text-blue-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                                            <span>📝 Задание:</span>
+                                            ${t.isGroupTask ? '<span class="bg-blue-500/20 text-blue-300 px-1 py-0.2 rounded text-[9px]">от старосты</span>' : ''}
+                                        </div>
                                         <div class="text-white font-medium leading-snug pt-0.5">${t.title}</div>
                                     </div>
                                     <span class="text-emerald-400 text-xs shrink-0 pt-0.5">✓</span>
@@ -1182,7 +1229,7 @@ function switchTaskSubTab(tab) {
         bMat.className = "py-2 rounded-xl text-xs font-medium transition text-slate-400";
         vTasks.classList.remove('hidden');
         vMat.classList.add('hidden');
-        renderTasksList();
+        fetchGoogleGroupTasks().then(() => renderTasksList());
     } else {
         bTasks.className = "py-2 rounded-xl text-xs font-medium transition text-slate-400";
         bMat.className = "py-2 rounded-xl text-xs font-semibold transition blue-glow";
@@ -1276,13 +1323,24 @@ function openAddTaskModal() {
     allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
     document.getElementById('addTaskModal').classList.remove('hidden');
 
+    const currentGrp = getActiveGroupName();
+    const choiceBox = document.getElementById('starostaPublishChoice');
+    const groupSpan = document.getElementById('starostaGroupNameSpan');
+
+    if (starostaAuth && starostaAuth.sessionToken && starostaAuth.group === currentGrp) {
+        if (choiceBox) choiceBox.classList.remove('hidden');
+        if (groupSpan) groupSpan.innerText = currentGrp;
+    } else {
+        if (choiceBox) choiceBox.classList.add('hidden');
+    }
+
     document.getElementById('taskTitleInput').value = '';
     document.getElementById('taskSubjectInput').value = '';
     document.getElementById('taskDateInput').value = new Date().toISOString().slice(0, 10);
     onTaskDateChanged();
 }
 
-function saveNewTask() {
+async function saveNewTask() {
     let subject = selectedSubjectInModal || document.getElementById('taskSubjectInput').value.trim();
     const title = document.getElementById('taskTitleInput').value.trim();
     const dueDate = document.getElementById('taskDateInput').value;
@@ -1290,14 +1348,44 @@ function saveNewTask() {
     if (!subject) subject = 'Общее задание';
     if (!title) { alert("Введите, что нужно сделать!"); return; }
 
-    localTasks.unshift({ id: Date.now(), subject, title, dueDate, status: 'todo' });
-    localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
+    const currentGrp = getActiveGroupName();
+    const isGroupPublish = starostaAuth && starostaAuth.sessionToken && starostaAuth.group === currentGrp && document.getElementById('taskForGroupCheckbox')?.checked;
+
+    if (isGroupPublish && currentGrp) {
+        const btn = document.getElementById('saveTaskSubmitBtn');
+        btn.innerText = "⏳ Публикуем для группы...";
+        btn.disabled = true;
+        try {
+            const res = await fetch(GOOGLE_SCRIPT_WEBAPP_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    action: 'addTask',
+                    group: currentGrp,
+                    sessionToken: starostaAuth.sessionToken,
+                    task: { subject, title, dueDate }
+                })
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || "Ошибка сохранения задания");
+            await fetchGoogleGroupTasks();
+        } catch (e) {
+            alert("Ошибка публикации: " + e.message);
+        } finally {
+            btn.innerText = "✅ Добавить задание";
+            btn.disabled = false;
+        }
+    } else {
+        localTasks.unshift({ id: Date.now(), subject, title, dueDate, status: 'todo' });
+        localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
+    }
 
     switchSection('tasks');
     loadScheduleForActive();
 }
 
-function toggleTaskStatus(id) {
+function toggleTaskStatus(id, isGroupTask) {
+    if (isGroupTask) return;
     const t = localTasks.find(x => x.id === id);
     if (!t) return;
     const order = ['todo', 'progress', 'done'];
@@ -1307,20 +1395,49 @@ function toggleTaskStatus(id) {
     loadScheduleForActive();
 }
 
-function deleteTask(event, id) {
+async function deleteTask(event, id, isGroupTask) {
     event.stopPropagation();
-    localTasks = localTasks.filter(x => x.id !== id);
-    localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
-    renderTasksList();
-    loadScheduleForActive();
+    if (isGroupTask) {
+        if (!starostaAuth || !starostaAuth.sessionToken) {
+            alert("Удалить это задание может только староста группы.");
+            return;
+        }
+        if (confirm("Удалить это групповое задание для всех студентов?")) {
+            try {
+                const res = await fetch(GOOGLE_SCRIPT_WEBAPP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'deleteTask',
+                        group: starostaAuth.group,
+                        sessionToken: starostaAuth.sessionToken,
+                        taskId: id
+                    })
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || "Ошибка удаления");
+                serverGroupTasks = serverGroupTasks.filter(t => Number(t.id) !== Number(id));
+                renderTasksList();
+                loadScheduleForActive();
+            } catch (e) {
+                alert("Ошибка: " + e.message);
+            }
+        }
+    } else {
+        localTasks = localTasks.filter(x => x.id !== id);
+        localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
+        renderTasksList();
+        loadScheduleForActive();
+    }
 }
 
 function renderTasksList() {
     const container = document.getElementById('tasksList');
     const todayStr = new Date().toISOString().slice(0, 10);
     const nowTime = new Date(todayStr).getTime();
+    const allTasks = getAllCombinedTasks();
 
-    const filtered = localTasks.filter(t => {
+    const filtered = allTasks.filter(t => {
         if (!t.dueDate) return true;
         const diffDays = Math.round((new Date(t.dueDate).getTime() - nowTime) / (1000 * 60 * 60 * 24));
         if (activeTaskFilter === 'TODAY') return diffDays === 0;
@@ -1342,7 +1459,9 @@ function renderTasksList() {
         const daysText = diffDays === 0 ? 'Сегодня' : (diffDays > 0 ? `${diffDays} дн.` : 'Просрочено');
 
         let badgeHtml = '';
-        if (t.status === 'done') {
+        if (t.isGroupTask) {
+            badgeHtml = `<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-0.5 rounded-full text-[10px] font-bold">👥 От старосты</span>`;
+        } else if (t.status === 'done') {
             badgeHtml = `<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">Готово</span>`;
         } else if (t.status === 'progress') {
             badgeHtml = `<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">В процессе</span>`;
@@ -1350,8 +1469,10 @@ function renderTasksList() {
             badgeHtml = `<span class="pill-bar text-slate-300 px-2.5 py-0.5 rounded-full text-[11px] font-medium">Не начато</span>`;
         }
 
+        const canDelete = !t.isGroupTask || (starostaAuth && starostaAuth.sessionToken);
+
         html += `
-            <div onclick="toggleTaskStatus(${t.id})" class="app-card p-4 rounded-3xl flex items-center gap-3.5 cursor-pointer active:scale-[0.99] transition">
+            <div onclick="toggleTaskStatus(${t.id}, ${!!t.isGroupTask})" class="app-card p-4 rounded-3xl flex items-center gap-3.5 cursor-pointer active:scale-[0.99] transition">
                 <div class="w-11 h-11 rounded-2xl pill-bar flex items-center justify-center text-blue-400 font-bold text-base shrink-0">
                     ${icon}
                 </div>
@@ -1362,7 +1483,7 @@ function renderTasksList() {
                 </div>
                 <div class="flex flex-col items-end gap-1.5 shrink-0">
                     ${badgeHtml}
-                    <button type="button" onclick="deleteTask(event, ${t.id})" class="text-[10px] text-slate-400 hover:text-red-400">Удалить</button>
+                    ${canDelete ? `<button type="button" onclick="deleteTask(event, ${t.id}, ${!!t.isGroupTask})" class="text-[10px] text-slate-400 hover:text-red-400">Удалить</button>` : ''}
                 </div>
             </div>
         `;
