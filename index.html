@@ -59,6 +59,12 @@
             color: #ffffff !important;
         }
 
+        .emerald-glow {
+            background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+            color: #ffffff !important;
+        }
+
         .bottom-nav {
             background-color: var(--bg-nav);
             border-top: 1px solid var(--border-pill);
@@ -95,7 +101,7 @@
                 <div>
                     <div class="flex items-center gap-2">
                         <h1 id="topScreenTitle" class="text-lg font-bold tracking-tight text-white">Расписание</h1>
-                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">v5.9</span>
+                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">v6.7</span>
                     </div>
                     <p id="topScreenSubtitle" class="text-[11px] text-slate-400">НовГУ • Студенческий помощник</p>
                 </div>
@@ -200,8 +206,8 @@
                 </div>
 
                 <div class="flex justify-between items-center px-1">
-                    <div id="starostaStatusBadge" class="text-xs text-slate-400 flex items-center gap-1.5">
-                        <span>Личные и групповые задания</span>
+                    <div class="text-xs text-slate-400 flex items-center gap-1.5">
+                        <span>Личный список заданий</span>
                     </div>
                     <button type="button" onclick="openAddTaskModal()" class="text-xs text-blue-400 font-bold hover:text-blue-300 flex items-center gap-1">
                         <span>➕ Добавить задание</span>
@@ -211,11 +217,12 @@
                 <div id="tasksList" class="space-y-2.5"></div>
             </div>
 
-            <!-- ПОДРАЗДЕЛ Б: УЧЕБНИКИ И МАТЕРИАЛЫ -->
+            <!-- ПОДРАЗДЕЛ Б: УЧЕБНИКИ И МАТЕРИАЛЫ (GOOGLE ДИСК) -->
             <div id="materialsSubView" class="space-y-3.5 hidden">
                 <div class="flex justify-between items-center px-1">
-                    <div class="text-xs text-slate-400">
-                        Личные и общие материалы группы
+                    <div class="text-xs text-slate-400 flex items-center gap-1">
+                        <span>Файлы Google Диска</span>
+                        <button type="button" onclick="fetchGoogleDriveMaterials()" title="Синхронизировать" class="text-blue-400 hover:text-blue-300 font-bold ml-1">🔄</button>
                     </div>
                     <button type="button" onclick="openAddMaterialModal()" class="blue-glow px-3 py-1.5 rounded-xl text-xs font-bold active:scale-95 transition">
                         ➕ Добавить материал
@@ -336,14 +343,6 @@
                 <button type="button" onclick="switchSection('tasks')" class="pill-bar px-3 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white">✕ Закрыть</button>
             </div>
 
-            <div id="starostaPublishChoice" class="hidden p-3 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-xs space-y-1.5">
-                <div class="font-bold text-blue-400">👑 Вы авторизованы как староста!</div>
-                <label class="flex items-center gap-2 cursor-pointer pt-1 text-slate-200">
-                    <input type="checkbox" id="taskForGroupCheckbox" checked class="w-4 h-4 accent-blue-600 rounded">
-                    <span>Опубликовать для всей группы (<span id="starostaGroupNameSpan"></span>)</span>
-                </label>
-            </div>
-
             <div>
                 <label class="block text-xs text-slate-400 mb-1">1. Выберите дату сдачи (дедлайн):</label>
                 <input type="date" id="taskDateInput" onchange="onTaskDateChanged()" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
@@ -360,7 +359,7 @@
 
             <div>
                 <label class="block text-xs text-slate-400 mb-1">3. Что нужно сделать:</label>
-                <input type="text" id="taskTitleInput" placeholder="Например: Практическая работа №4 (упр. 12-15)" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
+                <input type="text" id="taskTitleInput" placeholder="Например: Практическая работа №4" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
             </div>
 
             <button type="button" id="saveTaskSubmitBtn" onclick="saveNewTask()" class="w-full blue-glow font-semibold py-3 rounded-xl">✅ Добавить задание</button>
@@ -376,23 +375,21 @@
                 <button type="button" onclick="closeAddMaterialModal()" class="w-8 h-8 rounded-full pill-bar flex items-center justify-center text-xs text-slate-400 hover:text-white transition">✕</button>
             </div>
 
-            <!-- ВЫБОР: ДЛЯ СЕБЯ ИЛИ ДЛЯ ВСЕЙ ГРУППЫ -->
             <div class="space-y-1">
-                <label class="block text-xs text-slate-400 font-medium">Кому доступен материал:</label>
+                <label class="block text-xs text-slate-400 font-medium">Куда сохранить:</label>
                 <div class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1 text-xs">
                     <button type="button" id="btnMatTargetPersonal" onclick="setMaterialTarget('personal')" class="py-2 rounded-xl font-semibold transition blue-glow">
                         👤 Только мне
                     </button>
                     <button type="button" id="btnMatTargetGroup" onclick="setMaterialTarget('group')" class="py-2 rounded-xl font-medium transition text-slate-400">
-                        👥 Всей группе
+                        👥 Google Диск группы
                     </button>
                 </div>
                 <div id="matTargetGroupNotice" class="text-[10px] text-amber-400/90 pt-0.5 hidden">
-                    ⚠️ Для публикации всей группе требуются права старосты
+                    ⚠️ Загружать на Google Диск группы может только староста (активируйте одноразовый ключ в профиле)
                 </div>
             </div>
 
-            <!-- УМНЫЙ АВТОКОМПЛИТ ПРЕДМЕТА -->
             <div class="relative space-y-1">
                 <label class="block text-xs text-slate-400 font-medium">Предмет:</label>
                 <div class="relative">
@@ -407,17 +404,15 @@
                 <div id="matSubjectSuggestions" class="hidden absolute left-0 right-0 top-full mt-1.5 z-20 pill-bar rounded-2xl p-1.5 shadow-2xl max-h-48 overflow-y-auto no-scrollbar border border-blue-500/30 space-y-1"></div>
             </div>
 
-            <!-- НАЗВАНИЕ МАТЕРИАЛА -->
             <div class="space-y-1">
                 <label class="block text-xs text-slate-400 font-medium">Название материала:</label>
-                <input type="text" id="matTitleInput" placeholder="Например: Методичка к практикам 2026" class="w-full pill-bar rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
+                <input type="text" id="matTitleInput" placeholder="Например: Методичка к практикам" class="w-full pill-bar rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
             </div>
 
-            <!-- ПЕРЕКЛЮЧАТЕЛЬ: ФАЙЛ ИЛИ ССЫЛКА -->
             <div class="space-y-2 pt-1">
-                <div class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1 text-xs">
+                <div id="matModeSelector" class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1 text-xs">
                     <button type="button" id="btnMatModeFile" onclick="setMaterialMode('file')" class="py-2 rounded-xl font-semibold transition blue-glow">
-                        📄 Файл с телефона
+                        📄 Файл с устройства
                     </button>
                     <button type="button" id="btnMatModeLink" onclick="setMaterialMode('link')" class="py-2 rounded-xl font-medium transition text-slate-400">
                         🔗 Ссылка
@@ -431,16 +426,16 @@
                     </div>
                     <div>
                         <div id="matFileSelectLabel" class="text-xs font-bold text-white">Нажмите, чтобы выбрать файл</div>
-                        <div id="matFileSelectSub" class="text-[10px] text-slate-400 mt-0.5">PDF, DOCX, ZIP, книги до 100 МБ</div>
+                        <div id="matFileSelectSub" class="text-[10px] text-slate-400 mt-0.5">PDF, DOCX, ZIP, учебники</div>
                     </div>
-                    <div id="uploadProgressStatus" class="text-[11px] text-emerald-400 font-semibold hidden pt-1"></div>
                 </div>
 
                 <div id="matLinkInputBox" class="hidden space-y-1.5 pt-1">
-                    <input type="url" id="matLinkInput" placeholder="Вставьте ссылку (Telegram, Google Диск, НовГУ...)" class="w-full pill-bar rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
-                    <div class="text-[10px] text-slate-400 px-1">Файл будет открываться напрямую по ссылке</div>
+                    <input type="url" id="matLinkInput" placeholder="Вставьте ссылку на материал..." class="w-full pill-bar rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
                 </div>
             </div>
+
+            <div id="matUploadStatus" class="hidden text-xs text-center font-semibold text-blue-400"></div>
 
             <button type="button" id="submitMaterialBtn" onclick="saveNewMaterial()" class="w-full blue-glow font-bold py-3.5 rounded-2xl text-xs active:scale-95 transition shadow-lg">
                 Сохранить материал
@@ -453,7 +448,7 @@
                 <button type="button" onclick="closeProfileModal()" class="app-card px-4 py-2 rounded-2xl text-xs font-bold text-blue-400 flex items-center gap-1.5 active:scale-95 transition">
                     <span>←</span> Назад
                 </button>
-                <span class="text-xs text-slate-400 font-medium">Настройки и дневники</span>
+                <span class="text-xs text-slate-400 font-medium">Личный кабинет</span>
             </div>
 
             <div class="app-card p-5 rounded-3xl space-y-4">
@@ -469,10 +464,6 @@
 
                 <div class="space-y-2 pt-2 border-t border-slate-800/80 text-xs text-slate-300">
                     <div class="flex items-center gap-2.5">
-                        <span class="text-slate-400">🏛️</span>
-                        <span>НовГУ, Политехнический колледж (ПТК)</span>
-                    </div>
-                    <div class="flex items-center gap-2.5">
                         <span class="text-slate-400">👥</span>
                         <span id="profileGroupText">Группа: не выбрана</span>
                     </div>
@@ -483,75 +474,72 @@
                 </button>
             </div>
 
-            <!-- ПАНЕЛЬ СОЗДАТЕЛЯ (АДМИН) -->
+            <!-- ПАНЕЛЬ СОЗДАТЕЛЯ (ВЫПУСК ОДНОРАЗОВЫХ КЛЮЧЕЙ) -->
             <div class="app-card p-5 rounded-3xl space-y-3 border-amber-500/30">
                 <div class="flex items-center gap-2.5">
                     <span class="text-lg">🛡️</span>
                     <div>
                         <h3 class="text-sm font-bold text-white">Панель создателя</h3>
-                        <p class="text-[11px] text-slate-400">Выпуск одноразовых ключей для любых групп</p>
+                        <p class="text-[11px] text-slate-400">Выпуск одноразовых ключей старостам</p>
                     </div>
                 </div>
 
-                <div id="adminPanelUnlocked" class="hidden space-y-3 pt-1">
+                <div id="creatorUnlockedBlock" class="hidden space-y-3 pt-1">
                     <div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs flex justify-between items-center">
-                        <div>
-                            <div class="font-bold text-amber-400">✓ Права создателя активны</div>
-                            <div class="text-[11px] text-slate-300">Вы можете выпускать ключи старостам</div>
-                        </div>
-                        <button type="button" onclick="logoutAdmin()" class="text-red-400 font-bold hover:underline">Выйти</button>
+                        <div class="font-bold text-amber-400">✓ Панель создателя активна</div>
+                        <button type="button" onclick="logoutCreator()" class="text-red-400 font-bold hover:underline">Выйти</button>
                     </div>
 
                     <div class="space-y-2">
                         <label class="block text-xs text-slate-400">Номер группы для выпуска ключа:</label>
                         <div class="flex gap-2">
-                            <input type="text" id="adminGroupSelectInput" placeholder="Например: 5953" class="w-full pill-bar rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-500">
-                            <button type="button" onclick="generateKeyForGroup()" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 rounded-xl text-xs shrink-0 transition">
+                            <input type="text" id="creatorGroupInput" placeholder="Например: 6952" class="w-full pill-bar rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-500">
+                            <button type="button" id="btnGenKey" onclick="generateOneTimeKey()" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 rounded-xl text-xs shrink-0 transition">
                                 Создать ключ
                             </button>
                         </div>
                     </div>
 
-                    <div id="generatedKeyBox" class="hidden p-3 rounded-2xl bg-slate-900 border border-slate-700 space-y-1.5 text-xs">
-                        <div class="text-slate-400 text-[11px]">Готовый одноразовый ключ:</div>
+                    <div id="creatorKeyBox" class="hidden p-3 rounded-2xl bg-slate-900 border border-slate-700 space-y-1.5 text-xs">
+                        <div class="text-slate-400 text-[11px]">Готовый одноразовый ключ (сгорит после активации):</div>
                         <div class="flex items-center justify-between gap-2">
-                            <code id="generatedKeyResult" class="font-mono text-sm font-bold text-emerald-400"></code>
-                            <button type="button" onclick="copyGeneratedKey()" class="pill-bar px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-200 hover:text-white">
+                            <code id="creatorKeyResult" class="font-mono text-sm font-bold text-emerald-400"></code>
+                            <button type="button" onclick="copyCreatedKey()" class="pill-bar px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-200 hover:text-white">
                                 📋 Копировать
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <div id="adminLoginForm" class="space-y-2 pt-1">
-                    <input type="password" id="adminRootKeyInput" placeholder="Введите одноразовый ключ создателя..." class="w-full pill-bar rounded-xl p-3 text-xs text-white focus:outline-none focus:border-amber-500">
-                    <button type="button" onclick="activateAdminKey()" class="w-full pill-bar hover:bg-slate-800 text-amber-400 font-bold py-2.5 rounded-xl text-xs transition">
-                        Активировать права создателя
+                <div id="creatorLoginForm" class="space-y-2 pt-1">
+                    <input type="password" id="creatorMasterPassInput" placeholder="Мастер-пароль создателя..." class="w-full pill-bar rounded-xl p-3 text-xs text-white focus:outline-none focus:border-amber-500">
+                    <button type="button" onclick="authCreator()" class="w-full pill-bar hover:bg-slate-800 text-amber-400 font-bold py-2.5 rounded-xl text-xs transition">
+                        Войти в панель создателя
                     </button>
                 </div>
             </div>
 
-            <!-- Доступ старосты -->
+            <!-- ДОСТУП СТАРОСТЫ (ОДНОРАЗОВАЯ АКТИВАЦИЯ) -->
             <div class="app-card p-5 rounded-3xl space-y-3">
                 <div class="flex items-center gap-2.5">
                     <span class="text-lg">👑</span>
                     <div>
                         <h3 class="text-sm font-bold text-white">Доступ старосты группы</h3>
-                        <p class="text-[11px] text-slate-400">Публикуйте ДЗ и учебники для всей группы</p>
+                        <p class="text-[11px] text-slate-400">Загрузка учебников прямо на Google Диск группы</p>
                     </div>
                 </div>
 
-                <div id="starostaActiveBlock" class="hidden p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-xs flex justify-between items-center">
+                <div id="starostaActiveBlock" class="hidden p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-xs flex justify-between items-center">
                     <div>
-                        <div class="font-bold text-emerald-400">✓ Права старосты активны</div>
-                        <div id="starostaActiveGroupLabel" class="text-slate-300 text-[11px] mt-0.5">Группа: 5953</div>
+                        <div class="font-bold text-emerald-400">✓ Права старосты активны навсегда</div>
+                        <div id="starostaActiveGroupLabel" class="text-slate-300 text-[11px] mt-0.5">Группа: 6952</div>
                     </div>
-                    <button type="button" onclick="logoutStarosta()" class="text-red-400 hover:text-red-300 font-semibold text-xs">Выйти</button>
+                    <button type="button" onclick="logoutStarosta()" class="text-red-400 hover:text-red-300 font-semibold text-xs">Сбросить</button>
                 </div>
 
-                <div id="starostaLoginForm" class="space-y-2 pt-1">
-                    <input type="password" id="starostaKeyInput" placeholder="Введите одноразовый ключ старосты..." class="w-full pill-bar rounded-xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
-                    <button type="button" onclick="activateStarostaKey()" class="w-full pill-bar hover:bg-slate-800 text-blue-400 font-bold py-2.5 rounded-xl text-xs transition">
+                <div id="starostaLoginForm" class="space-y-2 pt-1 text-xs">
+                    <input type="password" id="starostaOneTimeKeyInput" placeholder="Вставьте одноразовый ключ старосты..." class="w-full pill-bar rounded-xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
+                    <button type="button" id="btnActivateStarosta" onclick="activateStarostaOneTimeKey()" class="w-full blue-glow font-bold py-2.5 rounded-xl text-xs transition active:scale-95">
                         Активировать статус старосты
                     </button>
                 </div>
@@ -597,7 +585,7 @@
             </div>
 
             <div class="text-center space-y-1 pt-1">
-                <div class="text-[11px] text-slate-400">Версия 5.9</div>
+                <div class="text-[11px] text-slate-400">Версия 6.7 • Google Cloud & One-Time Keys</div>
                 <div class="inline-flex items-center gap-1.5 text-slate-400 text-xs">
                     <span>🏛️</span>
                     <span class="font-semibold">НовГУ • Студенческий помощник</span>
@@ -644,15 +632,19 @@
             }
         } catch (e) {}
 
+        // ================= НАСТРОЙКИ СЕРВЕРА И GOOGLE APPS SCRIPT =================
+        const RENDER_URL = 'https://dnevnik-1.onrender.com';
+        // ВСТАВЬТЕ СЮДА URL РАЗВЕРНУТОГО ВЕБ-ПРИЛОЖЕНИЯ GOOGLE APPS SCRIPT:
+        const GOOGLE_SCRIPT_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycby0OHCGp42wNiBPWnqxO7Z3jImgL5_qhE2s0FODcKEe65cfoaLNh6Ho6njABsbtB5aDaw/exec';
+
         const STORAGE_MARKS_KEY = 'ptk_diary_subjects_v3';
         const STORAGE_SCHED_KEY = 'ptk_diary_schedules_v6';
         const STORAGE_CHANGES_KEY = 'ptk_diary_changes_v9';
-        const STORAGE_TASKS_KEY = 'ptk_diary_tasks_v1';
+        const STORAGE_TASKS_KEY = 'ptk_diary_tasks_v2';
         const STORAGE_THEME_KEY = 'ptk_diary_theme_v1';
-        const STORAGE_STAROSTA_KEY = 'ptk_diary_starosta_v1';
-        const STORAGE_ADMIN_KEY = 'ptk_diary_admin_token_v1';
-        const STORAGE_PERSONAL_MATS_KEY = 'ptk_diary_personal_mats_v1';
-        const RENDER_URL = 'https://dnevnik-1.onrender.com';
+        const STORAGE_PERSONAL_MATS_KEY = 'ptk_diary_personal_mats_v2';
+        const STORAGE_STAROSTA_SESSION_KEY = 'ptk_diary_starosta_session_v3';
+        const STORAGE_CREATOR_PASS_KEY = 'ptk_diary_creator_pass_v1';
 
         const DAY_NAMES_FULL = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
         const DAY_NAMES_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
@@ -666,11 +658,19 @@
         let lastActiveSection = 'schedule';
         let currentTheme = 'dark';
 
+        // Староста и создатель
         let starostaAuth = null;
-        let adminToken = localStorage.getItem(STORAGE_ADMIN_KEY) || null;
-        let serverGroupTasks = [];
-        let serverGroupMaterials = [];
+        let creatorMasterPassword = localStorage.getItem(STORAGE_CREATOR_PASS_KEY) || null;
+
         let personalMaterials = [];
+        let googleDriveMaterials = [];
+        let activeMaterialSubjectFilter = 'ALL';
+        let materialTarget = 'personal';
+        let materialInputMode = 'file';
+        let selectedFileBase64 = null;
+        let selectedFileName = '';
+        let selectedFileSize = '';
+        let selectedFileType = '';
 
         let changesData = { dateTitle: 'Изменения в расписании', fileName: '', items: [], portalFiles: [] };
         let activeChangesGroupFilter = 'ALL';
@@ -680,12 +680,6 @@
         let activeTaskFilter = 'ALL';
         let taskSubTab = 'tasks';
         let selectedSubjectInModal = '';
-        let activeMaterialSubjectFilter = 'ALL';
-        let materialInputMode = 'file';
-        let materialTarget = 'personal';
-        let pendingUploadedFileUrl = '';
-        let pendingUploadedFileName = '';
-        let pendingUploadedFileSize = '';
 
         let marksViewMode = 'subjects';
         let cachedSubjectSummaries = {};
@@ -701,7 +695,7 @@
             } catch(e) {}
             try { localTasks = JSON.parse(localStorage.getItem(STORAGE_TASKS_KEY)) || []; } catch(e) { localTasks = []; }
             try { personalMaterials = JSON.parse(localStorage.getItem(STORAGE_PERSONAL_MATS_KEY)) || []; } catch(e) { personalMaterials = []; }
-            try { starostaAuth = JSON.parse(localStorage.getItem(STORAGE_STAROSTA_KEY)) || null; } catch(e) { starostaAuth = null; }
+            try { starostaAuth = JSON.parse(localStorage.getItem(STORAGE_STAROSTA_SESSION_KEY)) || null; } catch(e) { starostaAuth = null; }
 
             const savedTheme = localStorage.getItem(STORAGE_THEME_KEY) || 'dark';
             setAppTheme(savedTheme);
@@ -717,9 +711,8 @@
             if (known.length > 0) activeChangesGroupFilter = known[0];
 
             updateStarostaUI();
-            updateAdminUI();
-            fetchServerTasksForActiveGroup();
-            fetchServerMaterialsForActiveGroup();
+            updateCreatorUI();
+            fetchGoogleDriveMaterials();
 
             if (schedules.length > 0) switchSection('schedule');
             else if (subjects.length > 0) switchSection('marks');
@@ -829,7 +822,7 @@
                 document.getElementById('scheduleSection').classList.remove('hidden');
                 renderScheduleTabs();
                 renderWeekDaysBar();
-                fetchServerTasksForActiveGroup().then(() => loadScheduleForActive());
+                loadScheduleForActive();
             } else if (section === 'changes') {
                 document.getElementById('changesSection').classList.remove('hidden');
                 renderPortalFilesButtons();
@@ -867,19 +860,19 @@
             document.getElementById('profileGroupText').innerText = `Группа: ${grp}`;
 
             renderProfileSubjectsList();
+            updateCreatorUI();
             updateStarostaUI();
-            updateAdminUI();
         }
 
         function closeProfileModal() {
             switchSection(lastActiveSection || 'schedule');
         }
 
-        // ================= ПАНЕЛЬ СОЗДАТЕЛЯ =================
-        function updateAdminUI() {
-            const unlocked = document.getElementById('adminPanelUnlocked');
-            const loginForm = document.getElementById('adminLoginForm');
-            if (adminToken) {
+        // ================= ПАНЕЛЬ СОЗДАТЕЛЯ (АВТОРИЗАЦИЯ И ВЫПУСК ОДНОРАЗОВЫХ КЛЮЧЕЙ) =================
+        function updateCreatorUI() {
+            const unlocked = document.getElementById('creatorUnlockedBlock');
+            const loginForm = document.getElementById('creatorLoginForm');
+            if (creatorMasterPassword) {
                 if (unlocked) unlocked.classList.remove('hidden');
                 if (loginForm) loginForm.classList.add('hidden');
             } else {
@@ -888,153 +881,145 @@
             }
         }
 
-        async function activateAdminKey() {
-            const input = document.getElementById('adminRootKeyInput');
-            const rootKey = input.value.trim();
-            if (!rootKey) { alert("Введите одноразовый ключ создателя!"); return; }
+        async function authCreator() {
+            const input = document.getElementById('creatorMasterPassInput');
+            const pass = input.value.trim();
+            if (!pass) { alert("Введите пароль создателя!"); return; }
 
             try {
-                const res = await fetch(`${RENDER_URL}/api/admin/auth`, {
+                const res = await fetch(GOOGLE_SCRIPT_WEBAPP_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rootKey })
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'adminAuth', password: pass })
                 });
                 const data = await res.json();
-                if (!res.ok || data.error) {
-                    alert("Ошибка: " + (data.error || "Неверный ключ"));
-                    return;
-                }
+                if (!data.success) throw new Error(data.error || "Неверный пароль");
 
-                adminToken = data.adminToken;
-                localStorage.setItem(STORAGE_ADMIN_KEY, adminToken);
+                creatorMasterPassword = pass;
+                localStorage.setItem(STORAGE_CREATOR_PASS_KEY, pass);
                 input.value = '';
-                updateAdminUI();
-                alert("✓ Права создателя подтверждены! Одноразовый мастер-ключ сгорел.");
-            } catch (e) {
-                alert("Ошибка связи с сервером: " + e.message);
-            }
-        }
-
-        async function generateKeyForGroup() {
-            const grp = document.getElementById('adminGroupSelectInput').value.trim();
-            if (!grp) { alert("Укажите номер группы!"); return; }
-
-            try {
-                const res = await fetch(`${RENDER_URL}/api/admin/generate-starosta-key`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ adminToken, group: grp })
-                });
-                const data = await res.json();
-                if (!res.ok || data.error) throw new Error(data.error || "Ошибка генерации");
-
-                document.getElementById('generatedKeyResult').innerText = data.key;
-                document.getElementById('generatedKeyBox').classList.remove('hidden');
+                updateCreatorUI();
+                alert("✓ Вход в панель создателя выполнен!");
             } catch (e) {
                 alert("Ошибка: " + e.message);
             }
         }
 
-        function copyGeneratedKey() {
-            const txt = document.getElementById('generatedKeyResult').innerText;
+        function logoutCreator() {
+            if (confirm("Выйти из панели создателя?")) {
+                creatorMasterPassword = null;
+                localStorage.removeItem(STORAGE_CREATOR_PASS_KEY);
+                updateCreatorUI();
+            }
+        }
+
+        async function generateOneTimeKey() {
+            const grp = document.getElementById('creatorGroupInput').value.trim();
+            if (!grp) { alert("Укажите номер группы!"); return; }
+            const btn = document.getElementById('btnGenKey');
+            btn.innerText = "⏳...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(GOOGLE_SCRIPT_WEBAPP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'generateStarostaKey',
+                        adminPassword: creatorMasterPassword,
+                        group: grp
+                    })
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || "Ошибка генерации ключа");
+
+                document.getElementById('creatorKeyResult').innerText = data.key;
+                document.getElementById('creatorKeyBox').classList.remove('hidden');
+            } catch (e) {
+                alert("Ошибка: " + e.message);
+            } finally {
+                btn.innerText = "Создать ключ";
+                btn.disabled = false;
+            }
+        }
+
+        function copyCreatedKey() {
+            const keyText = document.getElementById('creatorKeyResult').innerText;
             if (navigator.clipboard) {
-                navigator.clipboard.writeText(txt);
+                navigator.clipboard.writeText(keyText);
                 alert("Ключ скопирован в буфер обмена!");
             }
         }
 
-        function logoutAdmin() {
-            if (confirm("Выйти из режима создателя?")) {
-                adminToken = null;
-                localStorage.removeItem(STORAGE_ADMIN_KEY);
-                updateAdminUI();
-            }
-        }
-
-        // ================= СТАРОСТА: АВТОРИЗАЦИЯ =================
+        // ================= ДОСТУП СТАРОСТЫ (ОДНОРАЗОВАЯ АКТИВАЦИЯ) =================
         function updateStarostaUI() {
             const activeBlock = document.getElementById('starostaActiveBlock');
             const loginForm = document.getElementById('starostaLoginForm');
             const groupLabel = document.getElementById('starostaActiveGroupLabel');
-            const statusBadge = document.getElementById('starostaStatusBadge');
+            const notice = document.getElementById('matTargetGroupNotice');
 
             if (starostaAuth && starostaAuth.sessionToken) {
                 if (activeBlock) activeBlock.classList.remove('hidden');
                 if (loginForm) loginForm.classList.add('hidden');
                 if (groupLabel) groupLabel.innerText = `Группа: ${starostaAuth.group}`;
-                if (statusBadge) statusBadge.innerHTML = `<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full font-bold text-[10px]">👑 Вы староста гр. ${starostaAuth.group}</span>`;
+                if (notice) notice.classList.add('hidden');
             } else {
                 if (activeBlock) activeBlock.classList.add('hidden');
                 if (loginForm) loginForm.classList.remove('hidden');
-                if (statusBadge) statusBadge.innerHTML = `<span>Личные и групповые задания</span>`;
+                if (notice) notice.classList.remove('hidden');
             }
         }
 
-        async function activateStarostaKey() {
-            const keyInput = document.getElementById('starostaKeyInput');
-            const key = keyInput.value.trim();
+        async function activateStarostaOneTimeKey() {
+            const keyInput = document.getElementById('starostaOneTimeKeyInput');
+            const key = keyInput.value.trim().toUpperCase();
             if (!key) { alert("Вставьте одноразовый ключ!"); return; }
 
+            const currentGrp = getActiveGroupName();
+            if (!currentGrp) {
+                alert("Сначала подключите вашу группу в разделе «Расписание»!");
+                return;
+            }
+
+            const btn = document.getElementById('btnActivateStarosta');
+            btn.innerText = "⏳ Проверка ключа...";
+            btn.disabled = true;
+
             try {
-                const res = await fetch(`${RENDER_URL}/api/tasks/auth`, {
+                const res = await fetch(GOOGLE_SCRIPT_WEBAPP_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ secretKey: key })
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'activateStarostaKey',
+                        key: key,
+                        group: currentGrp
+                    })
                 });
 
                 const data = await res.json();
-                if (!res.ok || data.error) {
-                    alert("Ошибка: " + (data.error || "Неверный ключ"));
-                    return;
-                }
+                if (!data.success) throw new Error(data.error || "Неверный или сгоревший ключ");
 
-                starostaAuth = { group: data.group, sessionToken: data.sessionToken };
-                localStorage.setItem(STORAGE_STAROSTA_KEY, JSON.stringify(starostaAuth));
+                starostaAuth = {
+                    group: data.group,
+                    sessionToken: data.sessionToken
+                };
+                localStorage.setItem(STORAGE_STAROSTA_SESSION_KEY, JSON.stringify(starostaAuth));
                 keyInput.value = '';
                 updateStarostaUI();
-                await fetchServerTasksForActiveGroup();
-                await fetchServerMaterialsForActiveGroup();
-
-                alert(`✓ Успешно! Вы назначены старостой группы ${data.group}. Одноразовый ключ погашен.`);
+                alert(`✓ Поздравляем! Вы активировали права старосты группы ${data.group}. Одноразовый ключ сгорел.`);
             } catch (e) {
-                alert("Ошибка связи с сервером: " + e.message);
+                alert("Ошибка: " + e.message);
+            } finally {
+                btn.innerText = "Активировать статус старосты";
+                btn.disabled = false;
             }
         }
 
         function logoutStarosta() {
-            if (confirm("Выйти из режима старосты?")) {
+            if (confirm("Сбросить сессию старосты на этом телефоне? Для повторного входа потребуется новый ключ от создателя.")) {
                 starostaAuth = null;
-                localStorage.removeItem(STORAGE_STAROSTA_KEY);
+                localStorage.removeItem(STORAGE_STAROSTA_SESSION_KEY);
                 updateStarostaUI();
-            }
-        }
-
-        // ================= ЗАГРУЗКА ДАННЫХ =================
-        async function fetchServerTasksForActiveGroup() {
-            const currentGrp = getActiveGroupName();
-            if (!currentGrp) return;
-            try {
-                const res = await fetch(`${RENDER_URL}/api/tasks/${currentGrp}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    serverGroupTasks = (data.tasks || []).map(t => ({ ...t, isGroupTask: true }));
-                }
-            } catch (e) {
-                serverGroupTasks = [];
-            }
-        }
-
-        async function fetchServerMaterialsForActiveGroup() {
-            const currentGrp = getActiveGroupName();
-            if (!currentGrp) return;
-            try {
-                const res = await fetch(`${RENDER_URL}/api/materials/${currentGrp}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    serverGroupMaterials = (data.materials || []).map(m => ({ ...m, isGroup: true }));
-                }
-            } catch (e) {
-                serverGroupMaterials = [];
             }
         }
 
@@ -1198,7 +1183,6 @@
             return Array.from(set).sort();
         }
 
-        // ================= АВТОКОМПЛИТ ПРЕДМЕТА =================
         function onMaterialSubjectInput(query) {
             const container = document.getElementById('matSubjectSuggestions');
             if (!container) return;
@@ -1291,8 +1275,7 @@
 
                 localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
                 activeChangesGroupFilter = groupName;
-                await fetchServerTasksForActiveGroup();
-                await fetchServerMaterialsForActiveGroup();
+                fetchGoogleDriveMaterials();
                 switchSection('schedule');
             } catch (e) {
                 alert("Ошибка загрузки: " + e.message);
@@ -1316,8 +1299,6 @@
                     merges: data.merges || []
                 };
                 localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
-                await fetchServerTasksForActiveGroup();
-                await fetchServerMaterialsForActiveGroup();
                 loadScheduleForActive();
             } catch (e) {
                 alert("Не удалось обновить: " + e.message);
@@ -1368,8 +1349,7 @@
             localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
             activeScheduleIndex = schedules.length - 1;
             activeChangesGroupFilter = groupName;
-            fetchServerTasksForActiveGroup();
-            fetchServerMaterialsForActiveGroup();
+            fetchGoogleDriveMaterials();
             switchSection('schedule');
         }
 
@@ -1390,10 +1370,8 @@
         function switchSchedule(idx) {
             activeScheduleIndex = idx;
             renderScheduleTabs();
-            fetchServerTasksForActiveGroup().then(() => {
-                fetchServerMaterialsForActiveGroup();
-                loadScheduleForActive();
-            });
+            fetchGoogleDriveMaterials();
+            loadScheduleForActive();
         }
 
         function deleteSchedule(event, idx) {
@@ -1410,14 +1388,6 @@
             return (merges || []).some(m => m.s.r === r && m.e.r > r && c >= m.s.c && c <= m.e.c);
         }
 
-        function getAllCombinedTasks() {
-            const list = [...serverGroupTasks];
-            localTasks.forEach(lt => {
-                if (!list.some(st => st.id === lt.id)) list.push(lt);
-            });
-            return list;
-        }
-
         function loadScheduleForActive() {
             const current = schedules[activeScheduleIndex];
             const container = document.getElementById('scheduleList');
@@ -1426,7 +1396,7 @@
                 container.innerHTML = `
                     <div class="app-card rounded-3xl p-6 text-center space-y-3">
                         <div class="text-slate-300 text-sm font-semibold">Группа ещё не выбрана</div>
-                        <div class="text-slate-400 text-xs">Подключите расписание вашей группы напрямую с портала НовГУ</div>
+                        <div class="text-slate-400 text-xs">Подключите расписание вашей группы с портала НовГУ</div>
                         <button type="button" onclick="openAddSchedule()" class="blue-glow text-xs font-semibold px-5 py-2.5 rounded-xl transition">➕ Выбрать группу</button>
                     </div>
                 `;
@@ -1492,14 +1462,13 @@
 
                 let html = '';
                 const targetDays = scheduleViewMode === 'day' ? [DAY_NAMES_FULL[selectedDayIndex]] : DAY_NAMES_FULL;
-                const allCombinedTasks = getAllCombinedTasks();
 
                 targetDays.forEach((dayName) => {
                     const lessons = daysSchedule[dayName] || [];
                     const dayIdx = scheduleViewMode === 'day' ? selectedDayIndex : DAY_NAMES_FULL.indexOf(dayName);
                     const targetDayDateStr = getDateForDayIndex(dayIdx);
 
-                    const dayTasks = allCombinedTasks.filter(t => t.dueDate === targetDayDateStr);
+                    const dayTasks = localTasks.filter(t => t.dueDate === targetDayDateStr);
 
                     if (scheduleViewMode === 'week' && lessons.length === 0 && dayTasks.length === 0) return;
 
@@ -1537,10 +1506,7 @@
                                     taskInsideCardHtml += `
                                         <div class="bg-blue-500/10 border border-blue-500/30 p-2 rounded-xl text-xs flex items-start justify-between gap-2">
                                             <div class="min-w-0">
-                                                <div class="text-[10px] text-blue-400 font-bold uppercase tracking-wider flex items-center gap-1">
-                                                    <span>📝 Задание:</span>
-                                                    ${t.isGroupTask ? '<span class="bg-blue-500/20 text-blue-300 px-1 py-0.2 rounded text-[9px]">от старосты</span>' : ''}
-                                                </div>
+                                                <div class="text-[10px] text-blue-400 font-bold uppercase tracking-wider">📝 Задание:</div>
                                                 <div class="text-white font-medium leading-snug pt-0.5">${t.title}</div>
                                             </div>
                                             <span class="text-emerald-400 text-xs shrink-0 pt-0.5">✓</span>
@@ -1832,7 +1798,7 @@
             container.innerHTML = html;
         }
 
-        // ================= ЭКРАН 3: ДОМАШНИЕ ЗАДАНИЯ И УЧЕБНИКИ =================
+        // ================= ЭКРАН 3: ДОМАШНИЕ ЗАДАНИЯ =================
         function switchTaskSubTab(tab) {
             taskSubTab = tab;
             const bTasks = document.getElementById('btnSubTabTasks');
@@ -1845,13 +1811,13 @@
                 bMat.className = "py-2 rounded-xl text-xs font-medium transition text-slate-400";
                 vTasks.classList.remove('hidden');
                 vMat.classList.add('hidden');
-                fetchServerTasksForActiveGroup().then(() => renderTasksList());
+                renderTasksList();
             } else {
                 bTasks.className = "py-2 rounded-xl text-xs font-medium transition text-slate-400";
                 bMat.className = "py-2 rounded-xl text-xs font-semibold transition blue-glow";
                 vTasks.classList.add('hidden');
                 vMat.classList.remove('hidden');
-                fetchServerMaterialsForActiveGroup().then(() => renderMaterialsList());
+                fetchGoogleDriveMaterials();
             }
         }
 
@@ -1939,24 +1905,13 @@
             allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById('addTaskModal').classList.remove('hidden');
 
-            const currentGrp = getActiveGroupName();
-            const choiceBox = document.getElementById('starostaPublishChoice');
-            const groupSpan = document.getElementById('starostaGroupNameSpan');
-
-            if (starostaAuth && starostaAuth.sessionToken && starostaAuth.group === currentGrp) {
-                if (choiceBox) choiceBox.classList.remove('hidden');
-                if (groupSpan) groupSpan.innerText = currentGrp;
-            } else {
-                if (choiceBox) choiceBox.classList.add('hidden');
-            }
-
             document.getElementById('taskTitleInput').value = '';
             document.getElementById('taskSubjectInput').value = '';
             document.getElementById('taskDateInput').value = new Date().toISOString().slice(0, 10);
             onTaskDateChanged();
         }
 
-        async function saveNewTask() {
+        function saveNewTask() {
             let subject = selectedSubjectInModal || document.getElementById('taskSubjectInput').value.trim();
             const title = document.getElementById('taskTitleInput').value.trim();
             const dueDate = document.getElementById('taskDateInput').value;
@@ -1964,40 +1919,14 @@
             if (!subject) subject = 'Общее задание';
             if (!title) { alert("Введите, что нужно сделать!"); return; }
 
-            const currentGrp = getActiveGroupName();
-            const isGroupPublish = starostaAuth && starostaAuth.sessionToken && document.getElementById('taskForGroupCheckbox')?.checked;
-
-            if (isGroupPublish && currentGrp) {
-                const btn = document.getElementById('saveTaskSubmitBtn');
-                btn.innerText = "⏳ Публикуем для группы...";
-                try {
-                    const res = await fetch(`${RENDER_URL}/api/tasks/${currentGrp}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            sessionToken: starostaAuth.sessionToken,
-                            task: { subject, title, dueDate }
-                        })
-                    });
-                    const data = await res.json();
-                    if (!res.ok || data.error) throw new Error(data.error || "Ошибка сохранения");
-                    await fetchServerTasksForActiveGroup();
-                } catch (e) {
-                    alert("Ошибка публикации: " + e.message);
-                } finally {
-                    btn.innerText = "✅ Добавить задание";
-                }
-            } else {
-                localTasks.unshift({ id: Date.now(), subject, title, dueDate, status: 'todo' });
-                localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
-            }
+            localTasks.unshift({ id: Date.now(), subject, title, dueDate, status: 'todo' });
+            localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
 
             switchSection('tasks');
             loadScheduleForActive();
         }
 
-        function toggleTaskStatus(id, isGroupTask) {
-            if (isGroupTask) return;
+        function toggleTaskStatus(id) {
             const t = localTasks.find(x => x.id === id);
             if (!t) return;
             const order = ['todo', 'progress', 'done'];
@@ -2007,44 +1936,20 @@
             loadScheduleForActive();
         }
 
-        async function deleteTask(event, id, isGroupTask) {
+        function deleteTask(event, id) {
             event.stopPropagation();
-            if (isGroupTask) {
-                if (!starostaAuth || !starostaAuth.sessionToken) {
-                    alert("Удалить это задание может только староста группы.");
-                    return;
-                }
-                if (confirm("Удалить это групповое задание для всех?")) {
-                    try {
-                        const res = await fetch(`${RENDER_URL}/api/tasks/${starostaAuth.group}/${id}`, {
-                            method: 'DELETE',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ sessionToken: starostaAuth.sessionToken })
-                        });
-                        if (res.ok) {
-                            serverGroupTasks = serverGroupTasks.filter(t => t.id !== id);
-                            renderTasksList();
-                            loadScheduleForActive();
-                        }
-                    } catch (e) {
-                        alert("Ошибка: " + e.message);
-                    }
-                }
-            } else {
-                localTasks = localTasks.filter(x => x.id !== id);
-                localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
-                renderTasksList();
-                loadScheduleForActive();
-            }
+            localTasks = localTasks.filter(x => x.id !== id);
+            localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
+            renderTasksList();
+            loadScheduleForActive();
         }
 
         function renderTasksList() {
             const container = document.getElementById('tasksList');
             const todayStr = new Date().toISOString().slice(0, 10);
             const nowTime = new Date(todayStr).getTime();
-            const allTasks = getAllCombinedTasks();
 
-            const filtered = allTasks.filter(t => {
+            const filtered = localTasks.filter(t => {
                 if (!t.dueDate) return true;
                 const diffDays = Math.round((new Date(t.dueDate).getTime() - nowTime) / (1000 * 60 * 60 * 24));
                 if (activeTaskFilter === 'TODAY') return diffDays === 0;
@@ -2066,9 +1971,7 @@
                 const daysText = diffDays === 0 ? 'Сегодня' : (diffDays > 0 ? `${diffDays} дн.` : 'Просрочено');
 
                 let badgeHtml = '';
-                if (t.isGroupTask) {
-                    badgeHtml = `<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-0.5 rounded-full text-[10px] font-bold">👥 От старосты</span>`;
-                } else if (t.status === 'done') {
+                if (t.status === 'done') {
                     badgeHtml = `<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">Готово</span>`;
                 } else if (t.status === 'progress') {
                     badgeHtml = `<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">В процессе</span>`;
@@ -2076,10 +1979,8 @@
                     badgeHtml = `<span class="pill-bar text-slate-300 px-2.5 py-0.5 rounded-full text-[11px] font-medium">Не начато</span>`;
                 }
 
-                const canDelete = !t.isGroupTask || (starostaAuth && starostaAuth.sessionToken);
-
                 html += `
-                    <div onclick="toggleTaskStatus(${t.id}, ${!!t.isGroupTask})" class="app-card p-4 rounded-3xl flex items-center gap-3.5 cursor-pointer active:scale-[0.99] transition">
+                    <div onclick="toggleTaskStatus(${t.id})" class="app-card p-4 rounded-3xl flex items-center gap-3.5 cursor-pointer active:scale-[0.99] transition">
                         <div class="w-11 h-11 rounded-2xl pill-bar flex items-center justify-center text-blue-400 font-bold text-base shrink-0">
                             ${icon}
                         </div>
@@ -2090,7 +1991,7 @@
                         </div>
                         <div class="flex flex-col items-end gap-1.5 shrink-0">
                             ${badgeHtml}
-                            ${canDelete ? `<button type="button" onclick="deleteTask(event, ${t.id}, ${!!t.isGroupTask})" class="text-[10px] text-slate-400 hover:text-red-400">Удалить</button>` : ''}
+                            <button type="button" onclick="deleteTask(event, ${t.id})" class="text-[10px] text-slate-400 hover:text-red-400">Удалить</button>
                         </div>
                     </div>
                 `;
@@ -2098,7 +1999,7 @@
             container.innerHTML = html;
         }
 
-        // ================= УЧЕБНИКИ: ЛИЧНЫЕ И ОБЩИЕ =================
+        // ================= GOOGLE ДИСК МАТЕРИАЛЫ =================
         function formatBytes(bytes) {
             if (!bytes || isNaN(bytes)) return '';
             const k = 1024;
@@ -2107,28 +2008,45 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
         }
 
+        async function fetchGoogleDriveMaterials() {
+            const currentGrp = getActiveGroupName();
+            if (!currentGrp || !GOOGLE_SCRIPT_WEBAPP_URL || GOOGLE_SCRIPT_WEBAPP_URL.includes('ВАШ_URL')) {
+                renderMaterialsList();
+                return;
+            }
+
+            try {
+                const res = await fetch(`${GOOGLE_SCRIPT_WEBAPP_URL}?action=getMaterials&group=${encodeURIComponent(currentGrp)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.success && Array.isArray(data.materials)) {
+                        googleDriveMaterials = data.materials;
+                    }
+                }
+            } catch (e) {
+                console.log('Google Drive sync skipped:', e.message);
+            }
+            renderMaterialsList();
+        }
+
         function setMaterialTarget(target) {
             materialTarget = target;
             const btnP = document.getElementById('btnMatTargetPersonal');
             const btnG = document.getElementById('btnMatTargetGroup');
-            const notice = document.getElementById('matTargetGroupNotice');
+            const modeSelector = document.getElementById('matModeSelector');
             const submitBtn = document.getElementById('submitMaterialBtn');
 
             if (target === 'personal') {
                 btnP.className = "py-2 rounded-xl font-semibold transition blue-glow";
                 btnG.className = "py-2 rounded-xl font-medium transition text-slate-400";
-                notice.classList.add('hidden');
+                modeSelector.classList.remove('hidden');
                 submitBtn.innerText = "Сохранить для себя";
             } else {
                 btnP.className = "py-2 rounded-xl font-medium transition text-slate-400";
                 btnG.className = "py-2 rounded-xl font-semibold transition blue-glow";
-                submitBtn.innerText = "Опубликовать для группы";
-
-                if (!starostaAuth || !starostaAuth.sessionToken) {
-                    notice.classList.remove('hidden');
-                } else {
-                    notice.classList.add('hidden');
-                }
+                modeSelector.classList.add('hidden');
+                setMaterialMode('file');
+                submitBtn.innerText = "Загрузить на Google Диск группы";
             }
         }
 
@@ -2162,83 +2080,69 @@
             document.getElementById('matLinkInput').value = '';
             document.getElementById('matFileInput').value = '';
             document.getElementById('matFileSelectLabel').innerText = "Нажмите, чтобы выбрать файл";
-            document.getElementById('matFileSelectSub').innerText = "PDF, DOCX, ZIP, книги до 100 МБ";
-            document.getElementById('uploadProgressStatus').classList.add('hidden');
+            document.getElementById('matFileSelectSub').innerText = "PDF, DOCX, ZIP, учебники";
+            document.getElementById('matUploadStatus').classList.add('hidden');
             document.getElementById('matSubjectSuggestions').classList.add('hidden');
 
-            setMaterialTarget('personal');
-            setMaterialMode('file');
-            pendingUploadedFileUrl = '';
-            pendingUploadedFileName = '';
-            pendingUploadedFileSize = '';
+            selectedFileBase64 = null;
+            selectedFileName = '';
+            selectedFileSize = '';
+            selectedFileType = '';
+
+            const isStarosta = Boolean(starostaAuth && starostaAuth.sessionToken);
+            setMaterialTarget(isStarosta ? 'group' : 'personal');
         }
 
         function closeAddMaterialModal() {
             switchSection('tasks');
         }
 
-        async function handleMaterialFileSelected(event) {
+        function handleMaterialFileSelected(event) {
             const file = event.target.files[0];
             if (!file) return;
 
-            const progressEl = document.getElementById('uploadProgressStatus');
-            const submitBtn = document.getElementById('submitMaterialBtn');
-            const labelEl = document.getElementById('matFileSelectLabel');
-            const subEl = document.getElementById('matFileSelectSub');
+            selectedFileName = file.name;
+            selectedFileSize = formatBytes(file.size);
+            selectedFileType = file.type || 'application/octet-stream';
 
-            progressEl.classList.remove('hidden');
-            progressEl.className = "text-[11px] text-blue-400 font-semibold pt-1";
-            progressEl.innerText = `⏳ Загружаем файл на сервер (${formatBytes(file.size)})...`;
-            labelEl.innerText = file.name;
-            subEl.innerText = formatBytes(file.size);
-            submitBtn.disabled = true;
-
-            try {
-                const response = await fetch(`${RENDER_URL}/api/upload?filename=${encodeURIComponent(file.name)}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/octet-stream' },
-                    body: file
-                });
-
-                const data = await response.json();
-                if (!response.ok || !data.url) throw new Error(data.error || 'Ошибка загрузки на сервер');
-
-                pendingUploadedFileUrl = data.url;
-                pendingUploadedFileName = file.name;
-                pendingUploadedFileSize = formatBytes(file.size);
-
-                progressEl.className = "text-[11px] text-emerald-400 font-semibold pt-1";
-                progressEl.innerText = `✓ Файл успешно загружен (${pendingUploadedFileSize})!`;
-                if (!document.getElementById('matTitleInput').value) {
-                    document.getElementById('matTitleInput').value = file.name.replace(/\.[^/.]+$/, '');
-                }
-            } catch (err) {
-                progressEl.className = "text-[11px] text-amber-400 font-semibold pt-1";
-                progressEl.innerText = `⚠️ Ошибка: ${err.message}. Попробуйте переключиться на «Ссылка».`;
-            } finally {
-                submitBtn.disabled = false;
+            document.getElementById('matFileSelectLabel').innerText = file.name;
+            document.getElementById('matFileSelectSub').innerText = selectedFileSize;
+            if (!document.getElementById('matTitleInput').value) {
+                document.getElementById('matTitleInput').value = file.name.replace(/\.[^/.]+$/, '');
             }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                selectedFileBase64 = e.target.result;
+            };
+            reader.readAsDataURL(file);
         }
 
         async function saveNewMaterial() {
             const subject = document.getElementById('matSubjectInput').value.trim() || 'Общий материал';
             const title = document.getElementById('matTitleInput').value.trim();
             const manualLink = document.getElementById('matLinkInput').value.trim();
-            const fileUrl = (materialInputMode === 'file' ? pendingUploadedFileUrl : manualLink) || manualLink || pendingUploadedFileUrl;
 
             if (!title) { alert("Введите название материала!"); return; }
-            if (!fileUrl) { alert("Выберите файл или вставьте ссылку!"); return; }
 
-            // 1. СОХРАНЕНИЕ ДЛЯ СЕБЯ (ЛОКАЛЬНО)
+            // Личный материал
             if (materialTarget === 'personal') {
+                if (materialInputMode === 'file' && !selectedFileBase64) {
+                    alert("Выберите файл!");
+                    return;
+                }
+                if (materialInputMode === 'link' && !manualLink) {
+                    alert("Укажите ссылку на материал!");
+                    return;
+                }
+
                 personalMaterials.unshift({
                     id: Date.now(),
                     subject,
                     title,
-                    fileUrl,
-                    fileName: pendingUploadedFileName || 'Файл / Ссылка',
-                    fileSize: pendingUploadedFileSize || '',
-                    isDirectUpload: Boolean(pendingUploadedFileUrl),
+                    fileUrl: manualLink || selectedFileBase64,
+                    fileName: selectedFileName || 'Ссылка',
+                    fileSize: selectedFileSize || '',
                     isGroup: false,
                     createdAt: new Date().toISOString()
                 });
@@ -2248,70 +2152,86 @@
                 return;
             }
 
-            // 2. ПУБЛИКАЦИЯ ДЛЯ ВСЕЙ ГРУППЫ (ЧЕРЕЗ СЕРВЕР)
+            // Загрузка на Google Диск группы (для старосты)
             const currentGrp = getActiveGroupName();
             if (!currentGrp) { alert("Не выбрана группа в расписании!"); return; }
-            if (!starostaAuth || !starostaAuth.sessionToken) {
-                alert("Публиковать материалы для всей группы может только староста (активируйте ключ в Личном кабинете)!");
+            if (!starostaAuth || !starostaAuth.sessionToken || starostaAuth.group !== currentGrp) {
+                alert("Загружать материалы на Google Диск группы может только староста (активируйте одноразовый ключ в профиле)!");
+                return;
+            }
+            if (!selectedFileBase64) {
+                alert("Выберите файл с устройства для загрузки!");
                 return;
             }
 
+            const statusEl = document.getElementById('matUploadStatus');
             const submitBtn = document.getElementById('submitMaterialBtn');
-            submitBtn.innerText = "⏳ Публикуем...";
+            statusEl.classList.remove('hidden');
+            statusEl.innerText = "⏳ Загружаем файл на Google Диск группы...";
+            submitBtn.disabled = true;
 
             try {
-                const res = await fetch(`${RENDER_URL}/api/materials/${currentGrp}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sessionToken: starostaAuth.sessionToken,
-                        material: {
-                            subject,
-                            title,
-                            fileUrl,
-                            fileName: pendingUploadedFileName || 'Файл / Ссылка',
-                            fileSize: pendingUploadedFileSize || '',
-                            isDirectUpload: Boolean(pendingUploadedFileUrl)
-                        }
-                    })
-                });
-                const data = await res.json();
-                if (!res.ok || data.error) throw new Error(data.error || "Ошибка сохранения");
+                const payload = {
+                    action: 'uploadMaterial',
+                    group: currentGrp,
+                    sessionToken: starostaAuth.sessionToken,
+                    subject: subject,
+                    title: title,
+                    fileName: selectedFileName,
+                    mimeType: selectedFileType,
+                    base64Data: selectedFileBase64
+                };
 
-                await fetchServerMaterialsForActiveGroup();
+                const res = await fetch(GOOGLE_SCRIPT_WEBAPP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'Ошибка загрузки в Google Диск');
+
+                alert("✓ Файл успешно сохранён на Google Диске группы!");
                 closeAddMaterialModal();
-                switchTaskSubTab('materials');
-            } catch (e) {
-                alert("Ошибка публикации материала: " + e.message);
+                fetchGoogleDriveMaterials();
+            } catch (err) {
+                alert("Ошибка: " + err.message);
+                statusEl.innerText = "⚠️ Ошибка загрузки: " + err.message;
             } finally {
-                submitBtn.innerText = "Опубликовать для группы";
+                submitBtn.disabled = false;
             }
         }
 
-        async function deleteMaterial(id, isGroup) {
-            if (!isGroup) {
-                personalMaterials = personalMaterials.filter(m => m.id !== id);
+        async function deleteMaterialItem(item) {
+            if (!item.isGroup) {
+                personalMaterials = personalMaterials.filter(m => m.id !== item.id);
                 localStorage.setItem(STORAGE_PERSONAL_MATS_KEY, JSON.stringify(personalMaterials));
                 renderMaterialsList();
                 return;
             }
 
-            if (!starostaAuth || !starostaAuth.sessionToken) {
-                alert("Удалять материалы группы может только староста.");
+            const currentGrp = getActiveGroupName();
+            if (!starostaAuth || !starostaAuth.sessionToken || starostaAuth.group !== currentGrp) {
+                alert("Удалять файлы с Google Диска группы может только староста.");
                 return;
             }
 
-            if (confirm("Удалить этот учебник для всей группы?")) {
+            if (confirm(`Удалить «${item.title}» с Google Диска группы?`)) {
                 try {
-                    const res = await fetch(`${RENDER_URL}/api/materials/${starostaAuth.group}/${id}`, {
-                        method: 'DELETE',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ sessionToken: starostaAuth.sessionToken })
+                    const res = await fetch(GOOGLE_SCRIPT_WEBAPP_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({
+                            action: 'deleteMaterial',
+                            group: currentGrp,
+                            sessionToken: starostaAuth.sessionToken,
+                            fileId: item.id
+                        })
                     });
-                    if (res.ok) {
-                        serverGroupMaterials = serverGroupMaterials.filter(m => m.id !== id);
-                        renderMaterialsList();
-                    }
+                    const data = await res.json();
+                    if (!data.success) throw new Error(data.error || "Не удалось удалить");
+                    googleDriveMaterials = googleDriveMaterials.filter(m => m.id !== item.id);
+                    renderMaterialsList();
                 } catch (e) {
                     alert("Ошибка: " + e.message);
                 }
@@ -2323,7 +2243,7 @@
             const filterContainer = document.getElementById('materialsSubjectFilter');
             if (!container) return;
 
-            const allCombined = [...personalMaterials, ...serverGroupMaterials];
+            const allCombined = [...personalMaterials, ...googleDriveMaterials];
 
             const allSubjs = new Set(['ALL']);
             allCombined.forEach(m => { if (m.subject) allSubjs.add(m.subject); });
@@ -2351,7 +2271,7 @@
                     <div class="app-card p-6 rounded-3xl text-center space-y-2">
                         <div class="text-2xl">📚</div>
                         <div class="text-sm font-semibold text-white">Учебных материалов пока нет</div>
-                        <div class="text-xs text-slate-400">Нажмите «➕ Добавить материал», чтобы сохранить учебник для себя или группы</div>
+                        <div class="text-xs text-slate-400">Нажмите «➕ Добавить материал», чтобы загрузить учебник на Google Диск группы или сохранить для себя</div>
                     </div>
                 `;
                 return;
@@ -2360,16 +2280,12 @@
             let html = '';
             filtered.forEach(m => {
                 const icon = getSubjectIcon(m.subject);
-                const canDelete = !m.isGroup || (starostaAuth && starostaAuth.sessionToken);
                 const badge = m.isGroup 
-                    ? `<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-md text-[10px] font-bold">👥 Группа</span>`
+                    ? `<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-md text-[10px] font-bold">👥 Google Диск</span>`
                     : `<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-md text-[10px] font-bold">👤 Личный</span>`;
 
-                // Сквозная ссылка: если файл был загружен напрямую, качаем через транзитный стрим Render без блокировок
-                const isUploadedFile = Boolean(m.isDirectUpload || (m.fileUrl && m.fileUrl.includes('catbox.moe')));
-                const targetLink = isUploadedFile
-                    ? `${RENDER_URL}/api/download?url=${encodeURIComponent(m.fileUrl)}&filename=${encodeURIComponent(m.fileName || m.title)}`
-                    : m.fileUrl;
+                const linkUrl = m.viewUrl || m.fileUrl;
+                const canDelete = !m.isGroup || (starostaAuth && starostaAuth.sessionToken);
 
                 html += `
                     <div class="app-card p-4 rounded-3xl space-y-2.5">
@@ -2386,14 +2302,14 @@
                                     <div class="text-sm font-bold text-white mt-0.5 leading-snug">${m.title}</div>
                                 </div>
                             </div>
-                            ${canDelete ? `<button type="button" onclick="deleteMaterial(${m.id}, ${!!m.isGroup})" class="text-slate-400 hover:text-red-400 text-xs shrink-0 p-1">✕</button>` : ''}
+                            ${canDelete ? `<button type="button" onclick='deleteMaterialItem(${JSON.stringify(m).replace(/'/g, "&apos;")})' class="text-slate-400 hover:text-red-400 text-xs shrink-0 p-1">✕</button>` : ''}
                         </div>
 
                         <div class="flex items-center justify-between pt-1 text-xs border-t border-slate-700/50">
                             <span class="text-slate-400 text-[11px]">${m.fileSize ? `Файл • ${m.fileSize}` : 'Ссылка'}</span>
-                            <a href="${targetLink}" target="_blank" download="${m.fileName || 'file'}" class="blue-glow px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 active:scale-95 transition">
-                                <span>${isUploadedFile ? 'Скачать файл' : 'Перейти по ссылке'}</span>
-                                <span>${isUploadedFile ? '↓' : '↗'}</span>
+                            <a href="${linkUrl}" target="_blank" download="${m.fileName || m.title}" class="blue-glow px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 active:scale-95 transition">
+                                <span>Открыть</span>
+                                <span>↗</span>
                             </a>
                         </div>
                     </div>
