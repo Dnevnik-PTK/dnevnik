@@ -24,7 +24,7 @@
                 <div>
                     <div class="flex items-center gap-2">
                         <h1 id="topScreenTitle" class="text-lg font-bold tracking-tight text-white">Расписание</h1>
-                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">v6.7</span>
+                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">v6.8</span>
                     </div>
                     <p id="topScreenSubtitle" class="text-[11px] text-slate-400">НовГУ • Студенческий помощник</p>
                 </div>
@@ -129,8 +129,8 @@
                 </div>
 
                 <div class="flex justify-between items-center px-1">
-                    <div class="text-xs text-slate-400 flex items-center gap-1.5">
-                        <span>Личный список заданий</span>
+                    <div id="starostaStatusBadge" class="text-xs text-slate-400 flex items-center gap-1.5">
+                        <span>Личные и групповые задания</span>
                     </div>
                     <button type="button" onclick="openAddTaskModal()" class="text-xs text-blue-400 font-bold hover:text-blue-300 flex items-center gap-1">
                         <span>➕ Добавить задание</span>
@@ -264,6 +264,14 @@
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base text-white">Новое задание</h2>
                 <button type="button" onclick="switchSection('tasks')" class="pill-bar px-3 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white">✕ Закрыть</button>
+            </div>
+
+            <div id="starostaPublishChoice" class="hidden p-3 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-xs space-y-1.5">
+                <div class="font-bold text-blue-400">👑 Вы авторизованы как староста!</div>
+                <label class="flex items-center gap-2 cursor-pointer pt-1 text-slate-200">
+                    <input type="checkbox" id="taskForGroupCheckbox" checked class="w-4 h-4 accent-blue-600 rounded">
+                    <span>Опубликовать для всей группы (<span id="starostaGroupNameSpan"></span>)</span>
+                </label>
             </div>
 
             <div>
@@ -448,7 +456,7 @@
                     <span class="text-lg">👑</span>
                     <div>
                         <h3 class="text-sm font-bold text-white">Доступ старосты группы</h3>
-                        <p class="text-[11px] text-slate-400">Загрузка учебников прямо на Google Диск группы</p>
+                        <p class="text-[11px] text-slate-400">Публикация ДЗ и загрузка учебников на Google Диск</p>
                     </div>
                 </div>
 
@@ -508,7 +516,7 @@
             </div>
 
             <div class="text-center space-y-1 pt-1">
-                <div class="text-[11px] text-slate-400">Версия 6.7 • Google Cloud & One-Time Keys</div>
+                <div class="text-[11px] text-slate-400">Версия 6.8 • Google Cloud & Group Tasks</div>
                 <div class="inline-flex items-center gap-1.5 text-slate-400 text-xs">
                     <span>🏛️</span>
                     <span class="font-semibold">НовГУ • Студенческий помощник</span>
