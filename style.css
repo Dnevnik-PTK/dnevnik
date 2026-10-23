@@ -1,0 +1,76 @@
+:root {
+    --bg-main: #080e1a;
+    --bg-card: linear-gradient(180deg, #131f35 0%, #0f192b 100%);
+    --border-card: #1e2f4d;
+    --shadow-card: 0 8px 24px -4px rgba(0, 0, 0, 0.45);
+    --bg-pill: #0d1626;
+    --border-pill: #1b2a46;
+    --text-main: #f1f5f9;
+    --text-muted: #94a3b8;
+    --bg-nav: rgba(10, 18, 34, 0.95);
+}
+
+body.light-theme {
+    --bg-main: #f1f5f9;
+    --bg-card: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    --border-card: #cbd5e1;
+    --shadow-card: 0 6px 20px -4px rgba(15, 23, 42, 0.08);
+    --bg-pill: #e2e8f0;
+    --border-pill: #cbd5e1;
+    --text-main: #0f172a;
+    --text-muted: #475569;
+    --bg-nav: rgba(255, 255, 255, 0.95);
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.app-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    box-shadow: var(--shadow-card);
+}
+
+.pill-bar {
+    background-color: var(--bg-pill);
+    border: 1px solid var(--border-pill);
+}
+
+.blue-glow {
+    background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+    color: #ffffff !important;
+}
+
+.emerald-glow {
+    background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+    color: #ffffff !important;
+}
+
+.bottom-nav {
+    background-color: var(--bg-nav);
+    border-top: 1px solid var(--border-pill);
+}
+
+body.light-theme .text-white { color: #0f172a !important; }
+body.light-theme .blue-glow .text-white,
+body.light-theme .blue-glow { color: #ffffff !important; }
+body.light-theme .text-slate-200,
+body.light-theme .text-slate-300 { color: #1e293b !important; }
+body.light-theme .text-slate-400,
+body.light-theme .text-slate-500 { color: #64748b !important; }
+body.light-theme .bg-slate-800,
+body.light-theme .bg-slate-800\/90,
+body.light-theme .bg-slate-900 { background-color: #e2e8f0 !important; border-color: #cbd5e1 !important; }
+body.light-theme .border-slate-800,
+body.light-theme .border-slate-800\/80,
+body.light-theme .divide-slate-800\/80 > :not([hidden]) ~ :not([hidden]) { border-color: #e2e8f0 !important; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
