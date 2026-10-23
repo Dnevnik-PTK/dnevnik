@@ -3,10 +3,12 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 const express = require('express');
 const fetch = require('node-fetch');
 const XLSX = require('xlsx');
+const fs = require('fs');
 const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const STATE_FILE = path.join(__dirname, 'backup-state.json');
 
 const BROWSER_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -16,23 +18,248 @@ const BROWSER_HEADERS = {
 
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') return res.sendStatus(200);
     next();
 });
 
-app.use(express.json());
-// Раздача статических файлов (index.html, style.css, app.js) из корневой папки
-app.use(express.static(path.join(__dirname)));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.static(__dirname));
 
-// ================= КЭШ РАСПИСАНИЙ И ЗАМЕН =================
+// ================= КЭШ И ЛЕГКОВЕСНЫЕ ХРАНИЛИЩА =================
 const scheduleCache = new Map();
 let changesListCache = [];
 const changesBufferCache = new Map();
 let lastCacheUpdate = null;
 let isSyncing = false;
 
+const starostaOneTimeKeys = new Map();
+const starostaSessions = new Map();
+const groupTasksStorage = new Map();
+const groupMaterialsStorage = new Map();
+const adminSessions = new Set();
+
+function loadPersistentState() {
+    try {
+        if (fs.existsSync(STATE_FILE)) {
+            const raw = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+            if (raw.oneTimeKeys) Object.entries(raw.oneTimeKeys).forEach(([k, v]) => starostaOneTimeKeys.set(k, v));
+            if (raw.sessions) Object.entries(raw.sessions).forEach(([k, v]) => starostaSessions.set(k, v));
+            if (raw.tasks) Object.entries(raw.tasks).forEach(([k, v]) => groupTasksStorage.set(k, v));
+            if (raw.materials) Object.entries(raw.materials).forEach(([k, v]) => groupMaterialsStorage.set(k, v));
+            if (Array.isArray(raw.admins)) raw.admins.forEach(t => adminSessions.add(t));
+        }
+    } catch (e) {}
+}
+
+function savePersistentState() {
+    try {
+        const data = {
+            oneTimeKeys: Object.fromEntries(starostaOneTimeKeys),
+            sessions: Object.fromEntries(starostaSessions),
+            tasks: Object.fromEntries(groupTasksStorage),
+            materials: Object.fromEntries(groupMaterialsStorage),
+            admins: Array.from(adminSessions)
+        };
+        fs.writeFileSync(STATE_FILE, JSON.stringify(data), 'utf8');
+    } catch (e) {}
+}
+
+loadPersistentState();
+
+function generateRandomCode(len = 6) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let res = '';
+    for (let i = 0; i < len; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
+    return res;
+}
+
+let currentRootOneTimeKey = process.env.ROOT_KEY || `ROOT-${generateRandomCode(8)}`;
+console.log('====================================================');
+console.log('🔑 КЛЮЧ СОЗДАТЕЛЯ ДЛЯ ВХОДА В АДМИНКУ:');
+console.log(currentRootOneTimeKey);
+console.log('====================================================');
+
+// ================= АДМИНКА И СТАРОСТЫ (МГНОВЕННЫЙ ОТКЛИК) =================
+app.post('/api/admin/auth', (req, res) => {
+    const { rootKey } = req.body || {};
+    const cleanKey = String(rootKey || '').trim();
+
+    if (!currentRootOneTimeKey || cleanKey !== currentRootOneTimeKey) {
+        return res.status(403).json({ error: 'Одноразовый ключ создателя недействителен или уже сгорел' });
+    }
+
+    if (!process.env.ROOT_KEY) currentRootOneTimeKey = null;
+    const adminToken = `ADMIN-${generateRandomCode(20)}`;
+    adminSessions.add(adminToken);
+    savePersistentState();
+
+    res.json({ success: true, adminToken });
+});
+
+app.post('/api/admin/generate-starosta-key', (req, res) => {
+    const { adminToken, group } = req.body || {};
+    if (!adminSessions.has(adminToken)) {
+        return res.status(403).json({ error: 'Сессия администратора не подтверждена' });
+    }
+    const cleanGroup = String(group || '').trim();
+    if (!cleanGroup) return res.status(400).json({ error: 'Укажите номер группы' });
+
+    const key = `KEY-${cleanGroup}-${generateRandomCode(6)}`;
+    starostaOneTimeKeys.set(key, cleanGroup);
+    savePersistentState();
+
+    res.json({ success: true, group: cleanGroup, key });
+});
+
+app.post('/api/admin/revoke-starosta', (req, res) => {
+    const { adminToken, group } = req.body || {};
+    if (!adminSessions.has(adminToken)) {
+        return res.status(403).json({ error: 'Доступ запрещён' });
+    }
+    const cleanGroup = String(group || '').trim();
+    starostaSessions.delete(cleanGroup);
+    savePersistentState();
+    res.json({ success: true, message: `Староста группы ${cleanGroup} сброшен` });
+});
+
+app.post('/api/tasks/auth', (req, res) => {
+    const { secretKey } = req.body || {};
+    const cleanKey = String(secretKey || '').trim().toUpperCase();
+
+    if (!starostaOneTimeKeys.has(cleanKey)) {
+        return res.status(403).json({ error: 'Одноразовый ключ недействителен или уже был активирован' });
+    }
+
+    const group = starostaOneTimeKeys.get(cleanKey);
+    starostaOneTimeKeys.delete(cleanKey);
+
+    const sessionToken = `STAROSTA-${group}-${generateRandomCode(16)}`;
+    starostaSessions.set(group, sessionToken);
+    savePersistentState();
+
+    res.json({ success: true, group, sessionToken });
+});
+
+// ================= ГРУППОВЫЕ ЗАДАНИЯ =================
+app.get('/api/tasks/:group', (req, res) => {
+    const group = String(req.params.group || '').trim();
+    res.json({ tasks: groupTasksStorage.get(group) || [] });
+});
+
+app.post('/api/tasks/:group', (req, res) => {
+    const group = String(req.params.group || '').trim();
+    const { task, sessionToken } = req.body || {};
+
+    const activeToken = starostaSessions.get(group);
+    if (!activeToken || activeToken !== sessionToken) {
+        return res.status(403).json({ error: 'Сессия старосты недействительна' });
+    }
+
+    if (!task || !task.title || !task.dueDate) {
+        return res.status(400).json({ error: 'Заполните название задания и срок сдачи' });
+    }
+
+    if (!groupTasksStorage.has(group)) groupTasksStorage.set(group, []);
+
+    const newTask = {
+        id: Date.now(),
+        subject: String(task.subject || 'Общее').trim(),
+        title: String(task.title || '').trim(),
+        dueDate: String(task.dueDate || '').trim(),
+        author: 'Староста',
+        createdAt: new Date().toISOString()
+    };
+
+    const list = groupTasksStorage.get(group);
+    list.unshift(newTask);
+    if (list.length > 50) list.length = 50;
+    savePersistentState();
+
+    res.json({ success: true, task: newTask });
+});
+
+app.delete('/api/tasks/:group/:id', (req, res) => {
+    const group = String(req.params.group || '').trim();
+    const taskId = parseInt(req.params.id, 10);
+    const { sessionToken } = req.body || {};
+
+    const activeToken = starostaSessions.get(group);
+    if (!activeToken || activeToken !== sessionToken) {
+        return res.status(403).json({ error: 'Сессия старосты недействительна' });
+    }
+
+    if (groupTasksStorage.has(group)) {
+        const filtered = groupTasksStorage.get(group).filter(t => t.id !== taskId);
+        groupTasksStorage.set(group, filtered);
+        savePersistentState();
+    }
+
+    res.json({ success: true });
+});
+
+// ================= ССЫЛКИ НА МАТЕРИАЛЫ ГРУППЫ (БЕЗ ФАЙЛОВ В ОЗУ) =================
+app.get('/api/materials/:group', (req, res) => {
+    const group = String(req.params.group || '').trim();
+    res.json({ materials: groupMaterialsStorage.get(group) || [] });
+});
+
+app.post('/api/materials/:group', (req, res) => {
+    const group = String(req.params.group || '').trim();
+    const { material, sessionToken } = req.body || {};
+
+    const activeToken = starostaSessions.get(group);
+    if (!activeToken || activeToken !== sessionToken) {
+        return res.status(403).json({ error: 'Сессия старосты недействительна' });
+    }
+
+    if (!material || !material.title || !material.fileUrl) {
+        return res.status(400).json({ error: 'Заполните название и прикрепите файл или ссылку' });
+    }
+
+    if (!groupMaterialsStorage.has(group)) groupMaterialsStorage.set(group, []);
+
+    const newMaterial = {
+        id: Date.now(),
+        title: String(material.title || '').trim(),
+        subject: String(material.subject || 'Общий материал').trim(),
+        fileUrl: String(material.fileUrl || '').trim(),
+        viewUrl: String(material.viewUrl || material.fileUrl || '').trim(),
+        fileName: String(material.fileName || 'Файл').trim(),
+        fileSize: String(material.fileSize || '').trim(),
+        author: 'Староста',
+        createdAt: new Date().toISOString()
+    };
+
+    const list = groupMaterialsStorage.get(group);
+    list.unshift(newMaterial);
+    if (list.length > 100) list.length = 100;
+    savePersistentState();
+
+    res.json({ success: true, material: newMaterial });
+});
+
+app.delete('/api/materials/:group/:id', (req, res) => {
+    const group = String(req.params.group || '').trim();
+    const materialId = parseInt(req.params.id, 10);
+    const { sessionToken } = req.body || {};
+
+    const activeToken = starostaSessions.get(group);
+    if (!activeToken || activeToken !== sessionToken) {
+        return res.status(403).json({ error: 'Сессия старосты недействительна' });
+    }
+
+    if (groupMaterialsStorage.has(group)) {
+        const filtered = groupMaterialsStorage.get(group).filter(m => m.id !== materialId);
+        groupMaterialsStorage.set(group, filtered);
+        savePersistentState();
+    }
+
+    res.json({ success: true });
+});
+
+// ================= ПАРСИНГ РАСПИСАНИЯ И ЗАМЕН НОВГУ =================
 function extractLinksFromHtml(html, baseUrl) {
     const links = [];
     const regex = /<a\s+[^>]*href=(?:["']([^"']+)["']|([^\s>]+))[^>]*>([\s\S]*?)<\/a>/gi;
@@ -192,23 +419,19 @@ async function syncAllDataFromNovsu() {
         }
         lastCacheUpdate = new Date().toISOString();
     } catch (err) {
-        console.error('[SYNC ERROR]', err.message);
     } finally {
         isSyncing = false;
     }
 }
 setInterval(syncAllDataFromNovsu, 30 * 60 * 1000);
 
-// ================= API РОУТЫ =================
 app.get('/api/changes-list', async (req, res) => {
     try {
         if (changesListCache.length > 0) return res.json({ files: changesListCache, cached: true });
         const files = await fetchReplacementFilesList();
         changesListCache = files;
         res.json({ files, cached: false });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.get('/api/changes', async (req, res) => {
@@ -234,9 +457,7 @@ app.get('/api/changes', async (req, res) => {
         res.setHeader('Content-Type', 'application/octet-stream');
         res.setHeader('X-File-Title', encodeURIComponent(fileTitle));
         res.send(buffer);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.get('/api/schedule/:group', async (req, res) => {
@@ -302,9 +523,7 @@ app.get('/api/schedule/:group', async (req, res) => {
             } catch (e) {}
         }
         return res.status(404).json({ error: `Группа ${targetGroup} не найдена` });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.get('/ping', (req, res) => {
@@ -312,11 +531,11 @@ app.get('/ping', (req, res) => {
         status: 'ok',
         cachedGroupsCount: scheduleCache.size,
         lastCacheUpdate,
-        memoryUsage: process.memoryUsage()
+        memoryMB: Math.round(process.memoryUsage().rss / 1024 / 1024)
     });
 });
 
 app.listen(PORT, () => {
-    console.log(`PTK Schedule Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT}`);
     syncAllDataFromNovsu();
 });
