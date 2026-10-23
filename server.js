@@ -15,296 +15,21 @@ const BROWSER_HEADERS = {
 
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') return res.sendStatus(200);
     next();
 });
 
-// ================= НАДЁЖНЫЙ ПРОКСИ-АПЛОАДЕР В ОБЛАКО =================
-app.post('/api/upload', express.raw({ type: '*/*', limit: '100mb' }), async (req, res) => {
-    try {
-        if (!req.body || req.body.length === 0) {
-            return res.status(400).json({ error: 'Файл не передан' });
-        }
-
-        const originalName = decodeURIComponent(req.query.filename || 'material.pdf');
-        const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
-
-        const pre = Buffer.from(
-            `--${boundary}\r\n` +
-            `Content-Disposition: form-data; name="reqtype"\r\n\r\n` +
-            `fileupload\r\n` +
-            `--${boundary}\r\n` +
-            `Content-Disposition: form-data; name="fileToUpload"; filename="${originalName}"\r\n` +
-            `Content-Type: application/octet-stream\r\n\r\n`
-        );
-        const post = Buffer.from(`\r\n--${boundary}--\r\n`);
-        const fullBody = Buffer.concat([pre, req.body, post]);
-
-        const uploadRes = await fetch('https://catbox.moe/user/api.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': `multipart/form-data; boundary=${boundary}`,
-                'User-Agent': BROWSER_HEADERS['User-Agent']
-            },
-            body: fullBody
-        });
-
-        if (!uploadRes.ok) {
-            throw new Error(`Хранилище ответило статусом ${uploadRes.status}`);
-        }
-
-        const fileUrl = (await uploadRes.text()).trim();
-        if (!fileUrl.startsWith('http')) {
-            throw new Error(fileUrl || 'Сбой получения ссылки из хранилища');
-        }
-
-        res.json({ success: true, url: fileUrl });
-    } catch (err) {
-        console.error('[UPLOAD ERROR]', err.message);
-        res.status(500).json({ error: 'Ошибка загрузки в облако: ' + err.message });
-    }
-});
-
-// ================= СКВОЗНОЕ ТРАНЗИТНОЕ СКАЧИВАНИЕ (STREAM PASS-THROUGH) =================
-// Забирает файл из заблокированного облака и потоком передаёт клиенту (ноль нагрузки на память Render)
-app.get('/api/download', async (req, res) => {
-    try {
-        const fileUrl = req.query.url;
-        let fileName = req.query.filename || 'material.pdf';
-
-        if (!fileUrl) {
-            return res.status(400).send('Ссылка на файл не указана');
-        }
-
-        const response = await fetch(fileUrl, { headers: BROWSER_HEADERS });
-        if (!response.ok) {
-            throw new Error(`Облако ответило кодом ${response.status}`);
-        }
-
-        if (!/\.[a-zA-Z0-9]+$/.test(fileName)) {
-            const ext = fileUrl.split('.').pop().split(/[?#]/)[0];
-            if (ext && ext.length <= 5) fileName += '.' + ext;
-        }
-
-        res.setHeader('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
-        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
-
-        // Потоковая сквозная передача байтов (в памяти сервера ничего не оседает)
-        response.body.pipe(res);
-
-        res.on('close', () => {
-            if (response.body && response.body.destroy) response.body.destroy();
-        });
-    } catch (e) {
-        console.error('[DOWNLOAD ERROR]', e.message);
-        res.status(500).send('Ошибка скачивания: ' + e.message);
-    }
-});
-
 app.use(express.json());
 
-// ================= КЭШ И ХРАНИЛИЩА =================
+// ================= КЭШ РАСПИСАНИЙ И ЗАМЕН =================
 const scheduleCache = new Map();
 let changesListCache = [];
 const changesBufferCache = new Map();
 let lastCacheUpdate = null;
 let isSyncing = false;
 
-// Одноразовые ключи для старост (key -> groupName)
-const starostaOneTimeKeys = new Map();
-// Сессии авторизованных старост (groupName -> sessionToken)
-const starostaSessions = new Map();
-// Задания групп (groupName -> Array of tasks)
-const groupTasksStorage = new Map();
-// Учебники и материалы групп (groupName -> Array of materials)
-const groupMaterialsStorage = new Map();
-
-// Сессии подтверждённых админов
-const adminSessions = new Set();
-
-function generateRandomCode(len = 6) {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let res = '';
-    for (let i = 0; i < len; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
-    return res;
-}
-
-let currentRootOneTimeKey = `ROOT-${generateRandomCode(8)}`;
-console.log('====================================================');
-console.log('🔑 ОДНОРАЗОВЫЙ КЛЮЧ СОЗДАТЕЛЯ ДЛЯ ВХОДА В АДМИНКУ:');
-console.log(currentRootOneTimeKey);
-console.log('====================================================');
-
-// 1. АВТОРИЗАЦИЯ СОЗДАТЕЛЯ
-app.post('/api/admin/auth', (req, res) => {
-    const { rootKey } = req.body || {};
-    const cleanKey = String(rootKey || '').trim();
-
-    if (!currentRootOneTimeKey || cleanKey !== currentRootOneTimeKey) {
-        return res.status(403).json({ error: 'Одноразовый ключ создателя недействителен или уже сгорел' });
-    }
-
-    currentRootOneTimeKey = null;
-    const adminToken = `ADMIN-${generateRandomCode(20)}`;
-    adminSessions.add(adminToken);
-
-    res.json({ success: true, adminToken });
-});
-
-// 2. ВЫПУСК ОДНОРАЗОВОГО КЛЮЧА ДЛЯ СТАРОСТЫ
-app.post('/api/admin/generate-starosta-key', (req, res) => {
-    const { adminToken, group } = req.body || {};
-    if (!adminSessions.has(adminToken)) {
-        return res.status(403).json({ error: 'Сессия администратора не подтверждена' });
-    }
-    const cleanGroup = String(group || '').trim();
-    if (!cleanGroup) return res.status(400).json({ error: 'Укажите номер группы' });
-
-    const key = `KEY-${cleanGroup}-${generateRandomCode(6)}`;
-    starostaOneTimeKeys.set(key, cleanGroup);
-
-    res.json({ success: true, group: cleanGroup, key });
-});
-
-// 3. СБРОС СТАРОСТЫ ГРУППЫ
-app.post('/api/admin/revoke-starosta', (req, res) => {
-    const { adminToken, group } = req.body || {};
-    if (!adminSessions.has(adminToken)) {
-        return res.status(403).json({ error: 'Доступ запрещён' });
-    }
-    const cleanGroup = String(group || '').trim();
-    starostaSessions.delete(cleanGroup);
-    res.json({ success: true, message: `Староста группы ${cleanGroup} сброшен` });
-});
-
-// 4. АВТОРИЗАЦИЯ СТАРОСТЫ
-app.post('/api/tasks/auth', (req, res) => {
-    const { secretKey } = req.body || {};
-    const cleanKey = String(secretKey || '').trim();
-
-    if (!starostaOneTimeKeys.has(cleanKey)) {
-        return res.status(403).json({ error: 'Одноразовый ключ недействителен или уже был активирован' });
-    }
-
-    const group = starostaOneTimeKeys.get(cleanKey);
-    starostaOneTimeKeys.delete(cleanKey);
-
-    const sessionToken = `STAROSTA-${group}-${generateRandomCode(16)}`;
-    starostaSessions.set(group, sessionToken);
-
-    res.json({ success: true, group, sessionToken });
-});
-
-// 5. ЗАДАНИЯ ГРУППЫ
-app.get('/api/tasks/:group', (req, res) => {
-    const group = String(req.params.group || '').trim();
-    res.json({ tasks: groupTasksStorage.get(group) || [] });
-});
-
-app.post('/api/tasks/:group', (req, res) => {
-    const group = String(req.params.group || '').trim();
-    const { task, sessionToken } = req.body || {};
-
-    const activeToken = starostaSessions.get(group);
-    if (!activeToken || activeToken !== sessionToken) {
-        return res.status(403).json({ error: 'Сессия старосты недействительна' });
-    }
-
-    if (!task || !task.title || !task.dueDate) {
-        return res.status(400).json({ error: 'Заполните название задания и срок сдачи' });
-    }
-
-    if (!groupTasksStorage.has(group)) groupTasksStorage.set(group, []);
-
-    const newTask = {
-        id: Date.now(),
-        subject: String(task.subject || 'Общее').trim(),
-        title: String(task.title || '').trim(),
-        dueDate: String(task.dueDate || '').trim(),
-        author: 'Староста',
-        createdAt: new Date().toISOString()
-    };
-
-    groupTasksStorage.get(group).unshift(newTask);
-    res.json({ success: true, task: newTask });
-});
-
-app.delete('/api/tasks/:group/:id', (req, res) => {
-    const group = String(req.params.group || '').trim();
-    const taskId = parseInt(req.params.id, 10);
-    const { sessionToken } = req.body || {};
-
-    const activeToken = starostaSessions.get(group);
-    if (!activeToken || activeToken !== sessionToken) {
-        return res.status(403).json({ error: 'Сессия старосты недействительна' });
-    }
-
-    if (groupTasksStorage.has(group)) {
-        const filtered = groupTasksStorage.get(group).filter(t => t.id !== taskId);
-        groupTasksStorage.set(group, filtered);
-    }
-
-    res.json({ success: true });
-});
-
-// 6. УЧЕБНИКИ И МАТЕРИАЛЫ ГРУППЫ
-app.get('/api/materials/:group', (req, res) => {
-    const group = String(req.params.group || '').trim();
-    res.json({ materials: groupMaterialsStorage.get(group) || [] });
-});
-
-app.post('/api/materials/:group', (req, res) => {
-    const group = String(req.params.group || '').trim();
-    const { material, sessionToken } = req.body || {};
-
-    const activeToken = starostaSessions.get(group);
-    if (!activeToken || activeToken !== sessionToken) {
-        return res.status(403).json({ error: 'Сессия старосты недействительна' });
-    }
-
-    if (!material || !material.title || !material.fileUrl) {
-        return res.status(400).json({ error: 'Заполните название и прикрепите файл или ссылку' });
-    }
-
-    if (!groupMaterialsStorage.has(group)) groupMaterialsStorage.set(group, []);
-
-    const newMaterial = {
-        id: Date.now(),
-        title: String(material.title || '').trim(),
-        subject: String(material.subject || 'Общий материал').trim(),
-        fileUrl: String(material.fileUrl || '').trim(),
-        fileName: String(material.fileName || 'Файл').trim(),
-        fileSize: String(material.fileSize || '').trim(),
-        isDirectUpload: Boolean(material.isDirectUpload),
-        author: 'Староста',
-        createdAt: new Date().toISOString()
-    };
-
-    groupMaterialsStorage.get(group).unshift(newMaterial);
-    res.json({ success: true, material: newMaterial });
-});
-
-app.delete('/api/materials/:group/:id', (req, res) => {
-    const group = String(req.params.group || '').trim();
-    const materialId = parseInt(req.params.id, 10);
-    const { sessionToken } = req.body || {};
-
-    const activeToken = starostaSessions.get(group);
-    if (!activeToken || activeToken !== sessionToken) {
-        return res.status(403).json({ error: 'Сессия старосты недействительна' });
-    }
-
-    if (groupMaterialsStorage.has(group)) {
-        const filtered = groupMaterialsStorage.get(group).filter(m => m.id !== materialId);
-        groupMaterialsStorage.set(group, filtered);
-    }
-
-    res.json({ success: true });
-});
-
-// ================= РАСПИСАНИЕ И ЗАМЕНЫ =================
 function extractLinksFromHtml(html, baseUrl) {
     const links = [];
     const regex = /<a\s+[^>]*href=(?:["']([^"']+)["']|([^\s>]+))[^>]*>([\s\S]*?)<\/a>/gi;
@@ -418,6 +143,7 @@ async function syncAllDataFromNovsu() {
         const chgFiles = await fetchReplacementFilesList();
         if (chgFiles.length > 0) {
             changesListCache = chgFiles;
+            changesBufferCache.clear();
             for (const f of chgFiles) {
                 try {
                     const r = await fetch(f.url, { headers: BROWSER_HEADERS });
@@ -463,19 +189,23 @@ async function syncAllDataFromNovsu() {
         }
         lastCacheUpdate = new Date().toISOString();
     } catch (err) {
+        console.error('[SYNC ERROR]', err.message);
     } finally {
         isSyncing = false;
     }
 }
 setInterval(syncAllDataFromNovsu, 30 * 60 * 1000);
 
+// ================= API РОУТЫ =================
 app.get('/api/changes-list', async (req, res) => {
     try {
         if (changesListCache.length > 0) return res.json({ files: changesListCache, cached: true });
         const files = await fetchReplacementFilesList();
         changesListCache = files;
         res.json({ files, cached: false });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 app.get('/api/changes', async (req, res) => {
@@ -501,7 +231,9 @@ app.get('/api/changes', async (req, res) => {
         res.setHeader('Content-Type', 'application/octet-stream');
         res.setHeader('X-File-Title', encodeURIComponent(fileTitle));
         res.send(buffer);
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 app.get('/api/schedule/:group', async (req, res) => {
@@ -567,14 +299,21 @@ app.get('/api/schedule/:group', async (req, res) => {
             } catch (e) {}
         }
         return res.status(404).json({ error: `Группа ${targetGroup} не найдена` });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 app.get('/ping', (req, res) => {
-    res.json({ status: 'ok', cachedGroupsCount: scheduleCache.size, lastCacheUpdate });
+    res.json({
+        status: 'ok',
+        cachedGroupsCount: scheduleCache.size,
+        lastCacheUpdate,
+        memoryUsage: process.memoryUsage()
+    });
 });
 
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`PTK Schedule Server running on port ${PORT}`);
     syncAllDataFromNovsu();
 });
