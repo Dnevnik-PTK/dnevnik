@@ -3,6 +3,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 const express = require('express');
 const fetch = require('node-fetch');
 const XLSX = require('xlsx');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,6 +23,8 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
+// Раздача статических файлов (index.html, style.css, app.js) из корневой папки
+app.use(express.static(path.join(__dirname)));
 
 // ================= КЭШ РАСПИСАНИЙ И ЗАМЕН =================
 const scheduleCache = new Map();
