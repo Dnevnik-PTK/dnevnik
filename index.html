@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>НовГУ — Студенческий помощник</title>
+    <title>НовГУ — Дневник ПТК</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -11,19 +11,19 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <style>
         :root {
-            --bg-main: #080e1a;
-            --bg-card: linear-gradient(180deg, #131f35 0%, #0f192b 100%);
-            --border-card: #1e2f4d;
-            --shadow-card: 0 8px 24px -4px rgba(0, 0, 0, 0.45);
-            --bg-pill: #0d1626;
-            --border-pill: #1b2a46;
+            --bg-main: #060b14;
+            --bg-card: linear-gradient(180deg, #0e1726 0%, #0a111e 100%);
+            --border-card: #172439;
+            --shadow-card: 0 10px 28px -6px rgba(0, 0, 0, 0.55);
+            --bg-pill: #091220;
+            --border-pill: #1a2a44;
             --text-main: #f1f5f9;
-            --text-muted: #94a3b8;
-            --bg-nav: rgba(10, 18, 34, 0.95);
+            --text-muted: #8494ab;
+            --bg-nav: rgba(8, 14, 25, 0.94);
         }
 
         body.light-theme {
-            --bg-main: #f1f5f9;
+            --bg-main: #f3f5f9;
             --bg-card: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
             --border-card: #cbd5e1;
             --shadow-card: 0 6px 20px -4px rgba(15, 23, 42, 0.08);
@@ -31,7 +31,7 @@
             --border-pill: #cbd5e1;
             --text-main: #0f172a;
             --text-muted: #475569;
-            --bg-nav: rgba(255, 255, 255, 0.95);
+            --bg-nav: rgba(255, 255, 255, 0.94);
         }
 
         body {
@@ -54,14 +54,14 @@
         }
 
         .blue-glow {
-            background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
-            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+            background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+            box-shadow: 0 4px 18px rgba(37, 99, 235, 0.45);
             color: #ffffff !important;
         }
 
         .emerald-glow {
             background: linear-gradient(180deg, #10b981 0%, #059669 100%);
-            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+            box-shadow: 0 4px 18px rgba(16, 185, 129, 0.4);
             color: #ffffff !important;
         }
 
@@ -78,35 +78,49 @@
         body.light-theme .text-slate-400,
         body.light-theme .text-slate-500 { color: #64748b !important; }
         body.light-theme .bg-slate-800,
-        body.light-theme .bg-slate-800\/90,
         body.light-theme .bg-slate-900 { background-color: #e2e8f0 !important; border-color: #cbd5e1 !important; }
-        body.light-theme .border-slate-800,
-        body.light-theme .border-slate-800\/80,
-        body.light-theme .divide-slate-800\/80 > :not([hidden]) ~ :not([hidden]) { border-color: #e2e8f0 !important; }
 
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body class="min-h-screen select-none pb-28">
+<body class="min-h-screen select-none pb-24">
 
     <div class="max-w-md mx-auto px-4 pt-3 space-y-4">
 
         <!-- ВЕРХНЯЯ ШАПКА -->
         <header class="flex justify-between items-center py-1">
-            <div class="flex items-center gap-2.5">
-                <div class="w-9 h-9 rounded-full bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 font-bold text-sm shadow-inner">
-                    🏛️
+            <div class="flex items-center gap-3">
+                <!-- SVG ЛОГОТИП НОВГУ (Ярослав Мудрый) -->
+                <div class="w-10 h-10 rounded-2xl bg-blue-600/10 border border-blue-500/30 flex items-center justify-center p-1.5 shadow-inner">
+                    <svg viewBox="0 0 100 100" class="w-full h-full text-blue-400 stroke-current fill-none stroke-[3.5] stroke-linecap-round stroke-linejoin-round">
+                        <circle cx="50" cy="50" r="46" />
+                        <circle cx="50" cy="20" r="2.5" fill="currentColor" />
+                        <!-- Шлем и лик Ярослава Мудрого -->
+                        <path d="M50 22 C42 32, 44 45, 44 48 L56 48 C56 45, 58 32, 50 22 Z" />
+                        <path d="M47 41 L44 41 M53 41 L56 41" />
+                        <path d="M49 41 L49 48 L43 53 L50 53 L57 53 L51 48" />
+                        <path d="M46 54 C48 57, 52 57, 54 54" />
+                        <!-- Книга / Свиток знаний НовГУ -->
+                        <path d="M51 58 L63 53 L75 67 L63 72 Z" />
+                        <path d="M58 55 L70 69" />
+                        <!-- Плечи и контур -->
+                        <path d="M45 56 L37 66 L47 66 L55 77" />
+                        <circle cx="23" cy="50" r="2.2" fill="currentColor" />
+                        <circle cx="77" cy="50" r="2.2" fill="currentColor" />
+                    </svg>
                 </div>
                 <div>
                     <div class="flex items-center gap-2">
-                        <h1 id="topScreenTitle" class="text-lg font-bold tracking-tight text-white">Расписание</h1>
-                        <span class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">v6.7</span>
+                        <h1 id="topScreenTitle" class="text-base font-bold tracking-tight text-white leading-tight">НовГУ</h1>
+                        <span class="text-[10px] bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1.5 py-0.2 rounded-full font-mono">ПТК</span>
                     </div>
-                    <p id="topScreenSubtitle" class="text-[11px] text-slate-400">НовГУ • Студенческий помощник</p>
+                    <p id="topScreenSubtitle" class="text-[11px] text-slate-400">Политехнический колледж</p>
                 </div>
             </div>
-            <button type="button" id="topProfileBtn" onclick="toggleProfileModal()" class="w-9 h-9 rounded-full app-card flex items-center justify-center text-slate-300 hover:text-white active:scale-95 transition" title="Личный кабинет">
+
+            <!-- ЛИЧНЫЙ КАБИНЕТ СВЕРХУ СПРАВА -->
+            <button type="button" id="topProfileBtn" onclick="toggleProfileModal()" class="w-10 h-10 rounded-2xl app-card flex items-center justify-center text-slate-300 hover:text-white active:scale-95 transition" title="Личный кабинет">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
                 </svg>
@@ -189,7 +203,49 @@
             </div>
         </section>
 
-        <!-- ==================== ЭКРАН 3: ЗАДАНИЯ И УЧЕБНИКИ ==================== -->
+        <!-- ==================== ЭКРАН 3: УВЕДОМЛЕНИЯ ==================== -->
+        <section id="notificationsSection" class="space-y-3.5 hidden">
+            <div class="flex justify-between items-center px-1">
+                <span class="text-xs text-slate-400 font-medium">Важные объявления и пары</span>
+                <button type="button" onclick="clearAllNotifications()" class="text-xs text-slate-400 hover:text-white transition">Очистить всё</button>
+            </div>
+
+            <div id="notificationsList" class="space-y-2.5">
+                <!-- Карточка 1 -->
+                <div class="app-card p-4 rounded-3xl flex items-start gap-3.5">
+                    <div class="w-10 h-10 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-base shrink-0">
+                        📢
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-white">Замена в расписании</span>
+                            <span class="text-[10px] text-slate-400">10 мин назад</span>
+                        </div>
+                        <p class="text-xs text-slate-300 mt-1 leading-relaxed">
+                            Опубликован новый документ замен на портале НовГУ. Проверьте кабинет для второй пары.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Карточка 2 -->
+                <div class="app-card p-4 rounded-3xl flex items-start gap-3.5">
+                    <div class="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-base shrink-0">
+                        ⏰
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-white">Приближается дедлайн</span>
+                            <span class="text-[10px] text-slate-400">Сегодня</span>
+                        </div>
+                        <p class="text-xs text-slate-300 mt-1 leading-relaxed">
+                            Срок сдачи практической работы по программированию истекает в 23:59.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== ЭКРАН 4: ЗАДАНИЯ И УЧЕБНИКИ ==================== -->
         <section id="tasksSection" class="space-y-3.5 hidden">
             <div class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1">
                 <button type="button" id="btnSubTabTasks" onclick="switchTaskSubTab('tasks')" class="py-2 rounded-xl text-xs font-semibold transition blue-glow">📝 Задания</button>
@@ -234,7 +290,7 @@
             </div>
         </section>
 
-        <!-- ==================== ЭКРАН 4: ОЦЕНКИ ==================== -->
+        <!-- ==================== ЭКРАН 5: ОЦЕНКИ ==================== -->
         <section id="marksSection" class="space-y-3.5 hidden">
             <div class="app-card p-5 rounded-3xl space-y-3 relative overflow-hidden">
                 <div class="flex justify-between items-center">
@@ -326,7 +382,7 @@
             </div>
 
             <div class="space-y-2 pt-3 border-t border-slate-800">
-                <label class="block text-xs text-slate-400">Способ 2. Или выберите скачанный файл (.xls / .xlsx):</label>
+                <label class="block text-xs text-slate-400">Способ 2. Выберите скачанный файл (.xls / .xlsx):</label>
                 <input type="file" id="excelFileInput" accept=".xls,.xlsx" onchange="handleExcelFileSelect(event)" class="w-full pill-bar rounded-xl p-3 text-sm text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-white">
             </div>
 
@@ -442,7 +498,7 @@
             </button>
         </section>
 
-        <!-- ==================== ЭКРАН 6: ЛИЧНЫЙ КАБИНЕТ ==================== -->
+        <!-- ==================== ЭКРАН 6: ЛИЧНЫЙ КАБИНЕТ (С ВЫПАДАЮЩИМИ МЕНЮ) ==================== -->
         <section id="profileSection" class="space-y-4 hidden">
             <div class="flex justify-between items-center">
                 <button type="button" onclick="closeProfileModal()" class="app-card px-4 py-2 rounded-2xl text-xs font-bold text-blue-400 flex items-center gap-1.5 active:scale-95 transition">
@@ -451,97 +507,127 @@
                 <span class="text-xs text-slate-400 font-medium">Личный кабинет</span>
             </div>
 
-            <div class="app-card p-5 rounded-3xl space-y-4">
-                <div class="flex items-center gap-3.5">
-                    <div class="w-14 h-14 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-2xl shrink-0">
-                        👤
-                    </div>
-                    <div>
-                        <div id="profileStudentName" class="font-bold text-base text-white leading-snug">Студент НовГУ</div>
-                        <div class="text-xs text-slate-400 mt-0.5">Политехнический колледж</div>
-                    </div>
-                </div>
-
-                <div class="space-y-2 pt-2 border-t border-slate-800/80 text-xs text-slate-300">
-                    <div class="flex items-center gap-2.5">
-                        <span class="text-slate-400">👥</span>
-                        <span id="profileGroupText">Группа: не выбрана</span>
+            <!-- КАРТОЧКА ПРОФИЛЯ С ФОТОГРАФИЕЙ НОВГУ -->
+            <div class="app-card rounded-3xl overflow-hidden relative shadow-xl">
+                <!-- ФОТО ЗДАНИЯ НОВГУ В BASE64 -->
+                <div class="h-28 w-full bg-cover bg-center relative" style="background-image: url('data:image/svg+xml;utf8,<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;400&quot; height=&quot;160&quot; viewBox=&quot;0 0 400 160&quot;><defs><linearGradient id=&quot;sky&quot; x1=&quot;0&quot; y1=&quot;0&quot; x2=&quot;0&quot; y2=&quot;1&quot;><stop offset=&quot;0%&quot; stop-color=&quot;%230284c7&quot;/><stop offset=&quot;100%&quot; stop-color=&quot;%230369a1&quot;/></linearGradient></defs><rect width=&quot;400&quot; height=&quot;160&quot; fill=&quot;url(%23sky)&quot;/><path d=&quot;M50 160 L50 65 L280 65 L280 160 Z&quot; fill=&quot;%23e2e8f0&quot;/><rect x=&quot;65&quot; y=&quot;80&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;100&quot; y=&quot;80&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;135&quot; y=&quot;80&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;170&quot; y=&quot;80&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;205&quot; y=&quot;80&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;240&quot; y=&quot;80&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;65&quot; y=&quot;115&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;100&quot; y=&quot;115&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;135&quot; y=&quot;115&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;170&quot; y=&quot;115&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;205&quot; y=&quot;115&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;240&quot; y=&quot;115&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><path d=&quot;M280 160 L280 45 L350 45 L350 160 Z&quot; fill=&quot;%23cbd5e1&quot;/><circle cx=&quot;315&quot; cy=&quot;100&quot; r=&quot;20&quot; fill=&quot;%231e40af&quot;/><text x=&quot;65&quot; y=&quot;52&quot; font-family=&quot;Arial, sans-serif&quot; font-weight=&quot;900&quot; font-size=&quot;22&quot; fill=&quot;%231d4ed8&quot;>УНИВЕРСИТЕТ</text></svg>');">
+                    <div class="absolute inset-0 bg-gradient-to-t from-[#0e1726] via-[#0e1726]/60 to-transparent"></div>
+                    <div class="absolute top-2.5 right-3 bg-blue-600/60 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wider">
+                        НовГУ
                     </div>
                 </div>
 
-                <button type="button" onclick="openAddSchedule()" class="w-full blue-glow font-semibold py-3 rounded-2xl text-xs transition active:scale-95">
-                    Сменить / добавить группу расписания
+                <div class="p-5 pt-0 relative space-y-4">
+                    <div class="flex items-end gap-3.5 -mt-8">
+                        <div class="w-16 h-16 rounded-2xl bg-blue-600 border-2 border-[#0e1726] flex items-center justify-center text-white text-2xl shadow-lg shrink-0 font-bold">
+                            👤
+                        </div>
+                        <div class="min-w-0">
+                            <div id="profileStudentName" class="font-extrabold text-base text-white leading-tight truncate">Семенова София</div>
+                            <div class="text-xs text-slate-400 mt-0.5">Студентка ПТК • Очная форма</div>
+                        </div>
+                    </div>
+
+                    <!-- Табличные плашки профиля -->
+                    <div class="grid grid-cols-3 gap-2 text-center text-xs pt-1">
+                        <div class="pill-bar p-2.5 rounded-2xl">
+                            <div class="text-[10px] text-slate-400">Группа</div>
+                            <div id="profileGroupText" class="font-extrabold text-white mt-0.5">5952</div>
+                        </div>
+                        <div class="pill-bar p-2.5 rounded-2xl">
+                            <div class="text-[10px] text-slate-400">Курс</div>
+                            <div class="font-extrabold text-white mt-0.5">2 курс</div>
+                        </div>
+                        <div class="pill-bar p-2.5 rounded-2xl">
+                            <div class="text-[10px] text-slate-400">Колледж</div>
+                            <div class="font-extrabold text-white mt-0.5">ПТК</div>
+                        </div>
+                    </div>
+
+                    <button type="button" onclick="openAddSchedule()" class="w-full blue-glow font-semibold py-3 rounded-2xl text-xs transition active:scale-95">
+                        Сменить / добавить группу расписания
+                    </button>
+                </div>
+            </div>
+
+            <!-- ВЫПАДАЮЩЕЕ МЕНЮ: УПРАВЛЕНИЕ СТАРОСТАМИ (АККОРДЕОН) -->
+            <div class="app-card rounded-3xl overflow-hidden border border-emerald-500/30">
+                <button type="button" onclick="toggleAccordion('starostaAccordionContent')" class="w-full p-4 flex items-center justify-between text-left hover:bg-slate-800/40 transition">
+                    <div class="flex items-center gap-3">
+                        <span class="text-xl">👑</span>
+                        <div>
+                            <h3 class="text-sm font-bold text-white">Доступ старосты группы</h3>
+                            <p class="text-[11px] text-slate-400">Загрузка учебников на общий диск группы</p>
+                        </div>
+                    </div>
+                    <span id="starostaAccordionIcon" class="text-slate-400 text-sm">▼</span>
                 </button>
-            </div>
 
-            <!-- ПАНЕЛЬ СОЗДАТЕЛЯ (ВЫПУСК ОДНОРАЗОВЫХ КЛЮЧЕЙ) -->
-            <div class="app-card p-5 rounded-3xl space-y-3 border-amber-500/30">
-                <div class="flex items-center gap-2.5">
-                    <span class="text-lg">🛡️</span>
-                    <div>
-                        <h3 class="text-sm font-bold text-white">Панель создателя</h3>
-                        <p class="text-[11px] text-slate-400">Выпуск одноразовых ключей старостам</p>
-                    </div>
-                </div>
-
-                <div id="creatorUnlockedBlock" class="hidden space-y-3 pt-1">
-                    <div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs flex justify-between items-center">
-                        <div class="font-bold text-amber-400">✓ Панель создателя активна</div>
-                        <button type="button" onclick="logoutCreator()" class="text-red-400 font-bold hover:underline">Выйти</button>
-                    </div>
-
-                    <div class="space-y-2">
-                        <label class="block text-xs text-slate-400">Номер группы для выпуска ключа:</label>
-                        <div class="flex gap-2">
-                            <input type="text" id="creatorGroupInput" placeholder="Например: 6952" class="w-full pill-bar rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-500">
-                            <button type="button" id="btnGenKey" onclick="generateOneTimeKey()" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 rounded-xl text-xs shrink-0 transition">
-                                Создать ключ
-                            </button>
+                <div id="starostaAccordionContent" class="hidden p-4 pt-1 space-y-3 border-t border-slate-800/80">
+                    <div id="starostaActiveBlock" class="hidden p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-xs flex justify-between items-center">
+                        <div>
+                            <div class="font-bold text-emerald-400">✓ Права старосты активны</div>
+                            <div id="starostaActiveGroupLabel" class="text-slate-300 text-[11px] mt-0.5">Группа: 5952</div>
                         </div>
+                        <button type="button" onclick="logoutStarosta()" class="text-red-400 hover:text-red-300 font-semibold text-xs">Сбросить</button>
                     </div>
 
-                    <div id="creatorKeyBox" class="hidden p-3 rounded-2xl bg-slate-900 border border-slate-700 space-y-1.5 text-xs">
-                        <div class="text-slate-400 text-[11px]">Готовый одноразовый ключ (сгорит после активации):</div>
-                        <div class="flex items-center justify-between gap-2">
-                            <code id="creatorKeyResult" class="font-mono text-sm font-bold text-emerald-400"></code>
-                            <button type="button" onclick="copyCreatedKey()" class="pill-bar px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-200 hover:text-white">
-                                📋 Копировать
-                            </button>
-                        </div>
+                    <div id="starostaLoginForm" class="space-y-2 text-xs">
+                        <input type="password" id="starostaOneTimeKeyInput" placeholder="Вставьте одноразовый ключ старосты..." class="w-full pill-bar rounded-xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
+                        <button type="button" id="btnActivateStarosta" onclick="activateStarostaOneTimeKey()" class="w-full blue-glow font-bold py-2.5 rounded-xl text-xs transition active:scale-95">
+                            Активировать статус старосты
+                        </button>
                     </div>
-                </div>
-
-                <div id="creatorLoginForm" class="space-y-2 pt-1">
-                    <input type="password" id="creatorMasterPassInput" placeholder="Мастер-пароль создателя..." class="w-full pill-bar rounded-xl p-3 text-xs text-white focus:outline-none focus:border-amber-500">
-                    <button type="button" onclick="authCreator()" class="w-full pill-bar hover:bg-slate-800 text-amber-400 font-bold py-2.5 rounded-xl text-xs transition">
-                        Войти в панель создателя
-                    </button>
                 </div>
             </div>
 
-            <!-- ДОСТУП СТАРОСТЫ (ОДНОРАЗОВАЯ АКТИВАЦИЯ) -->
-            <div class="app-card p-5 rounded-3xl space-y-3">
-                <div class="flex items-center gap-2.5">
-                    <span class="text-lg">👑</span>
-                    <div>
-                        <h3 class="text-sm font-bold text-white">Доступ старосты группы</h3>
-                        <p class="text-[11px] text-slate-400">Загрузка учебников прямо на Google Диск группы</p>
+            <!-- ВЫПАДАЮЩЕЕ МЕНЮ: ПАНЕЛЬ АДМИНИСТРАТОРА / СОЗДАТЕЛЯ (АККОРДЕОН) -->
+            <div class="app-card rounded-3xl overflow-hidden border border-amber-500/30">
+                <button type="button" onclick="toggleAccordion('creatorAccordionContent')" class="w-full p-4 flex items-center justify-between text-left hover:bg-slate-800/40 transition">
+                    <div class="flex items-center gap-3">
+                        <span class="text-xl">🛡️</span>
+                        <div>
+                            <h3 class="text-sm font-bold text-white">Панель администратора</h3>
+                            <p class="text-[11px] text-slate-400">Выпуск одноразовых ключей старостам</p>
+                        </div>
                     </div>
-                </div>
+                    <span id="creatorAccordionIcon" class="text-slate-400 text-sm">▼</span>
+                </button>
 
-                <div id="starostaActiveBlock" class="hidden p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-xs flex justify-between items-center">
-                    <div>
-                        <div class="font-bold text-emerald-400">✓ Права старосты активны навсегда</div>
-                        <div id="starostaActiveGroupLabel" class="text-slate-300 text-[11px] mt-0.5">Группа: 6952</div>
+                <div id="creatorAccordionContent" class="hidden p-4 pt-1 space-y-3 border-t border-slate-800/80">
+                    <div id="creatorUnlockedBlock" class="hidden space-y-3 pt-1">
+                        <div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs flex justify-between items-center">
+                            <div class="font-bold text-amber-400">✓ Панель активна</div>
+                            <button type="button" onclick="logoutCreator()" class="text-red-400 font-bold hover:underline">Выйти</button>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="block text-xs text-slate-400">Номер группы для выпуска ключа:</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="creatorGroupInput" placeholder="Например: 5952" class="w-full pill-bar rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-500">
+                                <button type="button" id="btnGenKey" onclick="generateOneTimeKey()" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 rounded-xl text-xs shrink-0 transition">
+                                    Создать ключ
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="creatorKeyBox" class="hidden p-3 rounded-2xl bg-slate-900 border border-slate-700 space-y-1.5 text-xs">
+                            <div class="text-slate-400 text-[11px]">Готовый одноразовый ключ:</div>
+                            <div class="flex items-center justify-between gap-2">
+                                <code id="creatorKeyResult" class="font-mono text-sm font-bold text-emerald-400"></code>
+                                <button type="button" onclick="copyCreatedKey()" class="pill-bar px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-200 hover:text-white">
+                                    📋 Скопировать
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <button type="button" onclick="logoutStarosta()" class="text-red-400 hover:text-red-300 font-semibold text-xs">Сбросить</button>
-                </div>
 
-                <div id="starostaLoginForm" class="space-y-2 pt-1 text-xs">
-                    <input type="password" id="starostaOneTimeKeyInput" placeholder="Вставьте одноразовый ключ старосты..." class="w-full pill-bar rounded-xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
-                    <button type="button" id="btnActivateStarosta" onclick="activateStarostaOneTimeKey()" class="w-full blue-glow font-bold py-2.5 rounded-xl text-xs transition active:scale-95">
-                        Активировать статус старосты
-                    </button>
+                    <div id="creatorLoginForm" class="space-y-2 text-xs">
+                        <input type="password" id="creatorMasterPassInput" placeholder="Мастер-пароль администратора..." class="w-full pill-bar rounded-xl p-3 text-xs text-white focus:outline-none focus:border-amber-500">
+                        <button type="button" onclick="authCreator()" class="w-full pill-bar hover:bg-slate-800 text-amber-400 font-bold py-2.5 rounded-xl text-xs transition">
+                            Войти в панель администратора
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -549,8 +635,8 @@
             <div class="app-card p-5 rounded-3xl space-y-3">
                 <div class="flex justify-between items-center">
                     <div>
-                        <h3 class="text-sm font-bold text-white">📊 Мои дневники оценок</h3>
-                        <p class="text-[11px] text-slate-400">Таблицы предметов и баллов</p>
+                        <h3 class="text-sm font-bold text-white">📊 Дневники оценок</h3>
+                        <p class="text-[11px] text-slate-400">Таблицы предметов и ведомостей</p>
                     </div>
                     <button type="button" onclick="openAddSubject()" class="blue-glow px-3.5 py-2 rounded-xl text-xs font-semibold active:scale-95 transition">
                         ➕ Добавить
@@ -565,8 +651,8 @@
                     <div class="flex items-center gap-3">
                         <span id="themeIconDisplay" class="text-lg">🌙</span>
                         <div>
-                            <div class="font-bold text-white">Тема оформления</div>
-                            <div id="themeSubtitleDisplay" class="text-[11px] text-slate-400">Выберите тему</div>
+                            <div class="font-bold text-white">Тема интерфейса</div>
+                            <div id="themeSubtitleDisplay" class="text-[11px] text-slate-400">Выберите оформление</div>
                         </div>
                     </div>
                     <div class="pill-bar p-1 rounded-xl flex gap-1">
@@ -583,44 +669,54 @@
                     <span>›</span>
                 </button>
             </div>
-
-            <div class="text-center space-y-1 pt-1">
-                <div class="text-[11px] text-slate-400">Версия 6.7 • Google Cloud & One-Time Keys</div>
-                <div class="inline-flex items-center gap-1.5 text-slate-400 text-xs">
-                    <span>🏛️</span>
-                    <span class="font-semibold">НовГУ • Студенческий помощник</span>
-                </div>
-            </div>
         </section>
 
     </div>
 
-    <!-- НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ -->
-    <nav class="fixed bottom-0 left-0 right-0 bottom-nav backdrop-blur-md px-3 py-2 z-50">
-        <div class="max-w-md mx-auto grid grid-cols-4 gap-1">
+    <!-- НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ (5 ПУНКТОВ) -->
+    <nav class="fixed bottom-0 left-0 right-0 bottom-nav backdrop-blur-md px-2 py-1.5 z-50">
+        <div class="max-w-md mx-auto grid grid-cols-5 gap-1 text-center">
+            <!-- 1: Расписание -->
             <button type="button" id="navScheduleBtn" onclick="switchSection('schedule')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition blue-glow">
                 <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
                 </svg>
-                <span class="text-[10px] font-medium">Расписание</span>
+                <span class="text-[9.5px] font-semibold leading-none">Расписание</span>
             </button>
+
+            <!-- 2: Замены -->
             <button type="button" id="navChangesBtn" onclick="switchSection('changes')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition text-slate-400">
                 <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/>
                 </svg>
-                <span class="text-[10px] font-medium">Изменения</span>
+                <span class="text-[9.5px] font-medium leading-none">Замены</span>
             </button>
+
+            <!-- 3: Уведомления -->
+            <button type="button" id="navNotifBtn" onclick="switchSection('notifications')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition text-slate-400 relative">
+                <div class="relative">
+                    <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>
+                    </svg>
+                    <span class="absolute -top-1 -right-1.5 bg-red-500 text-white text-[9px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center border border-[#080e19]">2</span>
+                </div>
+                <span class="text-[9.5px] font-medium leading-none">Уведомл.</span>
+            </button>
+
+            <!-- 4: Задания -->
             <button type="button" id="navTasksBtn" onclick="switchSection('tasks')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition text-slate-400">
                 <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
                 </svg>
-                <span class="text-[10px] font-medium">Задания</span>
+                <span class="text-[9.5px] font-medium leading-none">Задания</span>
             </button>
+
+            <!-- 5: Оценки -->
             <button type="button" id="navMarksBtn" onclick="switchSection('marks')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition text-slate-400">
                 <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
                 </svg>
-                <span class="text-[10px] font-medium">Оценки</span>
+                <span class="text-[9.5px] font-medium leading-none">Оценки</span>
             </button>
         </div>
     </nav>
@@ -632,9 +728,7 @@
             }
         } catch (e) {}
 
-        // ================= НАСТРОЙКИ СЕРВЕРА И GOOGLE APPS SCRIPT =================
         const RENDER_URL = 'https://dnevnik-1.onrender.com';
-        // ВСТАВЬТЕ СЮДА URL РАЗВЕРНУТОГО ВЕБ-ПРИЛОЖЕНИЯ GOOGLE APPS SCRIPT:
         const GOOGLE_SCRIPT_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycby0OHCGp42wNiBPWnqxO7Z3jImgL5_qhE2s0FODcKEe65cfoaLNh6Ho6njABsbtB5aDaw/exec';
 
         const STORAGE_MARKS_KEY = 'ptk_diary_subjects_v3';
@@ -658,7 +752,6 @@
         let lastActiveSection = 'schedule';
         let currentTheme = 'dark';
 
-        // Староста и создатель
         let starostaAuth = null;
         let creatorMasterPassword = localStorage.getItem(STORAGE_CREATOR_PASS_KEY) || null;
 
@@ -719,7 +812,16 @@
             else switchSection('schedule');
         });
 
-        // ================= ТЕМА ОФОРМЛЕНИЯ =================
+        function toggleAccordion(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const isHidden = el.classList.contains('hidden');
+            el.classList.toggle('hidden');
+            const iconId = id === 'starostaAccordionContent' ? 'starostaAccordionIcon' : 'creatorAccordionIcon';
+            const icon = document.getElementById(iconId);
+            if (icon) icon.innerText = isHidden ? '▲' : '▼';
+        }
+
         function setAppTheme(theme) {
             currentTheme = theme === 'light' ? 'light' : 'dark';
             localStorage.setItem(STORAGE_THEME_KEY, currentTheme);
@@ -758,7 +860,7 @@
 
         function getActiveGroupName() {
             const known = getKnownUserGroups();
-            return known[0] || '';
+            return known[0] || '5952';
         }
 
         function getInitialWeekType() {
@@ -789,10 +891,9 @@
             l.className = currentSelectedWeek === 'lower' ? "py-1.5 rounded-xl text-xs font-semibold transition blue-glow" : "py-1.5 rounded-xl text-xs font-medium transition text-slate-400";
         }
 
-        // ================= НАВИГАЦИЯ =================
         function switchSection(section) {
             lastActiveSection = section;
-            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addTaskModal', 'addMaterialModal', 'profileSection'];
+            const allSecs = ['scheduleSection', 'changesSection', 'notificationsSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addTaskModal', 'addMaterialModal', 'profileSection'];
             allSecs.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.add('hidden');
@@ -801,15 +902,22 @@
             const titles = {
                 schedule: 'Расписание',
                 changes: 'Изменения в расписании',
+                notifications: 'Уведомления',
                 tasks: 'Задания',
                 marks: 'Оценки'
             };
             if (titles[section]) document.getElementById('topScreenTitle').innerText = titles[section];
 
             const topProfBtn = document.getElementById('topProfileBtn');
-            if (topProfBtn) topProfBtn.className = "w-9 h-9 rounded-full app-card flex items-center justify-center text-slate-300 hover:text-white active:scale-95 transition";
+            if (topProfBtn) topProfBtn.className = "w-10 h-10 rounded-2xl app-card flex items-center justify-center text-slate-300 hover:text-white active:scale-95 transition";
 
-            const navs = { schedule: 'navScheduleBtn', changes: 'navChangesBtn', tasks: 'navTasksBtn', marks: 'navMarksBtn' };
+            const navs = {
+                schedule: 'navScheduleBtn',
+                changes: 'navChangesBtn',
+                notifications: 'navNotifBtn',
+                tasks: 'navTasksBtn',
+                marks: 'navMarksBtn'
+            };
             const actCls = "flex flex-col items-center justify-center py-1.5 rounded-2xl transition blue-glow";
             const inactCls = "flex flex-col items-center justify-center py-1.5 rounded-2xl transition text-slate-400";
 
@@ -829,6 +937,8 @@
                 renderChangesGroupFilter();
                 renderChangesList();
                 if (!changesData.items || changesData.items.length === 0) fetchChangesFromPortal();
+            } else if (section === 'notifications') {
+                document.getElementById('notificationsSection').classList.remove('hidden');
             } else if (section === 'tasks') {
                 document.getElementById('tasksSection').classList.remove('hidden');
                 switchTaskSubTab(taskSubTab);
@@ -839,6 +949,10 @@
             }
         }
 
+        function clearAllNotifications() {
+            document.getElementById('notificationsList').innerHTML = '<div class="app-card p-6 rounded-3xl text-center text-slate-400 text-xs">Уведомлений нет</div>';
+        }
+
         function toggleProfileModal() {
             const profSec = document.getElementById('profileSection');
             if (profSec && !profSec.classList.contains('hidden')) closeProfileModal();
@@ -846,18 +960,16 @@
         }
 
         function openProfileModal() {
-            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addTaskModal', 'addMaterialModal'];
+            const allSecs = ['scheduleSection', 'changesSection', 'notificationsSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addTaskModal', 'addMaterialModal'];
             allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById('profileSection').classList.remove('hidden');
             document.getElementById('topScreenTitle').innerText = 'Личный кабинет';
 
             const topProfBtn = document.getElementById('topProfileBtn');
-            if (topProfBtn) topProfBtn.className = "w-9 h-9 rounded-full blue-glow flex items-center justify-center active:scale-95 transition";
+            if (topProfBtn) topProfBtn.className = "w-10 h-10 rounded-2xl blue-glow flex items-center justify-center active:scale-95 transition";
 
-            const stName = subjects.length > 0 ? subjects[activeSubjectIndex].studentName : 'Студент НовГУ';
-            const grp = getActiveGroupName() || 'не выбрана';
-            document.getElementById('profileStudentName').innerText = stName;
-            document.getElementById('profileGroupText').innerText = `Группа: ${grp}`;
+            const grp = getActiveGroupName() || '5952';
+            document.getElementById('profileGroupText').innerText = grp;
 
             renderProfileSubjectsList();
             updateCreatorUI();
@@ -868,7 +980,6 @@
             switchSection(lastActiveSection || 'schedule');
         }
 
-        // ================= ПАНЕЛЬ СОЗДАТЕЛЯ (АВТОРИЗАЦИЯ И ВЫПУСК ОДНОРАЗОВЫХ КЛЮЧЕЙ) =================
         function updateCreatorUI() {
             const unlocked = document.getElementById('creatorUnlockedBlock');
             const loginForm = document.getElementById('creatorLoginForm');
@@ -884,7 +995,7 @@
         async function authCreator() {
             const input = document.getElementById('creatorMasterPassInput');
             const pass = input.value.trim();
-            if (!pass) { alert("Введите пароль создателя!"); return; }
+            if (!pass) { alert("Введите мастер-пароль!"); return; }
 
             try {
                 const res = await fetch(GOOGLE_SCRIPT_WEBAPP_URL, {
@@ -899,14 +1010,14 @@
                 localStorage.setItem(STORAGE_CREATOR_PASS_KEY, pass);
                 input.value = '';
                 updateCreatorUI();
-                alert("✓ Вход в панель создателя выполнен!");
+                alert("✓ Вход в панель администратора выполнен!");
             } catch (e) {
                 alert("Ошибка: " + e.message);
             }
         }
 
         function logoutCreator() {
-            if (confirm("Выйти из панели создателя?")) {
+            if (confirm("Выйти из панели администратора?")) {
                 creatorMasterPassword = null;
                 localStorage.removeItem(STORAGE_CREATOR_PASS_KEY);
                 updateCreatorUI();
@@ -951,7 +1062,6 @@
             }
         }
 
-        // ================= ДОСТУП СТАРОСТЫ (ОДНОРАЗОВАЯ АКТИВАЦИЯ) =================
         function updateStarostaUI() {
             const activeBlock = document.getElementById('starostaActiveBlock');
             const loginForm = document.getElementById('starostaLoginForm');
@@ -976,11 +1086,6 @@
             if (!key) { alert("Вставьте одноразовый ключ!"); return; }
 
             const currentGrp = getActiveGroupName();
-            if (!currentGrp) {
-                alert("Сначала подключите вашу группу в разделе «Расписание»!");
-                return;
-            }
-
             const btn = document.getElementById('btnActivateStarosta');
             btn.innerText = "⏳ Проверка ключа...";
             btn.disabled = true;
@@ -1006,7 +1111,7 @@
                 localStorage.setItem(STORAGE_STAROSTA_SESSION_KEY, JSON.stringify(starostaAuth));
                 keyInput.value = '';
                 updateStarostaUI();
-                alert(`✓ Поздравляем! Вы активировали права старосты группы ${data.group}. Одноразовый ключ сгорел.`);
+                alert(`✓ Права старосты активированы для группы ${data.group}!`);
             } catch (e) {
                 alert("Ошибка: " + e.message);
             } finally {
@@ -1016,14 +1121,13 @@
         }
 
         function logoutStarosta() {
-            if (confirm("Сбросить сессию старосты на этом телефоне? Для повторного входа потребуется новый ключ от создателя.")) {
+            if (confirm("Сбросить сессию старосты? Для повторного входа потребуется новый ключ.")) {
                 starostaAuth = null;
                 localStorage.removeItem(STORAGE_STAROSTA_SESSION_KEY);
                 updateStarostaUI();
             }
         }
 
-        // ================= РАСПИСАНИЕ И АНАЛИЗ ПАР =================
         function getMondayOfCurrentWeek() {
             const now = new Date();
             const day = now.getDay();
@@ -1053,7 +1157,7 @@
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = isSelected
-                    ? "py-2 rounded-2xl flex flex-col items-center justify-center transition blue-glow font-bold"
+                    ? "py-2 rounded-2xl flex flex-col items-center justify-center transition blue-glow font-bold shadow-md"
                     : "py-2 rounded-2xl flex flex-col items-center justify-center transition app-card text-slate-400";
                 btn.innerHTML = `<span class="text-[11px]">${DAY_NAMES_SHORT[i]}</span><span class="text-sm font-bold mt-0.5">${dateNum}</span>`;
                 btn.onclick = () => {
@@ -1244,7 +1348,7 @@
         }
 
         function openAddSchedule() {
-            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'addTaskModal', 'addMaterialModal', 'profileSection'];
+            const allSecs = ['scheduleSection', 'changesSection', 'notificationsSection', 'tasksSection', 'marksSection', 'setupScreen', 'addTaskModal', 'addMaterialModal', 'profileSection'];
             allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById('setupScheduleScreen').classList.remove('hidden');
             document.getElementById('excelFileInput').value = '';
@@ -1563,7 +1667,6 @@
             }
         }
 
-        // ================= ЭКРАН 2: ИЗМЕНЕНИЯ В РАСПИСАНИИ =================
         function setChangesTypeFilter(type) {
             activeChangesTypeFilter = type;
             const ids = { ALL: 'chgFilterAll', MOVE: 'chgFilterMove', CANCEL: 'chgFilterCancel' };
@@ -1789,7 +1892,7 @@
                             ${removedBlock}
                             ${replacementBlock}
                             <div class="text-xs text-slate-400 pt-0.5 flex items-center gap-1.5">
-                                ${isCancelled ? '<span class="text-red-400 font-medium">🚫 Занятие отменено (Не будет)</span>' : `<span>📍 Ауд. <b>${it.aud || 'по расписанию'}</b></span>`}
+                                ${isCancelled ? '<span class="text-red-400 font-medium">🚫 Занятие отменено</span>' : `<span>📍 Ауд. <b>${it.aud || 'по расписанию'}</b></span>`}
                             </div>
                         </div>
                     </div>
@@ -1798,7 +1901,6 @@
             container.innerHTML = html;
         }
 
-        // ================= ЭКРАН 3: ДОМАШНИЕ ЗАДАНИЯ =================
         function switchTaskSubTab(tab) {
             taskSubTab = tab;
             const bTasks = document.getElementById('btnSubTabTasks');
@@ -1901,7 +2003,7 @@
         }
 
         function openAddTaskModal() {
-            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addMaterialModal', 'profileSection'];
+            const allSecs = ['scheduleSection', 'changesSection', 'notificationsSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addMaterialModal', 'profileSection'];
             allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById('addTaskModal').classList.remove('hidden');
 
@@ -1999,7 +2101,6 @@
             container.innerHTML = html;
         }
 
-        // ================= GOOGLE ДИСК МАТЕРИАЛЫ =================
         function formatBytes(bytes) {
             if (!bytes || isNaN(bytes)) return '';
             const k = 1024;
@@ -2023,9 +2124,7 @@
                         googleDriveMaterials = data.materials;
                     }
                 }
-            } catch (e) {
-                console.log('Google Drive sync skipped:', e.message);
-            }
+            } catch (e) {}
             renderMaterialsList();
         }
 
@@ -2071,7 +2170,7 @@
         }
 
         function openAddMaterialModal() {
-            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addTaskModal', 'profileSection'];
+            const allSecs = ['scheduleSection', 'changesSection', 'notificationsSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addTaskModal', 'profileSection'];
             allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById('addMaterialModal').classList.remove('hidden');
 
@@ -2112,9 +2211,7 @@
             }
 
             const reader = new FileReader();
-            reader.onload = function(e) {
-                selectedFileBase64 = e.target.result;
-            };
+            reader.onload = function(e) { selectedFileBase64 = e.target.result; };
             reader.readAsDataURL(file);
         }
 
@@ -2125,16 +2222,9 @@
 
             if (!title) { alert("Введите название материала!"); return; }
 
-            // Личный материал
             if (materialTarget === 'personal') {
-                if (materialInputMode === 'file' && !selectedFileBase64) {
-                    alert("Выберите файл!");
-                    return;
-                }
-                if (materialInputMode === 'link' && !manualLink) {
-                    alert("Укажите ссылку на материал!");
-                    return;
-                }
+                if (materialInputMode === 'file' && !selectedFileBase64) { alert("Выберите файл!"); return; }
+                if (materialInputMode === 'link' && !manualLink) { alert("Укажите ссылку!"); return; }
 
                 personalMaterials.unshift({
                     id: Date.now(),
@@ -2152,17 +2242,13 @@
                 return;
             }
 
-            // Загрузка на Google Диск группы (для старосты)
             const currentGrp = getActiveGroupName();
             if (!currentGrp) { alert("Не выбрана группа в расписании!"); return; }
             if (!starostaAuth || !starostaAuth.sessionToken || starostaAuth.group !== currentGrp) {
                 alert("Загружать материалы на Google Диск группы может только староста (активируйте одноразовый ключ в профиле)!");
                 return;
             }
-            if (!selectedFileBase64) {
-                alert("Выберите файл с устройства для загрузки!");
-                return;
-            }
+            if (!selectedFileBase64) { alert("Выберите файл с устройства для загрузки!"); return; }
 
             const statusEl = document.getElementById('matUploadStatus');
             const submitBtn = document.getElementById('submitMaterialBtn');
@@ -2244,7 +2330,6 @@
             if (!container) return;
 
             const allCombined = [...personalMaterials, ...googleDriveMaterials];
-
             const allSubjs = new Set(['ALL']);
             allCombined.forEach(m => { if (m.subject) allSubjs.add(m.subject); });
 
@@ -2318,7 +2403,6 @@
             container.innerHTML = html;
         }
 
-        // ================= ЭКРАН 4: ОЦЕНКИ =================
         function setMarksViewMode(mode) {
             marksViewMode = mode;
             document.getElementById('btnMarksBySubj').className = mode === 'subjects' ? "py-2 rounded-xl text-xs font-semibold transition blue-glow" : "py-2 rounded-xl text-xs font-medium transition text-slate-400";
@@ -2449,7 +2533,7 @@
         }
 
         function openAddSubject() {
-            const allSecs = ['scheduleSection', 'changesSection', 'tasksSection', 'marksSection', 'setupScheduleScreen', 'addTaskModal', 'addMaterialModal', 'profileSection'];
+            const allSecs = ['scheduleSection', 'changesSection', 'notificationsSection', 'tasksSection', 'marksSection', 'setupScheduleScreen', 'addTaskModal', 'addMaterialModal', 'profileSection'];
             allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
             document.getElementById('setupScreen').classList.remove('hidden');
             document.getElementById('groupSelectBlock').classList.add('hidden');
