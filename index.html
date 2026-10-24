@@ -91,20 +91,17 @@
         <!-- ВЕРХНЯЯ ШАПКА -->
         <header class="flex justify-between items-center py-1">
             <div class="flex items-center gap-3">
-                <!-- SVG ЛОГОТИП НОВГУ (Ярослав Мудрый) -->
+                <!-- SVG ЛОГОТИП НОВГУ -->
                 <div class="w-10 h-10 rounded-2xl bg-blue-600/10 border border-blue-500/30 flex items-center justify-center p-1.5 shadow-inner">
                     <svg viewBox="0 0 100 100" class="w-full h-full text-blue-400 stroke-current fill-none stroke-[3.5] stroke-linecap-round stroke-linejoin-round">
                         <circle cx="50" cy="50" r="46" />
                         <circle cx="50" cy="20" r="2.5" fill="currentColor" />
-                        <!-- Шлем и лик Ярослава Мудрого -->
                         <path d="M50 22 C42 32, 44 45, 44 48 L56 48 C56 45, 58 32, 50 22 Z" />
                         <path d="M47 41 L44 41 M53 41 L56 41" />
                         <path d="M49 41 L49 48 L43 53 L50 53 L57 53 L51 48" />
                         <path d="M46 54 C48 57, 52 57, 54 54" />
-                        <!-- Книга / Свиток знаний НовГУ -->
                         <path d="M51 58 L63 53 L75 67 L63 72 Z" />
                         <path d="M58 55 L70 69" />
-                        <!-- Плечи и контур -->
                         <path d="M45 56 L37 66 L47 66 L55 77" />
                         <circle cx="23" cy="50" r="2.2" fill="currentColor" />
                         <circle cx="77" cy="50" r="2.2" fill="currentColor" />
@@ -207,42 +204,10 @@
         <section id="notificationsSection" class="space-y-3.5 hidden">
             <div class="flex justify-between items-center px-1">
                 <span class="text-xs text-slate-400 font-medium">Важные объявления и пары</span>
-                <button type="button" onclick="clearAllNotifications()" class="text-xs text-slate-400 hover:text-white transition">Очистить всё</button>
+                <button type="button" onclick="clearAllNotifications()" class="text-xs text-blue-400 font-medium hover:underline transition">Очистить всё</button>
             </div>
 
-            <div id="notificationsList" class="space-y-2.5">
-                <!-- Карточка 1 -->
-                <div class="app-card p-4 rounded-3xl flex items-start gap-3.5">
-                    <div class="w-10 h-10 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-base shrink-0">
-                        📢
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-white">Замена в расписании</span>
-                            <span class="text-[10px] text-slate-400">10 мин назад</span>
-                        </div>
-                        <p class="text-xs text-slate-300 mt-1 leading-relaxed">
-                            Опубликован новый документ замен на портале НовГУ. Проверьте кабинет для второй пары.
-                        </p>
-                    </div>
-                </div>
-
-                <!-- Карточка 2 -->
-                <div class="app-card p-4 rounded-3xl flex items-start gap-3.5">
-                    <div class="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-base shrink-0">
-                        ⏰
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-white">Приближается дедлайн</span>
-                            <span class="text-[10px] text-slate-400">Сегодня</span>
-                        </div>
-                        <p class="text-xs text-slate-300 mt-1 leading-relaxed">
-                            Срок сдачи практической работы по программированию истекает в 23:59.
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <div id="notificationsList" class="space-y-2.5"></div>
         </section>
 
         <!-- ==================== ЭКРАН 4: ЗАДАНИЯ И УЧЕБНИКИ ==================== -->
@@ -498,7 +463,7 @@
             </button>
         </section>
 
-        <!-- ==================== ЭКРАН 6: ЛИЧНЫЙ КАБИНЕТ (С ВЫПАДАЮЩИМИ МЕНЮ) ==================== -->
+        <!-- ==================== ЭКРАН 6: ЛИЧНЫЙ КАБИНЕТ ==================== -->
         <section id="profileSection" class="space-y-4 hidden">
             <div class="flex justify-between items-center">
                 <button type="button" onclick="closeProfileModal()" class="app-card px-4 py-2 rounded-2xl text-xs font-bold text-blue-400 flex items-center gap-1.5 active:scale-95 transition">
@@ -507,47 +472,27 @@
                 <span class="text-xs text-slate-400 font-medium">Личный кабинет</span>
             </div>
 
-            <!-- КАРТОЧКА ПРОФИЛЯ С ФОТОГРАФИЕЙ НОВГУ -->
-            <div class="app-card rounded-3xl overflow-hidden relative shadow-xl">
-                <!-- ФОТО ЗДАНИЯ НОВГУ В BASE64 -->
-                <div class="h-28 w-full bg-cover bg-center relative" style="background-image: url('data:image/svg+xml;utf8,<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;400&quot; height=&quot;160&quot; viewBox=&quot;0 0 400 160&quot;><defs><linearGradient id=&quot;sky&quot; x1=&quot;0&quot; y1=&quot;0&quot; x2=&quot;0&quot; y2=&quot;1&quot;><stop offset=&quot;0%&quot; stop-color=&quot;%230284c7&quot;/><stop offset=&quot;100%&quot; stop-color=&quot;%230369a1&quot;/></linearGradient></defs><rect width=&quot;400&quot; height=&quot;160&quot; fill=&quot;url(%23sky)&quot;/><path d=&quot;M50 160 L50 65 L280 65 L280 160 Z&quot; fill=&quot;%23e2e8f0&quot;/><rect x=&quot;65&quot; y=&quot;80&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;100&quot; y=&quot;80&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;135&quot; y=&quot;80&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;170&quot; y=&quot;80&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;205&quot; y=&quot;80&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;240&quot; y=&quot;80&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;65&quot; y=&quot;115&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;100&quot; y=&quot;115&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;135&quot; y=&quot;115&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;170&quot; y=&quot;115&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;205&quot; y=&quot;115&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><rect x=&quot;240&quot; y=&quot;115&quot; width=&quot;20&quot; height=&quot;25&quot; fill=&quot;%231e293b&quot;/><path d=&quot;M280 160 L280 45 L350 45 L350 160 Z&quot; fill=&quot;%23cbd5e1&quot;/><circle cx=&quot;315&quot; cy=&quot;100&quot; r=&quot;20&quot; fill=&quot;%231e40af&quot;/><text x=&quot;65&quot; y=&quot;52&quot; font-family=&quot;Arial, sans-serif&quot; font-weight=&quot;900&quot; font-size=&quot;22&quot; fill=&quot;%231d4ed8&quot;>УНИВЕРСИТЕТ</text></svg>');">
-                    <div class="absolute inset-0 bg-gradient-to-t from-[#0e1726] via-[#0e1726]/60 to-transparent"></div>
-                    <div class="absolute top-2.5 right-3 bg-blue-600/60 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white uppercase tracking-wider">
-                        НовГУ
+            <div class="app-card p-5 rounded-3xl space-y-4">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-14 h-14 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-2xl shrink-0">
+                        👤
+                    </div>
+                    <div>
+                        <div id="profileStudentName" class="font-bold text-base text-white leading-snug">Студент НовГУ</div>
+                        <div class="text-xs text-slate-400 mt-0.5">Политехнический колледж</div>
                     </div>
                 </div>
 
-                <div class="p-5 pt-0 relative space-y-4">
-                    <div class="flex items-end gap-3.5 -mt-8">
-                        <div class="w-16 h-16 rounded-2xl bg-blue-600 border-2 border-[#0e1726] flex items-center justify-center text-white text-2xl shadow-lg shrink-0 font-bold">
-                            👤
-                        </div>
-                        <div class="min-w-0">
-                            <div id="profileStudentName" class="font-extrabold text-base text-white leading-tight truncate">Семенова София</div>
-                            <div class="text-xs text-slate-400 mt-0.5">Студентка ПТК • Очная форма</div>
-                        </div>
+                <div class="space-y-2 pt-2 border-t border-slate-800/80 text-xs text-slate-300">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-slate-400">👥</span>
+                        <span id="profileGroupText">Группа: не выбрана</span>
                     </div>
-
-                    <!-- Табличные плашки профиля -->
-                    <div class="grid grid-cols-3 gap-2 text-center text-xs pt-1">
-                        <div class="pill-bar p-2.5 rounded-2xl">
-                            <div class="text-[10px] text-slate-400">Группа</div>
-                            <div id="profileGroupText" class="font-extrabold text-white mt-0.5">5952</div>
-                        </div>
-                        <div class="pill-bar p-2.5 rounded-2xl">
-                            <div class="text-[10px] text-slate-400">Курс</div>
-                            <div class="font-extrabold text-white mt-0.5">2 курс</div>
-                        </div>
-                        <div class="pill-bar p-2.5 rounded-2xl">
-                            <div class="text-[10px] text-slate-400">Колледж</div>
-                            <div class="font-extrabold text-white mt-0.5">ПТК</div>
-                        </div>
-                    </div>
-
-                    <button type="button" onclick="openAddSchedule()" class="w-full blue-glow font-semibold py-3 rounded-2xl text-xs transition active:scale-95">
-                        Сменить / добавить группу расписания
-                    </button>
                 </div>
+
+                <button type="button" onclick="openAddSchedule()" class="w-full blue-glow font-semibold py-3 rounded-2xl text-xs transition active:scale-95">
+                    Сменить / добавить группу расписания
+                </button>
             </div>
 
             <!-- ВЫПАДАЮЩЕЕ МЕНЮ: УПРАВЛЕНИЕ СТАРОСТАМИ (АККОРДЕОН) -->
@@ -567,7 +512,7 @@
                     <div id="starostaActiveBlock" class="hidden p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-xs flex justify-between items-center">
                         <div>
                             <div class="font-bold text-emerald-400">✓ Права старосты активны</div>
-                            <div id="starostaActiveGroupLabel" class="text-slate-300 text-[11px] mt-0.5">Группа: 5952</div>
+                            <div id="starostaActiveGroupLabel" class="text-slate-300 text-[11px] mt-0.5">Группа: не выбрана</div>
                         </div>
                         <button type="button" onclick="logoutStarosta()" class="text-red-400 hover:text-red-300 font-semibold text-xs">Сбросить</button>
                     </div>
@@ -673,7 +618,7 @@
 
     </div>
 
-    <!-- НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ (5 ПУНКТОВ) -->
+    <!-- ==================== НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ (5 ПУНКТОВ) ==================== -->
     <nav class="fixed bottom-0 left-0 right-0 bottom-nav backdrop-blur-md px-2 py-1.5 z-50">
         <div class="max-w-md mx-auto grid grid-cols-5 gap-1 text-center">
             <!-- 1: Расписание -->
@@ -692,13 +637,13 @@
                 <span class="text-[9.5px] font-medium leading-none">Замены</span>
             </button>
 
-            <!-- 3: Уведомления -->
+            <!-- 3: Уведомления (БЕЙДЖ ДИНАМИЧЕСКИЙ) -->
             <button type="button" id="navNotifBtn" onclick="switchSection('notifications')" class="flex flex-col items-center justify-center py-1.5 rounded-2xl transition text-slate-400 relative">
                 <div class="relative">
                     <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>
                     </svg>
-                    <span class="absolute -top-1 -right-1.5 bg-red-500 text-white text-[9px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center border border-[#080e19]">2</span>
+                    <span id="notifBadge" class="hidden absolute -top-1 -right-1.5 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[14px] h-3.5 px-0.5 flex items-center justify-center border border-[#080e19]">0</span>
                 </div>
                 <span class="text-[9.5px] font-medium leading-none">Уведомл.</span>
             </button>
@@ -739,6 +684,7 @@
         const STORAGE_PERSONAL_MATS_KEY = 'ptk_diary_personal_mats_v2';
         const STORAGE_STAROSTA_SESSION_KEY = 'ptk_diary_starosta_session_v3';
         const STORAGE_CREATOR_PASS_KEY = 'ptk_diary_creator_pass_v1';
+        const STORAGE_DISMISSED_NOTIFS_KEY = 'ptk_diary_dismissed_notifs_v1';
 
         const DAY_NAMES_FULL = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
         const DAY_NAMES_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
@@ -779,6 +725,8 @@
         let selectedGroupForMarks = '';
         let tempMarksWorkbook = null, tempExcelData = null;
 
+        let dismissedNotifIds = [];
+
         document.addEventListener('DOMContentLoaded', function() {
             try { subjects = JSON.parse(localStorage.getItem(STORAGE_MARKS_KEY)) || []; } catch(e) { subjects = []; }
             try { schedules = JSON.parse(localStorage.getItem(STORAGE_SCHED_KEY)) || []; } catch(e) { schedules = []; }
@@ -789,6 +737,7 @@
             try { localTasks = JSON.parse(localStorage.getItem(STORAGE_TASKS_KEY)) || []; } catch(e) { localTasks = []; }
             try { personalMaterials = JSON.parse(localStorage.getItem(STORAGE_PERSONAL_MATS_KEY)) || []; } catch(e) { personalMaterials = []; }
             try { starostaAuth = JSON.parse(localStorage.getItem(STORAGE_STAROSTA_SESSION_KEY)) || null; } catch(e) { starostaAuth = null; }
+            try { dismissedNotifIds = JSON.parse(localStorage.getItem(STORAGE_DISMISSED_NOTIFS_KEY)) || []; } catch(e) { dismissedNotifIds = []; }
 
             const savedTheme = localStorage.getItem(STORAGE_THEME_KEY) || 'dark';
             setAppTheme(savedTheme);
@@ -807,10 +756,242 @@
             updateCreatorUI();
             fetchGoogleDriveMaterials();
 
+            // Первичный расчет и обновление реальных уведомлений
+            updateLiveNotifications();
+
             if (schedules.length > 0) switchSection('schedule');
             else if (subjects.length > 0) switchSection('marks');
             else switchSection('schedule');
         });
+
+        // ================= ДВИЖОК РЕАЛЬНЫХ УВЕДОМЛЕНИЙ =================
+        function generateLiveNotifications() {
+            const list = [];
+            const curGroup = getActiveGroupName();
+            const now = new Date();
+            const todayStr = now.toISOString().slice(0, 10);
+            const nowTime = new Date(todayStr).getTime();
+
+            // 1. Уведомления по заменам для текущей группы
+            if (changesData && Array.isArray(changesData.items)) {
+                const grpChanges = changesData.items.filter(it => 
+                    (it.groups && it.groups.includes(curGroup)) || String(it.groupRaw).includes(curGroup)
+                );
+                grpChanges.forEach((it, idx) => {
+                    const isCancel = /не\s*будет|отмен/i.test(it.aud) || /не\s*будет|отмен/i.test(it.newLesson);
+                    const id = `chg_${changesData.fileName}_${it.pair}_${idx}_${it.groupRaw}`;
+                    if (!dismissedNotifIds.includes(id)) {
+                        list.push({
+                            id: id,
+                            type: isCancel ? 'cancel' : 'change',
+                            icon: isCancel ? '🚫' : '⇄',
+                            badgeColor: isCancel ? 'text-red-400 bg-red-500/10 border-red-500/30' : 'text-blue-400 bg-blue-500/10 border-blue-500/30',
+                            title: isCancel ? `Отмена пары (${it.pair} пара)` : `Замена (${it.pair} пара)`,
+                            subtitle: changesData.fileName ? `Замены на ${changesData.fileName}` : 'Портал НовГУ',
+                            text: isCancel 
+                                ? `Занятие «${it.oldLesson}» отменено по распоряжению учебной части.`
+                                : `Вместо «${it.oldLesson}» назначено «${it.newLesson || 'занятие'}». Ауд: ${it.aud || 'по расписанию'}.`
+                        });
+                    }
+                });
+            }
+
+            // 2. Уведомления по приближающимся дедлайнам заданий
+            localTasks.forEach(t => {
+                if (t.status === 'done' || !t.dueDate) return;
+                const taskTime = new Date(t.dueDate).getTime();
+                const diffDays = Math.round((taskTime - nowTime) / (1000 * 60 * 60 * 24));
+                const id = `task_${t.id}_${t.dueDate}`;
+                if (dismissedNotifIds.includes(id)) return;
+
+                if (diffDays < 0) {
+                    list.push({
+                        id: id,
+                        type: 'overdue',
+                        icon: '⚠️',
+                        badgeColor: 'text-rose-400 bg-rose-500/10 border-rose-500/30',
+                        title: `Просрочено: ${t.subject}`,
+                        subtitle: `Дедлайн был ${t.dueDate}`,
+                        text: `Задание «${t.title}» не сдано вовремя. Сдайте работу как можно скорее.`
+                    });
+                } else if (diffDays === 0) {
+                    list.push({
+                        id: id,
+                        type: 'deadline',
+                        icon: '⏰',
+                        badgeColor: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+                        title: `Дедлайн сегодня: ${t.subject}`,
+                        subtitle: 'Срок сдачи: сегодня до 23:59',
+                        text: `Не забудьте сдать: «${t.title}».`
+                    });
+                } else if (diffDays === 1) {
+                    list.push({
+                        id: id,
+                        type: 'warning',
+                        icon: '⏳',
+                        badgeColor: 'text-blue-400 bg-blue-500/10 border-blue-500/30',
+                        title: `Дедлайн завтра: ${t.subject}`,
+                        subtitle: `Сдача: ${t.dueDate}`,
+                        text: `Остался 1 день до сдачи задания «${t.title}».`
+                    });
+                }
+            });
+
+            // 3. Уведомление о текущей или скорой паре
+            const currentSched = schedules[activeScheduleIndex];
+            if (currentSched && currentSched.rawRows) {
+                const jsDay = now.getDay();
+                const todayIdx = jsDay === 0 ? 6 : jsDay - 1;
+                const dayName = DAY_NAMES_FULL[todayIdx];
+                const curMin = now.getHours() * 60 + now.getMinutes();
+
+                try {
+                    const rows = currentSched.rawRows, merges = currentSched.merges || [];
+                    let gCol = -1, hRow = -1;
+                    for (let r = 0; r < Math.min(30, rows.length); r++) {
+                        for (let c = 0; c < (rows[r] || []).length; c++) {
+                            if (String(rows[r][c] || '').trim() === currentSched.groupName) { gCol = c; hRow = r; break; }
+                        }
+                        if (gCol !== -1) break;
+                    }
+
+                    if (gCol !== -1) {
+                        const timeCol = gCol - 1, dayCol = gCol - 2;
+                        let cDay = "Понедельник", pNum = 0;
+                        for (let r = hRow + 1; r < rows.length; r++) {
+                            let row = rows[r];
+                            if (!row) continue;
+                            let dCand = String(row[dayCol] || row[0] || '').trim().toLowerCase();
+                            if (/^(понедельник|вторник|среда|четверг|пятница|суббота)$/.test(dCand)) {
+                                cDay = dCand.charAt(0).toUpperCase() + dCand.slice(1);
+                                pNum = 0;
+                            }
+                            if (cDay !== dayName) continue;
+
+                            let tVal = String(row[timeCol] || row[1] || '').trim();
+                            const m = tVal.match(/(\d{1,2})[\.:](\d{2})\s*-\s*(\d{1,2})[\.:](\d{2})/);
+                            if (!m) continue;
+                            pNum++;
+
+                            let startMin = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+                            let endMin = parseInt(m[3], 10) * 60 + parseInt(m[4], 10);
+
+                            let uVal = String(rows[r][gCol] || '').trim();
+                            let nextRow = rows[r + 1] || [];
+                            let lVal = String(nextRow[gCol] || '').trim();
+                            let nTime = String(nextRow[timeCol] || nextRow[1] || '').trim();
+                            let hasSecond = !(/\d{1,2}[\.:]\d{2}\s*-\s*\d{1,2}[\.:]\d{2}/.test(nTime));
+                            let isMerged = isCellMergedVertically(merges, r, gCol);
+                            if (isMerged || !hasSecond) lVal = uVal;
+                            let chosen = currentSelectedWeek === 'upper' ? uVal : lVal;
+
+                            if (chosen && chosen !== '-' && chosen !== '—') {
+                                const parsed = parseLessonDetails(chosen);
+                                const lessonId = `live_pair_${todayStr}_${pNum}`;
+
+                                if (curMin >= startMin && curMin <= endMin && !dismissedNotifIds.includes(lessonId)) {
+                                    list.push({
+                                        id: lessonId,
+                                        type: 'live',
+                                        icon: '🔔',
+                                        badgeColor: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+                                        title: `Сейчас идет ${pNum} пара`,
+                                        subtitle: `${tVal} • ${parsed.aud}`,
+                                        text: `${parsed.title} (${parsed.teacher}).`
+                                    });
+                                } else if (startMin > curMin && startMin - curMin <= 45 && !dismissedNotifIds.includes(lessonId)) {
+                                    list.push({
+                                        id: lessonId,
+                                        type: 'soon',
+                                        icon: '⏱️',
+                                        badgeColor: 'text-blue-400 bg-blue-500/10 border-blue-500/30',
+                                        title: `Следующая пара через ${startMin - curMin} мин`,
+                                        subtitle: `${tVal} • ${parsed.aud}`,
+                                        text: `${parsed.title}. Кабинет: ${parsed.aud}.`
+                                    });
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            return list;
+        }
+
+        function updateLiveNotifications() {
+            const list = generateLiveNotifications();
+            const badge = document.getElementById('notifBadge');
+            
+            // Если уведомлений 0 — бейдж прячется, если есть — выводит точное количество
+            if (badge) {
+                if (list.length > 0) {
+                    badge.innerText = list.length;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            }
+
+            renderNotificationsUI(list);
+        }
+
+        function renderNotificationsUI(list) {
+            const container = document.getElementById('notificationsList');
+            if (!container) return;
+
+            if (!list || list.length === 0) {
+                container.innerHTML = `
+                    <div class="app-card p-8 rounded-3xl text-center space-y-2">
+                        <div class="text-3xl">🔕</div>
+                        <div class="text-sm font-bold text-white">Новых уведомлений нет</div>
+                        <div class="text-xs text-slate-400 leading-relaxed">
+                            Здесь будут появляться изменения пар вашей группы, приближающиеся дедлайны и текущие занятия.
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            list.forEach(n => {
+                html += `
+                    <div class="app-card p-4 rounded-3xl flex items-start gap-3.5 relative transition">
+                        <div class="w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-base shrink-0 border ${n.badgeColor}">
+                            ${n.icon}
+                        </div>
+                        <div class="flex-1 min-w-0 pr-6">
+                            <div class="flex flex-col">
+                                <span class="text-xs font-bold text-white leading-snug">${n.title}</span>
+                                <span class="text-[10px] text-slate-400 mt-0.5">${n.subtitle}</span>
+                            </div>
+                            <p class="text-xs text-slate-300 mt-1 leading-relaxed">${n.text}</p>
+                        </div>
+                        <button type="button" onclick="dismissNotification('${n.id}')" title="Скрыть" class="absolute top-3.5 right-3.5 text-slate-500 hover:text-slate-300 p-1 text-xs">
+                            ✕
+                        </button>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function dismissNotification(id) {
+            if (!dismissedNotifIds.includes(id)) {
+                dismissedNotifIds.push(id);
+                localStorage.setItem(STORAGE_DISMISSED_NOTIFS_KEY, JSON.stringify(dismissedNotifIds));
+            }
+            updateLiveNotifications();
+        }
+
+        function clearAllNotifications() {
+            const currentList = generateLiveNotifications();
+            currentList.forEach(n => {
+                if (!dismissedNotifIds.includes(n.id)) dismissedNotifIds.push(n.id);
+            });
+            localStorage.setItem(STORAGE_DISMISSED_NOTIFS_KEY, JSON.stringify(dismissedNotifIds));
+            updateLiveNotifications();
+        }
 
         function toggleAccordion(id) {
             const el = document.getElementById(id);
@@ -882,6 +1063,7 @@
             currentSelectedWeek = type;
             updateWeekButtonsUI();
             loadScheduleForActive();
+            updateLiveNotifications();
         }
 
         function updateWeekButtonsUI() {
@@ -939,6 +1121,7 @@
                 if (!changesData.items || changesData.items.length === 0) fetchChangesFromPortal();
             } else if (section === 'notifications') {
                 document.getElementById('notificationsSection').classList.remove('hidden');
+                updateLiveNotifications();
             } else if (section === 'tasks') {
                 document.getElementById('tasksSection').classList.remove('hidden');
                 switchTaskSubTab(taskSubTab);
@@ -947,10 +1130,6 @@
                 renderSubjectTabs();
                 loadMarksForActiveSubject();
             }
-        }
-
-        function clearAllNotifications() {
-            document.getElementById('notificationsList').innerHTML = '<div class="app-card p-6 rounded-3xl text-center text-slate-400 text-xs">Уведомлений нет</div>';
         }
 
         function toggleProfileModal() {
@@ -969,7 +1148,7 @@
             if (topProfBtn) topProfBtn.className = "w-10 h-10 rounded-2xl blue-glow flex items-center justify-center active:scale-95 transition";
 
             const grp = getActiveGroupName() || '5952';
-            document.getElementById('profileGroupText').innerText = grp;
+            document.getElementById('profileGroupText').innerText = `Группа: ${grp}`;
 
             renderProfileSubjectsList();
             updateCreatorUI();
@@ -1380,6 +1559,7 @@
                 localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
                 activeChangesGroupFilter = groupName;
                 fetchGoogleDriveMaterials();
+                updateLiveNotifications();
                 switchSection('schedule');
             } catch (e) {
                 alert("Ошибка загрузки: " + e.message);
@@ -1404,6 +1584,7 @@
                 };
                 localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
                 loadScheduleForActive();
+                updateLiveNotifications();
             } catch (e) {
                 alert("Не удалось обновить: " + e.message);
                 loadScheduleForActive();
@@ -1454,6 +1635,7 @@
             activeScheduleIndex = schedules.length - 1;
             activeChangesGroupFilter = groupName;
             fetchGoogleDriveMaterials();
+            updateLiveNotifications();
             switchSection('schedule');
         }
 
@@ -1476,6 +1658,7 @@
             renderScheduleTabs();
             fetchGoogleDriveMaterials();
             loadScheduleForActive();
+            updateLiveNotifications();
         }
 
         function deleteSchedule(event, idx) {
@@ -1484,6 +1667,7 @@
                 schedules.splice(idx, 1);
                 localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
                 activeScheduleIndex = 0;
+                updateLiveNotifications();
                 switchSection('schedule');
             }
         }
@@ -1807,6 +1991,9 @@
             renderPortalFilesButtons();
             renderChangesGroupFilter();
             renderChangesList();
+
+            // Обновляем реальные уведомления после получения замен
+            updateLiveNotifications();
         }
 
         function renderChangesGroupFilter() {
@@ -2024,6 +2211,7 @@
             localTasks.unshift({ id: Date.now(), subject, title, dueDate, status: 'todo' });
             localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
 
+            updateLiveNotifications();
             switchSection('tasks');
             loadScheduleForActive();
         }
@@ -2035,6 +2223,7 @@
             t.status = order[(order.indexOf(t.status) + 1) % order.length];
             localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
             renderTasksList();
+            updateLiveNotifications();
             loadScheduleForActive();
         }
 
@@ -2043,6 +2232,7 @@
             localTasks = localTasks.filter(x => x.id !== id);
             localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
             renderTasksList();
+            updateLiveNotifications();
             loadScheduleForActive();
         }
 
