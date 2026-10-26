@@ -1322,11 +1322,16 @@ function getInitialWeekType() {
         }
 
         function getDateForDayIndex(dayIdx) {
-            const monday = getMondayOfCurrentWeek();
-            const d = new Date(monday);
-            d.setDate(monday.getDate() + dayIdx);
-            return d.toISOString().slice(0, 10);
-        }
+    const monday = getMondayOfCurrentWeek();
+    const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + dayIdx);
+    
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+}
+
 
         function renderWeekDaysBar() {
             const bar = document.getElementById('weekDaysBar');
