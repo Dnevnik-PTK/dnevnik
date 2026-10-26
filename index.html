@@ -1879,48 +1879,89 @@ function getInitialWeekType() {
         }
 
         async function fetchChangesFromPortal(specificUrl, specificTitle) {
-            const statusEl = document.getElementById('changesStatusText');
-            const listEl = document.getElementById('changesList');
-            const btn = document.getElementById('fetchChangesBtn');
+    const statusEl = document.getElementById('changesStatusText');
+    const listEl = document.getElementById('changesList');
+    const btn = document.getElementById('fetchChangesBtn');
 
-            statusEl.innerText = "⏳ Загружаем с сайта НовГУ...";
-            listEl.innerHTML = '<div class="app-card p-8 rounded-3xl text-center text-slate-400 animate-pulse text-xs">Получаем свежий документ изменений...</div>';
-            if (btn) btn.innerText = "⏳...";
+    if (!changesData.byDate) changesData.byDate = {};
 
-            try {
-                if (!specificUrl) {
-                    try {
-                        const listRes = await fetch(`${RENDER_URL}/api/changes-list`);
-                        if (listRes.ok) {
-                            const listJson = await listRes.json();
-                            const cleanFiles = filterOnlyLast5DateFiles(listJson.files);
-                            if (cleanFiles.length > 0) {
-                                changesData.portalFiles = cleanFiles;
-                                renderPortalFilesButtons();
-                                specificUrl = cleanFiles[0].url;
-                                specificTitle = cleanFiles[0].title;
-                            }
-                        }
-                    } catch (e) {}
-                }
+    // Мгновенное переключение из кэша, если дата уже загружалась
+    if (specificTitle && changesData.byDate[specificTitle]) {
+        const cached = changesData.byDate[specificTitle];
+        changesData.fileName = specificTitle;
+        changesData.dateTitle = cached.dateTitle;
+        changesData.items = cached.items;
+        localStorage.setItem(STORAGE_CHANGES_KEY, JSON.stringify(changesData));
 
-                let fetchUrl = `${RENDER_URL}/api/changes`;
-                if (specificUrl) fetchUrl += `?url=${encodeURIComponent(specificUrl)}&title=${encodeURIComponent(specificTitle || '')}`;
+        document.getElementById('changesHeaderTitle').innerText = cached.dateTitle;
+        statusEl.innerText = `Дата: ${specificTitle} • Найдено: ${cached.items.length}`;
+        renderPortalFilesButtons();
+        renderChangesGroupFilter();
+        renderChangesList();
+        return;
+    }
 
-                const res = await fetch(fetchUrl);
-                if (!res.ok) throw new Error("Не удалось скачать файл замен");
+    statusEl.innerText = "⏳ Загружаем с сайта НовГУ...";
+    if (!changesData.items || changesData.items.length === 0) {
+        listEl.innerHTML = '<div class="app-card p-8 rounded-3xl text-center text-slate-400 animate-pulse text-xs">Получаем свежий документ изменений...</div>';
+    }
+    if (btn) btn.innerText = "⏳...";
 
-                const headerTitle = res.headers.get('X-File-Title');
-                const finalTitle = specificTitle || (headerTitle ? decodeURIComponent(headerTitle) : 'Замены НовГУ.docx');
-                const arrayBuffer = await res.arrayBuffer();
-                await parseChangesBuffer(arrayBuffer, finalTitle);
-            } catch (e) {
-                statusEl.innerText = "Ошибка автозагрузки";
-                listEl.innerHTML = `<div class="app-card p-5 rounded-3xl text-center text-amber-400 text-xs">⚠️ ${e.message}</div>`;
-            } finally {
-                if (btn) btn.innerText = "🔄 С сайта";
+    try {
+        let fetchUrl = `${RENDER_URL}/api/changes`;
+        if (specificUrl) {
+            fetchUrl += `?url=${encodeURIComponent(specificUrl)}&title=${encodeURIComponent(specificTitle || '')}`;
+        }
+
+        // Параллельно запрашиваем список дат и сам документ замен
+        const [listRes, fileRes] = await Promise.all([
+            !specificUrl ? fetch(`${RENDER_URL}/api/changes-list`).catch(() => null) : Promise.resolve(null),
+            fetch(fetchUrl)
+        ]);
+
+        if (listRes && listRes.ok) {
+            const listJson = await listRes.json();
+            const cleanFiles = filterOnlyLast5DateFiles(listJson.files);
+            if (cleanFiles.length > 0) {
+                changesData.portalFiles = cleanFiles;
+                if (!specificTitle) specificTitle = cleanFiles[0].title;
             }
         }
+
+        if (!fileRes.ok) throw new Error("Не удалось скачать файл замен");
+
+        const headerTitle = fileRes.headers.get('X-File-Title');
+        const finalTitle = specificTitle || (headerTitle ? decodeURIComponent(headerTitle) : 'Замены НовГУ.docx');
+        const arrayBuffer = await fileRes.arrayBuffer();
+        await parseChangesBuffer(arrayBuffer, finalTitle, false);
+
+        // Запускаем тихую предзагрузку остальных 4 дат в фоне
+        prefetchRemainingDates();
+    } catch (e) {
+        statusEl.innerText = "Ошибка автозагрузки";
+        if (!changesData.items || changesData.items.length === 0) {
+            listEl.innerHTML = `<div class="app-card p-5 rounded-3xl text-center text-amber-400 text-xs">⚠️ ${e.message}</div>`;
+        }
+    } finally {
+        if (btn) btn.innerText = "🔄 С сайта";
+    }
+}
+        async function prefetchRemainingDates() {
+    const files = filterOnlyLast5DateFiles(changesData.portalFiles);
+    if (!changesData.byDate) changesData.byDate = {};
+
+    for (const f of files) {
+        if (changesData.byDate[f.title]) continue;
+        try {
+            const url = `${RENDER_URL}/api/changes?url=${encodeURIComponent(f.url)}&title=${encodeURIComponent(f.title)}`;
+            const res = await fetch(url);
+            if (!res.ok) continue;
+            const buf = await res.arrayBuffer();
+            await parseChangesBuffer(buf, f.title, true);
+        } catch (e) {}
+    }
+        }
+        
 
         function renderPortalFilesButtons() {
             const block = document.getElementById('portalFilesContainer');
@@ -1950,33 +1991,40 @@ function getInitialWeekType() {
             reader.readAsArrayBuffer(file);
         }
 
-        async function parseChangesBuffer(arrayBuffer, fileName) {
-            try {
-                if (window.mammoth && !/\.xlsx?$/i.test(fileName)) {
-                    const result = await mammoth.convertToHtml({ arrayBuffer });
-                    if (result && result.value) { parseDocxHtmlChanges(result.value, fileName); return; }
-                }
-                const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
-                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: "" });
-                parseRawRowsToChanges(rows, "Изменения в расписании", fileName);
-            } catch (err) { alert("Ошибка файла: " + err.message); }
+        async function parseChangesBuffer(arrayBuffer, fileName, isSilent = false) {
+    try {
+        if (window.mammoth && !/\.xlsx?$/i.test(fileName)) {
+            const result = await mammoth.convertToHtml({ arrayBuffer });
+            if (result && result.value) {
+                parseDocxHtmlChanges(result.value, fileName, isSilent);
+                return;
+            }
         }
+        const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: "" });
+        parseRawRowsToChanges(rows, "Изменения в расписании", fileName, isSilent);
+    } catch (err) {
+        if (!isSilent) alert("Ошибка файла: " + err.message);
+    }
+}
 
-        function parseDocxHtmlChanges(htmlString, fileName) {
-            const doc = new DOMParser().parseFromString(htmlString, 'text/html');
-            let dateTitle = "Изменения в расписании";
-            doc.querySelectorAll('p').forEach(p => {
-                const t = p.textContent.replace(/\s+/g, ' ').trim();
-                if (/на\s+\d+/i.test(t) || /неделя/i.test(t)) dateTitle = "Замены " + t;
-            });
-            const rows = [];
-            doc.querySelectorAll('table tr').forEach(tr => {
-                const cols = [];
-                tr.querySelectorAll('td, th').forEach(td => cols.push(td.textContent.replace(/\s+/g, ' ').trim()));
-                if (cols.some(c => c.length > 0)) rows.push(cols);
-            });
-            parseRawRowsToChanges(rows, dateTitle, fileName);
-        }
+
+        function parseDocxHtmlChanges(htmlString, fileName, isSilent = false) {
+    const doc = new DOMParser().parseFromString(htmlString, 'text/html');
+    let dateTitle = "Изменения в расписании";
+    doc.querySelectorAll('p').forEach(p => {
+        const t = p.textContent.replace(/\s+/g, ' ').trim();
+        if (/на\s+\d+/i.test(t) || /неделя/i.test(t)) dateTitle = "Замены " + t;
+    });
+    const rows = [];
+    doc.querySelectorAll('table tr').forEach(tr => {
+        const cols = [];
+        tr.querySelectorAll('td, th').forEach(td => cols.push(td.textContent.replace(/\s+/g, ' ').trim()));
+        if (cols.some(c => c.length > 0)) rows.push(cols);
+    });
+    parseRawRowsToChanges(rows, dateTitle, fileName, isSilent);
+}
+
 
         function parseRawRowsToChanges(rows, dateTitle, fileName) {
             const items = [];
