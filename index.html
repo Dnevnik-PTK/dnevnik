@@ -1044,20 +1044,27 @@
             return known[0] || '5952';
         }
 
-        function getInitialWeekType() {
-            const now = new Date();
-            const year = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
-            const septFirst = new Date(year, 8, 1);
-            const diffDays = Math.ceil(Math.abs(now - septFirst) / (1000 * 60 * 60 * 24));
-            return (Math.ceil(diffDays / 7) % 2 !== 0) ? 'upper' : 'lower';
-        }
-
         function getWeekTypeForDate(dateObj) {
-            const year = dateObj.getMonth() >= 8 ? dateObj.getFullYear() : dateObj.getFullYear() - 1;
-            const septFirst = new Date(year, 8, 1);
-            const diffDays = Math.ceil(Math.abs(dateObj - septFirst) / (1000 * 60 * 60 * 24));
-            return (Math.ceil(diffDays / 7) % 2 !== 0) ? 'upper' : 'lower';
-        }
+           const d = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+           const year = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1;
+           const septFirst = new Date(year, 8, 1);
+
+    // Находим понедельник первой учебной недели
+           const septDay = septFirst.getDay();
+           const diffToMonday = septDay === 0 ? -6 : 1 - septDay;
+           const firstMonday = new Date(year, 8, 1 + diffToMonday);
+
+    // Считаем полные недели строго от понедельника
+           const diffDays = Math.round((d - firstMonday) / (1000 * 60 * 60 * 24));
+           const weekNumber = Math.floor(diffDays / 7) + 1;
+
+          return (weekNumber % 2 !== 0) ? 'upper' : 'lower';
+}
+
+function getInitialWeekType() {
+    return getWeekTypeForDate(new Date());
+}
+
 
         function setWeekType(type) {
             currentSelectedWeek = type;
