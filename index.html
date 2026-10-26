@@ -2616,10 +2616,11 @@ function getInitialWeekType() {
             return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
         }
 
-        async function fetchGoogleDriveMaterials() {
+                async function fetchGoogleDriveMaterials() {
             const currentGrp = getActiveGroupName();
             if (!currentGrp || !GOOGLE_SCRIPT_WEBAPP_URL || GOOGLE_SCRIPT_WEBAPP_URL.includes('ВАШ_URL')) {
                 renderMaterialsList();
+                renderTasksList();
                 return;
             }
 
@@ -2628,12 +2629,50 @@ function getInitialWeekType() {
                 if (res.ok) {
                     const data = await res.json();
                     if (data.success && Array.isArray(data.materials)) {
-                        googleDriveMaterials = data.materials;
+                        const regularMats = [];
+                        const parsedGroupTasks = [];
+                        const doneGroupIds = JSON.parse(localStorage.getItem('ptk_done_group_tasks_v1') || '[]');
+
+                        data.materials.forEach(item => {
+                            const rawTitle = String(item.title || '').trim();
+                            const dzMatch = rawTitle.match(/^\[(ДЗ-ФОТО|ДЗ)\|(\d{4}-\d{2}-\d{2})\]\s*(.*)$/);
+
+                            if (dzMatch) {
+                                const hasPhoto = dzMatch[1] === 'ДЗ-ФОТО';
+                                const dueDate = dzMatch[2];
+                                const cleanTitle = dzMatch[3] || 'Задание группы';
+                                const driveId = item.id || '';
+                                const thumbUrl = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w1200` : (item.viewUrl || item.fileUrl);
+
+                                parsedGroupTasks.push({
+                                    id: `grp_${driveId}`,
+                                    fileId: driveId,
+                                    subject: item.subject || 'Предмет',
+                                    title: cleanTitle,
+                                    dueDate: dueDate,
+                                    status: doneGroupIds.includes(`grp_${driveId}`) ? 'done' : 'todo',
+                                    isGroup: true,
+                                    hasPhoto: hasPhoto,
+                                    photoUrl: hasPhoto ? thumbUrl : null,
+                                    externalUrl: hasPhoto ? (item.viewUrl || item.fileUrl) : null
+                                });
+                            } else {
+                                regularMats.push(item);
+                            }
+                        });
+
+                        googleDriveMaterials = regularMats;
+                        groupCloudTasks = parsedGroupTasks;
                     }
                 }
             } catch (e) {}
+
             renderMaterialsList();
+            renderTasksList();
+            loadScheduleForActive();
+            if (typeof updateLiveNotifications === 'function') updateLiveNotifications();
         }
+
 
         function setMaterialTarget(target) {
             materialTarget = target;
