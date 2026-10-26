@@ -1238,22 +1238,29 @@ function getInitialWeekType() {
             else openProfileModal();
         }
 
-        function openProfileModal() {
+                function openProfileModal() {
             const allSecs = ['scheduleSection', 'changesSection', 'notificationsSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addTaskModal', 'addMaterialModal'];
-            allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
+            allSecs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
             document.getElementById('profileSection').classList.remove('hidden');
             document.getElementById('topScreenTitle').innerText = 'Личный кабинет';
 
             const topProfBtn = document.getElementById('topProfileBtn');
             if (topProfBtn) topProfBtn.className = "w-10 h-10 rounded-2xl blue-glow flex items-center justify-center active:scale-95 transition";
 
+            const stName = subjects.length > 0 ? subjects[activeSubjectIndex].studentName : 'Студент НовГУ';
             const grp = getActiveGroupName() || '5952';
+            const stNameEl = document.getElementById('profileStudentName');
+            if (stNameEl) stNameEl.innerText = stName;
             document.getElementById('profileGroupText').innerText = `Группа: ${grp}`;
 
             renderProfileSubjectsList();
             updateCreatorUI();
             updateStarostaUI();
         }
+
 
         function closeProfileModal() {
             switchSection(lastActiveSection || 'schedule');
