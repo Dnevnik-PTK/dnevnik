@@ -143,16 +143,26 @@ async function syncAllDataFromNovsu() {
         const chgFiles = await fetchReplacementFilesList();
         if (chgFiles.length > 0) {
             changesListCache = chgFiles;
-            changesBufferCache.clear();
-            for (const f of chgFiles) {
+            const activeUrls = new Set(chgFiles.map(f => f.url));
+
+            // Удаляем из памяти только старые файлы, которых больше нет в топ-5
+            for (const cachedUrl of changesBufferCache.keys()) {
+                if (!activeUrls.has(cachedUrl)) {
+                    changesBufferCache.delete(cachedUrl);
+                }
+            }
+
+            // Скачиваем недостающие файлы замен параллельно
+            await Promise.allSettled(chgFiles.map(async (f) => {
+                if (changesBufferCache.has(f.url)) return;
                 try {
-                    const r = await fetch(f.url, { headers: BROWSER_HEADERS });
+                    const r = await fetch(f.url, { headers: BROWSER_HEADERS, timeout: 10000 });
                     if (r.ok) {
                         const buf = Buffer.from(await r.arrayBuffer());
                         changesBufferCache.set(f.url, { buffer: buf, title: f.title });
                     }
                 } catch (e) {}
-            }
+            }));
         }
 
         const pagesToScan = [
@@ -162,7 +172,7 @@ async function syncAllDataFromNovsu() {
         const excelUrls = new Map();
         for (const pageUrl of pagesToScan) {
             try {
-                const r = await fetch(pageUrl, { headers: BROWSER_HEADERS });
+                const r = await fetch(pageUrl, { headers: BROWSER_HEADERS, timeout: 10000 });
                 if (!r.ok) continue;
                 const html = await r.text();
                 const links = extractLinksFromHtml(html, pageUrl);
@@ -177,7 +187,7 @@ async function syncAllDataFromNovsu() {
 
         for (const [url, label] of excelUrls.entries()) {
             try {
-                const fileRes = await fetch(url, { headers: BROWSER_HEADERS });
+                const fileRes = await fetch(url, { headers: BROWSER_HEADERS, timeout: 15000 });
                 if (!fileRes.ok) continue;
                 const buffer = Buffer.from(await fileRes.arrayBuffer());
                 const headStr = buffer.slice(0, 100).toString('utf8').trim().toLowerCase();
@@ -194,6 +204,7 @@ async function syncAllDataFromNovsu() {
         isSyncing = false;
     }
 }
+
 setInterval(syncAllDataFromNovsu, 30 * 60 * 1000);
 
 // ================= API РОУТЫ =================
@@ -212,18 +223,22 @@ app.get('/api/changes', async (req, res) => {
     try {
         let targetUrl = req.query.url;
         let fileTitle = req.query.title || 'changes.docx';
-        
+
         if (!targetUrl) {
-            if (changesListCache.length === 0) changesListCache = await fetchReplacementFilesList();
-            if (changesListCache.length === 0) return res.status(404).json({ error: 'Файлы не найдены' });
+            if (changesListCache.length === 0) {
+                changesListCache = await fetchReplacementFilesList();
+            }
+            if (changesListCache.length === 0) {
+                return res.status(404).json({ error: 'Файлы не найдены' });
+            }
             targetUrl = changesListCache[0].url;
             fileTitle = changesListCache[0].title;
         }
 
-        // ЗАЩИТА ОТ SSRF: разрешаем скачивать только с официального домена НовГУ
+        // Проверяем, что ссылка ведет строго на сайт НовГУ
         const parsedUrl = new URL(targetUrl);
         if (!parsedUrl.hostname.endsWith('novsu.ru')) {
-            return res.status(403).json({ error: 'Доступ запрещен: разрешены только ссылки portal.novsu.ru' });
+            return res.status(403).json({ error: 'Разрешена загрузка только с домена novsu.ru' });
         }
 
         if (changesBufferCache.has(targetUrl)) {
@@ -233,10 +248,12 @@ app.get('/api/changes', async (req, res) => {
             return res.send(cachedItem.buffer);
         }
 
-        const fileRes = await fetch(targetUrl, { headers: BROWSER_HEADERS });
+        const fileRes = await fetch(targetUrl, { headers: BROWSER_HEADERS, timeout: 10000 });
         if (!fileRes.ok) throw new Error(`Не удалось скачать (${fileRes.status})`);
+
         const buffer = Buffer.from(await fileRes.arrayBuffer());
         changesBufferCache.set(targetUrl, { buffer, title: fileTitle });
+
         res.setHeader('Content-Type', 'application/octet-stream');
         res.setHeader('X-File-Title', encodeURIComponent(fileTitle));
         res.send(buffer);
