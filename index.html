@@ -2317,16 +2317,28 @@ function getInitialWeekType() {
             }
         }
 
+                let groupCloudTasks = [];
+        let taskTargetMode = 'personal';
+        let selectedTaskPhotoBase64 = null;
+
         function openAddTaskModal() {
             const allSecs = ['scheduleSection', 'changesSection', 'notificationsSection', 'tasksSection', 'marksSection', 'setupScreen', 'setupScheduleScreen', 'addMaterialModal', 'profileSection'];
-            allSecs.forEach(id => document.getElementById(id).classList.add('hidden'));
+            allSecs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
             document.getElementById('addTaskModal').classList.remove('hidden');
 
             document.getElementById('taskTitleInput').value = '';
             document.getElementById('taskSubjectInput').value = '';
-            document.getElementById('taskDateInput').value = new Date().toISOString().slice(0, 10);
+            document.getElementById('taskDateInput').value = getDateForDayIndex(selectedDayIndex);
+            document.getElementById('taskUploadStatus').classList.add('hidden');
+
+            clearTaskPhoto();
+            setTaskTarget('personal');
             onTaskDateChanged();
         }
+
 
         function saveNewTask() {
             let subject = selectedSubjectInModal || document.getElementById('taskSubjectInput').value.trim();
