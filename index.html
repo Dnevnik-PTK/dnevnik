@@ -445,82 +445,116 @@
             <button type="button" id="saveTaskSubmitBtn" onclick="saveNewTask()" class="w-full blue-glow font-semibold py-3 rounded-xl">✅ Добавить задание</button>
         </section>
 
-        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ МАТЕРИАЛА ==================== -->
-        <section id="addMaterialModal" class="app-card p-5 rounded-3xl space-y-4 hidden">
+                <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ РАСПИСАНИЯ ==================== -->
+        <section id="setupScheduleScreen" class="app-card p-5 rounded-3xl space-y-4 hidden">
             <div class="flex justify-between items-center">
-                <div class="flex items-center gap-2">
-                    <span class="text-xl">📚</span>
-                    <h2 class="font-bold text-base text-white">Новый материал</h2>
+                <h2 class="font-bold text-base text-white">Добавление расписания</h2>
+                <button type="button" onclick="switchSection('schedule')" class="pill-bar px-3 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white">✕ Закрыть</button>
+            </div>
+
+            <div class="space-y-2">
+                <label class="block text-xs text-blue-400 font-medium">Способ 1. Автоматически с сайта НовГУ:</label>
+                <div class="flex gap-2">
+                    <input type="text" id="serverGroupInput" placeholder="Введите номер группы (например: 5952)" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none focus:border-blue-500">
+                    <button type="button" id="fetchSchedBtn" onclick="addScheduleFromServer()" class="blue-glow px-4 rounded-xl text-xs font-bold shrink-0">
+                        Найти на сайте
+                    </button>
                 </div>
-                <button type="button" onclick="closeAddMaterialModal()" class="w-8 h-8 rounded-full pill-bar flex items-center justify-center text-xs text-slate-400 hover:text-white transition">✕</button>
+            </div>
+
+            <div class="space-y-2 pt-3 border-t border-slate-800">
+                <label class="block text-xs text-slate-400">Способ 2. Выберите скачанный файл (.xls / .xlsx):</label>
+                <input type="file" id="excelFileInput" accept=".xls,.xlsx" onchange="handleExcelFileSelect(event)" class="w-full pill-bar rounded-xl p-3 text-sm text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-white">
+            </div>
+
+            <div id="excelGroupsBlock" class="hidden space-y-2 pt-2 border-t border-slate-800">
+                <label class="block text-xs text-emerald-400 font-medium">Выберите группу из файла:</label>
+                <div id="excelGroupsButtons" class="flex flex-wrap gap-2"></div>
+            </div>
+        </section>
+
+        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ ЗАДАНИЯ ==================== -->
+        <section id="addTaskModal" class="app-card p-5 rounded-3xl space-y-4 hidden">
+            <div class="flex justify-between items-center">
+                <h2 class="font-bold text-base text-white">Новое задание</h2>
+                <button type="button" onclick="switchSection('tasks')" class="pill-bar px-3 py-1.5 rounded-xl text-xs text-slate-300 hover:text-white">✕ Закрыть</button>
             </div>
 
             <div class="space-y-1">
-                <label class="block text-xs text-slate-400 font-medium">Куда сохранить:</label>
+                <label class="block text-xs text-slate-400 font-medium">Кому назначить задание:</label>
                 <div class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1 text-xs">
-                    <button type="button" id="btnMatTargetPersonal" onclick="setMaterialTarget('personal')" class="py-2 rounded-xl font-semibold transition blue-glow">
+                    <button type="button" id="btnTaskTargetPersonal" onclick="setTaskTarget('personal')" class="py-2 rounded-xl font-semibold transition blue-glow">
                         👤 Только мне
                     </button>
-                    <button type="button" id="btnMatTargetGroup" onclick="setMaterialTarget('group')" class="py-2 rounded-xl font-medium transition text-slate-400">
-                        👥 Google Диск группы
+                    <button type="button" id="btnTaskTargetGroup" onclick="setTaskTarget('group')" class="py-2 rounded-xl font-medium transition text-slate-400">
+                        👥 Для всей группы
                     </button>
                 </div>
-                <div id="matTargetGroupNotice" class="text-[10px] text-amber-400/90 pt-0.5 hidden">
-                    ⚠️ Загружать на Google Диск группы может только староста (активируйте одноразовый ключ в профиле)
+                <div id="taskTargetGroupNotice" class="text-[10px] text-amber-400/90 pt-0.5 hidden">
+                    ⚠️ Публиковать ДЗ для всей группы может только староста (активируйте ключ в профиле)
                 </div>
             </div>
 
-            <div class="relative space-y-1">
-                <label class="block text-xs text-slate-400 font-medium">Предмет:</label>
-                <div class="relative">
-                    <input type="text" id="matSubjectInput" 
-                           autocomplete="off"
-                           placeholder="Начните вводить (например: Дискретная...)" 
-                           oninput="onMaterialSubjectInput(this.value)"
-                           onfocus="onMaterialSubjectInput(this.value)"
-                           class="w-full pill-bar rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-blue-500 pr-9">
-                    <span class="absolute right-3 top-3 text-xs text-slate-500">🔍</span>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">1. Выберите дату сдачи (дедлайн):</label>
+                <input type="date" id="taskDateInput" onchange="onTaskDateChanged()" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
+            </div>
+
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <label class="block text-xs text-slate-400">2. Предмет в этот день:</label>
+                    <button type="button" onclick="enableCustomSubjectInput()" class="text-[11px] text-blue-400 hover:underline">Другой предмет</button>
                 </div>
-                <div id="matSubjectSuggestions" class="hidden absolute left-0 right-0 top-full mt-1.5 z-20 pill-bar rounded-2xl p-1.5 shadow-2xl max-h-48 overflow-y-auto no-scrollbar border border-blue-500/30 space-y-1"></div>
+                <div id="modalDayLessonsContainer" class="flex flex-wrap gap-2 pt-0.5"></div>
+                <input type="text" id="taskSubjectInput" placeholder="Название предмета" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none hidden">
             </div>
 
-            <div class="space-y-1">
-                <label class="block text-xs text-slate-400 font-medium">Название материала:</label>
-                <input type="text" id="matTitleInput" placeholder="Например: Методичка к практикам" class="w-full pill-bar rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">3. Что нужно сделать:</label>
+                <input type="text" id="taskTitleInput" placeholder="Например: Практическая работа №4" class="w-full pill-bar rounded-xl p-3 text-sm text-white focus:outline-none">
             </div>
 
-            <div class="space-y-2 pt-1">
-                <div id="matModeSelector" class="pill-bar p-1 rounded-2xl grid grid-cols-2 gap-1 text-xs">
-                    <button type="button" id="btnMatModeFile" onclick="setMaterialMode('file')" class="py-2 rounded-xl font-semibold transition blue-glow">
-                        📄 Файл с устройства
+            <div class="space-y-2">
+                <label class="block text-xs text-slate-400">4. Фото с доски / конспекта (необязательно):</label>
+                <div id="taskPhotoUploadBox" class="p-3.5 rounded-2xl border-2 border-dashed border-slate-700/80 hover:border-blue-500/60 bg-blue-500/5 transition text-center space-y-1.5 relative cursor-pointer">
+                    <input type="file" id="taskPhotoInput" accept="image/*" onchange="handleTaskPhotoSelected(event)" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+                    <div class="text-lg">📷</div>
+                    <div id="taskPhotoLabel" class="text-xs font-bold text-white">Нажмите, чтобы прикрепить фото</div>
+                    <div class="text-[10px] text-slate-400">Автоматическое сжатие без потери читаемости текста</div>
+                </div>
+
+                <div id="taskPhotoPreviewBox" class="hidden relative rounded-2xl overflow-hidden border border-slate-700 bg-slate-900">
+                    <img id="taskPhotoPreviewImg" src="" alt="Превью фото" class="w-full max-h-48 object-contain mx-auto">
+                    <button type="button" onclick="clearTaskPhoto()" class="absolute top-2 right-2 bg-slate-900/90 text-red-400 border border-red-500/30 px-2.5 py-1 rounded-xl text-[11px] font-bold shadow-lg">
+                        ✕ Убрать фото
                     </button>
-                    <button type="button" id="btnMatModeLink" onclick="setMaterialMode('link')" class="py-2 rounded-xl font-medium transition text-slate-400">
-                        🔗 Ссылка
-                    </button>
-                </div>
-
-                <div id="matFileUploadBox" class="p-4 rounded-2xl border-2 border-dashed border-slate-700/80 hover:border-blue-500/60 bg-blue-500/5 transition text-center space-y-2 relative cursor-pointer">
-                    <input type="file" id="matFileInput" onchange="handleMaterialFileSelected(event)" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
-                    <div class="w-10 h-10 rounded-full bg-blue-500/20 text-blue-400 mx-auto flex items-center justify-center text-lg">
-                        ☁️
-                    </div>
-                    <div>
-                        <div id="matFileSelectLabel" class="text-xs font-bold text-white">Нажмите, чтобы выбрать файл</div>
-                        <div id="matFileSelectSub" class="text-[10px] text-slate-400 mt-0.5">PDF, DOCX, ZIP, учебники</div>
-                    </div>
-                </div>
-
-                <div id="matLinkInputBox" class="hidden space-y-1.5 pt-1">
-                    <input type="url" id="matLinkInput" placeholder="Вставьте ссылку на материал..." class="w-full pill-bar rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
                 </div>
             </div>
 
-            <div id="matUploadStatus" class="hidden text-xs text-center font-semibold text-blue-400"></div>
+            <div id="taskUploadStatus" class="hidden text-xs text-center font-semibold text-blue-400"></div>
 
-            <button type="button" id="submitMaterialBtn" onclick="saveNewMaterial()" class="w-full blue-glow font-bold py-3.5 rounded-2xl text-xs active:scale-95 transition shadow-lg">
-                Сохранить материал
+            <button type="button" id="saveTaskSubmitBtn" onclick="saveNewTask()" class="w-full blue-glow font-semibold py-3 rounded-xl transition active:scale-95">
+                ✅ Добавить задание
             </button>
         </section>
+
+        <!-- МОДАЛКА ПРОСМОТРА ФОТО ДОСКИ -->
+        <div id="photoViewerModal" onclick="closeTaskPhotoViewer()" class="hidden fixed inset-0 z-[60] bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4">
+            <div class="max-w-md w-full space-y-3" onclick="event.stopPropagation()">
+                <div class="flex justify-between items-center">
+                    <div id="photoViewerCaption" class="text-xs font-bold text-white truncate pr-2">Фото задания</div>
+                    <button type="button" onclick="closeTaskPhotoViewer()" class="pill-bar px-3 py-1.5 rounded-xl text-xs text-slate-200 font-bold">✕ Закрыть</button>
+                </div>
+                <div class="rounded-2xl overflow-hidden border border-slate-700 bg-slate-950 flex items-center justify-center max-h-[75vh]">
+                    <img id="photoViewerImg" src="" alt="Фото доски" class="max-w-full max-h-[75vh] object-contain">
+                </div>
+                <div id="photoViewerExternalWrap" class="text-center hidden">
+                    <a id="photoViewerExternalLink" href="#" target="_blank" class="inline-block blue-glow px-4 py-2 rounded-xl text-xs font-bold">
+                        🔍 Открыть оригинал в полном размере ↗
+                    </a>
+                </div>
+            </div>
+        </div>
 
         <!-- ==================== ЭКРАН 6: ЛИЧНЫЙ КАБИНЕТ ==================== -->
         <section id="profileSection" class="space-y-4 hidden">
