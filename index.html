@@ -2026,35 +2026,44 @@ function getInitialWeekType() {
 }
 
 
-        function parseRawRowsToChanges(rows, dateTitle, fileName) {
-            const items = [];
-            let lastGroupRaw = '';
-            for (let r = 0; r < rows.length; r++) {
-                const row = rows[r].map(c => String(c || '').trim());
-                const c0 = row[0] || '', c1 = row[1] || '', c2 = row[2] || '', c3 = row[3] || '', c4 = row[4] || '';
-                if (/групп/i.test(c0) || /дисциплина\s+по\s+расписанию/i.test(c2) || /методист/i.test(row.join(' '))) continue;
-                if (!c0 && !c1 && !c2 && !c3 && !c4) continue;
+        function parseRawRowsToChanges(rows, dateTitle, fileName, isSilent = false) {
+    const items = [];
+    let lastGroupRaw = '';
+    for (let r = 0; r < rows.length; r++) {
+        const row = rows[r].map(c => String(c || '').trim());
+        const c0 = row[0] || '', c1 = row[1] || '', c2 = row[2] || '', c3 = row[3] || '', c4 = row[4] || '';
+        if (/групп/i.test(c0) || /дисциплина\s+по\s+расписанию/i.test(c2) || /методист/i.test(row.join(' '))) continue;
+        if (!c0 && !c1 && !c2 && !c3 && !c4) continue;
 
-                const groupRaw = c0 || lastGroupRaw;
-                if (c0 && /\d{4}/.test(c0)) lastGroupRaw = c0;
-                const groups = groupRaw.match(/\d{4}/g) || [];
-                if (groups.length === 0) continue;
+        const groupRaw = c0 || lastGroupRaw;
+        if (c0 && /\d{4}/.test(c0)) lastGroupRaw = c0;
+        const groups = groupRaw.match(/\d{4}/g) || [];
+        if (groups.length === 0) continue;
 
-                items.push({ groupRaw, groups, pair: c1 || '—', oldLesson: c2 || '—', newLesson: c3 || '', aud: c4 || '' });
-            }
-            const savedPortalFiles = changesData.portalFiles || [];
-            changesData = { dateTitle, fileName, items, portalFiles: savedPortalFiles };
-            localStorage.setItem(STORAGE_CHANGES_KEY, JSON.stringify(changesData));
+        items.push({ groupRaw, groups, pair: c1 || '—', oldLesson: c2 || '—', newLesson: c3 || '', aud: c4 || '' });
+    }
 
-            document.getElementById('changesHeaderTitle').innerText = dateTitle;
-            document.getElementById('changesStatusText').innerText = `Дата: ${fileName} • Найдено: ${items.length}`;
-            renderPortalFilesButtons();
-            renderChangesGroupFilter();
-            renderChangesList();
+    if (!changesData.byDate) changesData.byDate = {};
+    changesData.byDate[fileName] = { dateTitle, items };
 
-            // Обновляем реальные уведомления после получения замен
-            updateLiveNotifications();
-        }
+    // Если это фоновая предзагрузка соседней даты — просто сохраняем в кэш и не трогаем экран
+    if (isSilent) {
+        localStorage.setItem(STORAGE_CHANGES_KEY, JSON.stringify(changesData));
+        return;
+    }
+
+    const savedPortalFiles = changesData.portalFiles || [];
+    changesData = { dateTitle, fileName, items, portalFiles: savedPortalFiles, byDate: changesData.byDate };
+    localStorage.setItem(STORAGE_CHANGES_KEY, JSON.stringify(changesData));
+
+    document.getElementById('changesHeaderTitle').innerText = dateTitle;
+    document.getElementById('changesStatusText').innerText = `Дата: ${fileName} • Найдено: ${items.length}`;
+    renderPortalFilesButtons();
+    renderChangesGroupFilter();
+    renderChangesList();
+
+    if (typeof updateLiveNotifications === 'function') updateLiveNotifications();
+}
 
         function renderChangesGroupFilter() {
             const container = document.getElementById('changesGroupFilter');
