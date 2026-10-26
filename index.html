@@ -2338,7 +2338,121 @@ function getInitialWeekType() {
             setTaskTarget('personal');
             onTaskDateChanged();
         }
+                  function setTaskTarget(target) {
+            taskTargetMode = target;
+            const btnP = document.getElementById('btnTaskTargetPersonal');
+            const btnG = document.getElementById('btnTaskTargetGroup');
+            const notice = document.getElementById('taskTargetGroupNotice');
+            const submitBtn = document.getElementById('saveTaskSubmitBtn');
+            const isStarosta = Boolean(starostaAuth && starostaAuth.sessionToken && starostaAuth.group === getActiveGroupName());
 
+            if (target === 'personal') {
+                btnP.className = "py-2 rounded-xl font-semibold transition blue-glow";
+                btnG.className = "py-2 rounded-xl font-medium transition text-slate-400";
+                if (notice) notice.classList.add('hidden');
+                if (submitBtn) submitBtn.innerText = "✅ Добавить задание";
+            } else {
+                btnP.className = "py-2 rounded-xl font-medium transition text-slate-400";
+                btnG.className = "py-2 rounded-xl font-semibold transition blue-glow";
+                if (notice) {
+                    if (isStarosta) notice.classList.add('hidden');
+                    else notice.classList.remove('hidden');
+                }
+                if (submitBtn) submitBtn.innerText = "👥 Опубликовать для группы";
+            }
+        }
+
+        function handleTaskPhotoSelected(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const label = document.getElementById('taskPhotoLabel');
+            if (label) label.innerText = "⏳ Обработка фото...";
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_SIDE = 1280;
+                    let w = img.width;
+                    let h = img.height;
+
+                    if (w > h && w > MAX_SIDE) {
+                        h = Math.round((h * MAX_SIDE) / w);
+                        w = MAX_SIDE;
+                    } else if (h > MAX_SIDE) {
+                        w = Math.round((w * MAX_SIDE) / h);
+                        h = MAX_SIDE;
+                    }
+
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+
+                    selectedTaskPhotoBase64 = canvas.toDataURL('image/jpeg', 0.78);
+
+                    const previewImg = document.getElementById('taskPhotoPreviewImg');
+                    const previewBox = document.getElementById('taskPhotoPreviewBox');
+                    const uploadBox = document.getElementById('taskPhotoUploadBox');
+
+                    if (previewImg) previewImg.src = selectedTaskPhotoBase64;
+                    if (previewBox) previewBox.classList.remove('hidden');
+                    if (uploadBox) uploadBox.classList.add('hidden');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearTaskPhoto() {
+            selectedTaskPhotoBase64 = null;
+            const input = document.getElementById('taskPhotoInput');
+            const previewBox = document.getElementById('taskPhotoPreviewBox');
+            const uploadBox = document.getElementById('taskPhotoUploadBox');
+            const label = document.getElementById('taskPhotoLabel');
+
+            if (input) input.value = '';
+            if (previewBox) previewBox.classList.add('hidden');
+            if (uploadBox) uploadBox.classList.remove('hidden');
+            if (label) label.innerText = "Нажмите, чтобы прикрепить фото";
+        }
+
+        function createPlaceholderTaskImage() {
+            const c = document.createElement('canvas');
+            c.width = 10;
+            c.height = 10;
+            return c.toDataURL('image/png');
+        }
+
+        function openTaskPhotoViewer(photoUrl, caption, externalUrl) {
+            const modal = document.getElementById('photoViewerModal');
+            const img = document.getElementById('photoViewerImg');
+            const cap = document.getElementById('photoViewerCaption');
+            const extWrap = document.getElementById('photoViewerExternalWrap');
+            const extLink = document.getElementById('photoViewerExternalLink');
+
+            if (img) img.src = photoUrl;
+            if (cap) cap.innerText = caption || 'Фото с доски';
+
+            if (externalUrl && !externalUrl.startsWith('data:')) {
+                extLink.href = externalUrl;
+                extWrap.classList.remove('hidden');
+            } else {
+                extWrap.classList.add('hidden');
+            }
+
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeTaskPhotoViewer() {
+            const modal = document.getElementById('photoViewerModal');
+            const img = document.getElementById('photoViewerImg');
+            if (img) img.src = '';
+            if (modal) modal.classList.add('hidden');
+        }
+        
 
         function saveNewTask() {
             let subject = selectedSubjectInModal || document.getElementById('taskSubjectInput').value.trim();
