@@ -1748,179 +1748,197 @@ function getInitialWeekType() {
         }
 
         function loadScheduleForActive() {
-            const current = schedules[activeScheduleIndex];
-            const container = document.getElementById('scheduleList');
-            if (!current || !current.rawRows) {
-                document.getElementById('schedSubInfo').innerText = "";
-                container.innerHTML = `
-                    <div class="app-card rounded-3xl p-6 text-center space-y-3">
-                        <div class="text-slate-300 text-sm font-semibold">Группа ещё не выбрана</div>
-                        <div class="text-slate-400 text-xs">Подключите расписание вашей группы с портала НовГУ</div>
-                        <button type="button" onclick="openAddSchedule()" class="blue-glow text-xs font-semibold px-5 py-2.5 rounded-xl transition">➕ Выбрать группу</button>
-                    </div>
-                `;
-                return;
+    const current = schedules[activeScheduleIndex];
+    const container = document.getElementById('scheduleList');
+    if (!current || !current.rawRows) {
+        document.getElementById('schedSubInfo').innerText = "";
+        container.innerHTML = `
+            <div class="app-card rounded-3xl p-6 text-center space-y-3">
+                <div class="text-slate-300 text-sm font-semibold">Группа ещё не выбрана</div>
+                <div class="text-slate-400 text-xs">Подключите расписание вашей группы с портала НовГУ</div>
+                <button type="button" onclick="openAddSchedule()" class="blue-glow text-xs font-semibold px-5 py-2.5 rounded-xl transition">➕ Выбрать группу</button>
+            </div>
+        `;
+        return;
+    }
+
+    document.getElementById('schedSubInfo').innerText = `Гр. ${current.groupName} • ${currentSelectedWeek === 'upper' ? 'Верхняя' : 'Нижняя'}`;
+
+    try {
+        const rows = current.rawRows, merges = current.merges || [];
+        const groupWordRegex = new RegExp(`(^|\\D)${current.groupName}(\\D|$)`);
+        let groupColIdx = -1, headerRowIdx = -1;
+
+        for (let r = 0; r < Math.min(30, rows.length); r++) {
+            for (let c = 0; c < (rows[r] || []).length; c++) {
+                const val = String(rows[r][c] || '').trim();
+                if (val === current.groupName || groupWordRegex.test(val)) {
+                    groupColIdx = c;
+                    headerRowIdx = r;
+                    break;
+                }
+            }
+            if (groupColIdx !== -1) break;
+        }
+
+        if (groupColIdx === -1) {
+            container.innerHTML = `<div class="app-card p-6 rounded-2xl text-center text-red-400 text-xs">Группа ${current.groupName} не найдена</div>`;
+            return;
+        }
+
+        const timeColIdx = groupColIdx - 1, dayColIdx = groupColIdx - 2;
+        let daysSchedule = {}, currentDay = "Понедельник", pairCounter = 0;
+
+        for (let r = headerRowIdx + 1; r < rows.length; r++) {
+            let row = rows[r];
+            if (!row) continue;
+            let dayCandidate = String(row[dayColIdx] || row[0] || '').trim().toLowerCase();
+            if (/^(понедельник|вторник|среда|четверг|пятница|суббота)$/.test(dayCandidate)) {
+                currentDay = dayCandidate.charAt(0).toUpperCase() + dayCandidate.slice(1);
+                pairCounter = 0;
             }
 
-            document.getElementById('schedSubInfo').innerText = `Гр. ${current.groupName} • ${currentSelectedWeek === 'upper' ? 'Верхняя' : 'Нижняя'}`;
+            let timeVal = String(row[timeColIdx] || row[1] || '').trim();
+            if (!/\d{1,2}[\.:]\d{2}\s*-\s*\d{1,2}[\.:]\d{2}/.test(timeVal)) continue;
+            pairCounter++;
 
-            try {
-                const rows = current.rawRows, merges = current.merges || [];
-                const groupWordRegex = new RegExp(`(^|\\D)${current.groupName}(\\D|$)`);
-                let groupColIdx = -1, headerRowIdx = -1;
+            let upperVal = String(rows[r][groupColIdx] || '').trim();
+            let nextRow = rows[r + 1] || [];
+            let lowerVal = String(nextRow[groupColIdx] || '').trim();
+            let nextTimeVal = String(nextRow[timeColIdx] || nextRow[1] || '').trim();
+            let hasSecondRow = !(/\d{1,2}[\.:]\d{2}\s*-\s*\d{1,2}[\.:]\d{2}/.test(nextTimeVal));
+            let isMerged = isCellMergedVertically(merges, r, groupColIdx);
 
-                for (let r = 0; r < Math.min(30, rows.length); r++) {
-                    for (let c = 0; c < (rows[r] || []).length; c++) {
-                        const val = String(rows[r][c] || '').trim();
-                        if (val === current.groupName || groupWordRegex.test(val)) { groupColIdx = c; headerRowIdx = r; break; }
-                    }
-                    if (groupColIdx !== -1) break;
-                }
+            if (isMerged || !hasSecondRow) lowerVal = upperVal;
+            let chosenLesson = currentSelectedWeek === 'upper' ? upperVal : lowerVal;
 
-                if (groupColIdx === -1) {
-                    container.innerHTML = `<div class="app-card p-6 rounded-2xl text-center text-red-400 text-xs">Группа ${current.groupName} не найдена</div>`;
-                    return;
-                }
-
-                const timeColIdx = groupColIdx - 1, dayColIdx = groupColIdx - 2;
-                let daysSchedule = {}, currentDay = "Понедельник", pairCounter = 0;
-
-                for (let r = headerRowIdx + 1; r < rows.length; r++) {
-                    let row = rows[r];
-                    if (!row) continue;
-                    let dayCandidate = String(row[dayColIdx] || row[0] || '').trim().toLowerCase();
-                    if (/^(понедельник|вторник|среда|четверг|пятница|суббота)$/.test(dayCandidate)) {
-                        currentDay = dayCandidate.charAt(0).toUpperCase() + dayCandidate.slice(1);
-                        pairCounter = 0;
-                    }
-
-                    let timeVal = String(row[timeColIdx] || row[1] || '').trim();
-                    if (!/\d{1,2}[\.:]\d{2}\s*-\s*\d{1,2}[\.:]\d{2}/.test(timeVal)) continue;
-                    pairCounter++;
-
-                    let upperVal = String(rows[r][groupColIdx] || '').trim();
-                    let nextRow = rows[r + 1] || [];
-                    let lowerVal = String(nextRow[groupColIdx] || '').trim();
-                    let nextTimeVal = String(nextRow[timeColIdx] || nextRow[1] || '').trim();
-                    let hasSecondRow = !(/\d{1,2}[\.:]\d{2}\s*-\s*\d{1,2}[\.:]\d{2}/.test(nextTimeVal));
-                    let isMerged = isCellMergedVertically(merges, r, groupColIdx);
-
-                    if (isMerged || !hasSecondRow) lowerVal = upperVal;
-                    let chosenLesson = currentSelectedWeek === 'upper' ? upperVal : lowerVal;
-
-                    if (chosenLesson && chosenLesson !== '-' && chosenLesson !== '—' && !/Зам\.\s*директора/i.test(chosenLesson)) {
-                        if (!daysSchedule[currentDay]) daysSchedule[currentDay] = [];
-                        daysSchedule[currentDay].push({
-                            pairNum: pairCounter,
-                            time: timeVal.replace(/\./g, ':'),
-                            lesson: chosenLesson,
-                            onlyThisWeek: (!isMerged && hasSecondRow && upperVal !== lowerVal)
-                        });
-                    }
-                }
-
-                let html = '';
-                const targetDays = scheduleViewMode === 'day' ? [DAY_NAMES_FULL[selectedDayIndex]] : DAY_NAMES_FULL;
-
-                targetDays.forEach((dayName) => {
-                    const lessons = daysSchedule[dayName] || [];
-                    const dayIdx = scheduleViewMode === 'day' ? selectedDayIndex : DAY_NAMES_FULL.indexOf(dayName);
-                    const targetDayDateStr = getDateForDayIndex(dayIdx);
-
-                    const dayTasks = localTasks.filter(t => t.dueDate === targetDayDateStr);
-
-                    if (scheduleViewMode === 'week' && lessons.length === 0 && dayTasks.length === 0) return;
-
-                    if (scheduleViewMode === 'week') {
-                        html += `<div class="text-xs font-bold text-blue-400 uppercase tracking-wider px-1 pt-2">${dayName}</div>`;
-                    }
-
-                    if (lessons.length === 0) {
-                        if (scheduleViewMode === 'day' && dayTasks.length === 0) {
-                            html += `
-                                <div class="app-card p-6 rounded-3xl text-center space-y-1">
-                                    <div class="text-base">🎉</div>
-                                    <div class="text-sm font-semibold text-white">В этот день пар нет</div>
-                                    <div class="text-xs text-slate-400">Можно отдохнуть или заняться заданиями</div>
-                                </div>
-                            `;
-                        }
-                    } else {
-                        lessons.forEach(l => {
-                            const info = parseLessonDetails(l.lesson);
-                            const statusText = getLessonLiveStatus(l.time, l.pairNum);
-                            const isNow = statusText === 'Сейчас';
-                            const statusCls = isNow ? 'blue-glow' : 'pill-bar text-slate-300';
-
-                            const lessonTasks = dayTasks.filter(t => {
-                                const tSubj = String(t.subject || '').trim().toLowerCase();
-                                const pTitle = String(info.title || '').trim().toLowerCase();
-                                return tSubj === pTitle || pTitle.includes(tSubj) || tSubj.includes(pTitle);
-                            });
-
-                            let taskInsideCardHtml = '';
-                            if (lessonTasks.length > 0) {
-                                taskInsideCardHtml += `<div class="mt-2.5 pt-2.5 border-t border-slate-700/50 space-y-1.5">`;
-                                lessonTasks.forEach(t => {
-                                    taskInsideCardHtml += `
-                                        <div class="bg-blue-500/10 border border-blue-500/30 p-2 rounded-xl text-xs flex items-start justify-between gap-2">
-                                            <div class="min-w-0">
-                                                <div class="text-[10px] text-blue-400 font-bold uppercase tracking-wider">📝 Задание:</div>
-                                                <div class="text-white font-medium leading-snug pt-0.5">${t.title}</div>
-                                            </div>
-                                            <span class="text-emerald-400 text-xs shrink-0 pt-0.5">✓</span>
-                                        </div>
-                                    `;
-                                });
-                                taskInsideCardHtml += `</div>`;
-                            }
-
-                            html += `
-                                <div class="app-card p-4 rounded-3xl space-y-2 relative transition">
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-xs font-mono text-slate-400 font-medium">${l.time}</span>
-                                        <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${statusCls}">${statusText}</span>
-                                    </div>
-                                    <div class="font-bold text-[15px] text-white leading-snug pr-4">${info.title}</div>
-                                    <div class="text-xs text-slate-400">${info.teacher}</div>
-                                    <div class="flex items-center justify-between pt-1 text-xs text-slate-300">
-                                        <div class="flex items-center gap-1.5">
-                                            <span class="text-blue-400">📍</span>
-                                            <span>${info.aud}</span>
-                                        </div>
-                                        ${l.onlyThisWeek ? `<span class="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-md font-medium">${currentSelectedWeek === 'upper' ? 'Верхняя нед.' : 'Нижняя нед.'}</span>` : '<span class="text-slate-400">›</span>'}
-                                    </div>
-                                    ${taskInsideCardHtml}
-                                </div>
-                            `;
-                        });
-                    }
-
-                    const unassignedTasks = dayTasks.filter(t => {
-                        const tSubj = String(t.subject || '').trim().toLowerCase();
-                        return !lessons.some(l => {
-                            const pTitle = String(parseLessonDetails(l.lesson).title || '').trim().toLowerCase();
-                            return tSubj === pTitle || pTitle.includes(tSubj) || tSubj.includes(pTitle);
-                        });
-                    });
-
-                    if (unassignedTasks.length > 0) {
-                        html += `
-                            <div class="app-card p-3 rounded-2xl border-dashed border-slate-700/80 space-y-1.5 text-xs">
-                                <div class="text-[10px] font-bold text-slate-400 uppercase">📌 Прочие задания на этот день:</div>
-                        `;
-                        unassignedTasks.forEach(ut => {
-                            html += `<div>• <b class="text-white">${ut.subject}:</b> ${ut.title}</div>`;
-                        });
-                        html += `</div>`;
-                    }
+            if (chosenLesson && chosenLesson !== '-' && chosenLesson !== '—' && !/Зам\.\s*директора/i.test(chosenLesson)) {
+                if (!daysSchedule[currentDay]) daysSchedule[currentDay] = [];
+                daysSchedule[currentDay].push({
+                    pairNum: pairCounter,
+                    time: timeVal.replace(/\./g, ':'),
+                    lesson: chosenLesson,
+                    onlyThisWeek: (!isMerged && hasSecondRow && upperVal !== lowerVal)
                 });
-
-                container.innerHTML = html || '<div class="app-card p-6 rounded-3xl text-center text-slate-400 text-sm">На этой неделе пар не найдено</div>';
-            } catch (e) {
-                container.innerHTML = `<div class="app-card p-6 rounded-3xl text-center text-red-400 text-xs">Ошибка: ${e.message}</div>`;
             }
         }
+
+        let html = '';
+        const targetDays = scheduleViewMode === 'day' ? [DAY_NAMES_FULL[selectedDayIndex]] : DAY_NAMES_FULL;
+        const combinedTasks = (typeof groupCloudTasks !== 'undefined' ? groupCloudTasks : []).concat(localTasks || []);
+
+        targetDays.forEach((dayName) => {
+            const lessons = daysSchedule[dayName] || [];
+            const dayIdx = scheduleViewMode === 'day' ? selectedDayIndex : DAY_NAMES_FULL.indexOf(dayName);
+            const targetDayDateStr = getDateForDayIndex(dayIdx);
+
+            const dayTasks = combinedTasks.filter(t => t.dueDate === targetDayDateStr);
+
+            if (scheduleViewMode === 'week' && lessons.length === 0 && dayTasks.length === 0) return;
+
+            if (scheduleViewMode === 'week') {
+                html += `<div class="text-xs font-bold text-blue-400 uppercase tracking-wider px-1 pt-2">${dayName}</div>`;
+            }
+
+            if (lessons.length === 0) {
+                if (scheduleViewMode === 'day' && dayTasks.length === 0) {
+                    html += `
+                        <div class="app-card p-6 rounded-3xl text-center space-y-1">
+                            <div class="text-base">🎉</div>
+                            <div class="text-sm font-semibold text-white">В этот день пар нет</div>
+                            <div class="text-xs text-slate-400">Можно отдохнуть или заняться заданиями</div>
+                        </div>
+                    `;
+                }
+            } else {
+                lessons.forEach(l => {
+                    const info = parseLessonDetails(l.lesson);
+                    const statusText = getLessonLiveStatus(l.time, l.pairNum);
+                    const isNow = statusText === 'Сейчас';
+                    const statusCls = isNow ? 'blue-glow' : 'pill-bar text-slate-300';
+
+                    const lessonTasks = dayTasks.filter(t => {
+                        const tSubj = String(t.subject || '').trim().toLowerCase();
+                        const pTitle = String(info.title || '').trim().toLowerCase();
+                        return tSubj === pTitle || pTitle.includes(tSubj) || tSubj.includes(pTitle);
+                    });
+
+                    let taskInsideCardHtml = '';
+                    if (lessonTasks.length > 0) {
+                        taskInsideCardHtml += `<div class="mt-2.5 pt-2.5 border-t border-slate-700/50 space-y-1.5">`;
+                        lessonTasks.forEach(t => {
+                            const safeCap = String(t.subject + ': ' + t.title).replace(/'/g, "\\'");
+                            const photoBtn = t.photoUrl
+                                ? `<button type="button" onclick="event.stopPropagation(); openTaskPhotoViewer('${t.photoUrl}', '${safeCap}', '${t.externalUrl || ''}')" class="mt-1.5 inline-flex items-center gap-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition">📷 Фото с доски</button>`
+                                : '';
+
+                            taskInsideCardHtml += `
+                                <div class="bg-blue-500/10 border border-blue-500/30 p-2.5 rounded-xl text-xs flex items-start justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <div class="text-[10px] text-blue-400 font-bold uppercase tracking-wider">
+                                            ${t.isGroup ? '👥 Задание группы:' : '📝 Личное задание:'}
+                                        </div>
+                                        <div class="text-white font-medium leading-snug pt-0.5 ${t.status === 'done' ? 'line-through opacity-60' : ''}">${t.title}</div>
+                                        ${photoBtn}
+                                    </div>
+                                    <span class="text-emerald-400 text-xs shrink-0 pt-0.5">${t.status === 'done' ? '✓' : '•'}</span>
+                                </div>
+                            `;
+                        });
+                        taskInsideCardHtml += `</div>`;
+                    }
+
+                    html += `
+                        <div class="app-card p-4 rounded-3xl space-y-2 relative transition">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs font-mono text-slate-400 font-medium">${l.time}</span>
+                                <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${statusCls}">${statusText}</span>
+                            </div>
+                            <div class="font-bold text-[15px] text-white leading-snug pr-4">${info.title}</div>
+                            <div class="text-xs text-slate-400">${info.teacher}</div>
+                            <div class="flex items-center justify-between pt-1 text-xs text-slate-300">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-blue-400">📍</span>
+                                    <span>${info.aud}</span>
+                                </div>
+                                ${l.onlyThisWeek ? `<span class="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-md font-medium">${currentSelectedWeek === 'upper' ? 'Верхняя нед.' : 'Нижняя нед.'}</span>` : '<span class="text-slate-400">›</span>'}
+                            </div>
+                            ${taskInsideCardHtml}
+                        </div>
+                    `;
+                });
+            }
+
+            const unassignedTasks = dayTasks.filter(t => {
+                const tSubj = String(t.subject || '').trim().toLowerCase();
+                return !lessons.some(l => {
+                    const pTitle = String(parseLessonDetails(l.lesson).title || '').trim().toLowerCase();
+                    return tSubj === pTitle || pTitle.includes(tSubj) || tSubj.includes(pTitle);
+                });
+            });
+
+            if (unassignedTasks.length > 0) {
+                html += `
+                    <div class="app-card p-3.5 rounded-2xl border-dashed border-slate-700/80 space-y-2 text-xs">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase">📌 Прочие задания на этот день:</div>
+                `;
+                unassignedTasks.forEach(ut => {
+                    const safeCap = String(ut.subject + ': ' + ut.title).replace(/'/g, "\\'");
+                    const photoBtn = ut.photoUrl
+                        ? `<button type="button" onclick="event.stopPropagation(); openTaskPhotoViewer('${ut.photoUrl}', '${safeCap}', '${ut.externalUrl || ''}')" class="ml-2 inline-flex items-center gap-1 text-blue-400 underline font-semibold">📷 Фото</button>`
+                        : '';
+                    html += `<div>• <b class="text-white">${ut.subject}:</b> ${ut.title} ${photoBtn}</div>`;
+                });
+                html += `</div>`;
+            }
+        });
+
+        container.innerHTML = html || '<div class="app-card p-6 rounded-3xl text-center text-slate-400 text-sm">На этой неделе пар не найдено</div>';
+    } catch (e) {
+        container.innerHTML = `<div class="app-card p-6 rounded-3xl text-center text-red-400 text-xs">Ошибка: ${e.message}</div>`;
+    }
+}
+
 
         function setChangesTypeFilter(type) {
             activeChangesTypeFilter = type;
