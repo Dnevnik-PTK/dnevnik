@@ -2454,21 +2454,84 @@ function getInitialWeekType() {
         }
         
 
-        function saveNewTask() {
+                async function saveNewTask() {
             let subject = selectedSubjectInModal || document.getElementById('taskSubjectInput').value.trim();
             const title = document.getElementById('taskTitleInput').value.trim();
             const dueDate = document.getElementById('taskDateInput').value;
-            
+
             if (!subject) subject = 'Общее задание';
             if (!title) { alert("Введите, что нужно сделать!"); return; }
 
-            localTasks.unshift({ id: Date.now(), subject, title, dueDate, status: 'todo' });
-            localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
+            // Вариант 1: Личное задание
+            if (taskTargetMode === 'personal') {
+                localTasks.unshift({
+                    id: Date.now(),
+                    subject: subject,
+                    title: title,
+                    dueDate: dueDate,
+                    status: 'todo',
+                    photoUrl: selectedTaskPhotoBase64 || null,
+                    isGroup: false
+                });
+                localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
 
-            updateLiveNotifications();
-            switchSection('tasks');
-            loadScheduleForActive();
+                if (typeof updateLiveNotifications === 'function') updateLiveNotifications();
+                switchSection('tasks');
+                loadScheduleForActive();
+                return;
+            }
+
+            // Вариант 2: Задание для всей группы (только для старосты)
+            const currentGrp = getActiveGroupName();
+            if (!currentGrp) {
+                alert("Сначала выберите группу в расписании!");
+                return;
+            }
+            if (!starostaAuth || !starostaAuth.sessionToken || starostaAuth.group !== currentGrp) {
+                alert("Публиковать задания для всей группы может только староста! Активируйте одноразовый ключ в профиле.");
+                return;
+            }
+
+            const statusEl = document.getElementById('taskUploadStatus');
+            const submitBtn = document.getElementById('saveTaskSubmitBtn');
+            statusEl.classList.remove('hidden');
+            statusEl.innerText = "⏳ Публикуем задание для группы...";
+            submitBtn.disabled = true;
+
+            try {
+                const hasPhoto = Boolean(selectedTaskPhotoBase64);
+                const encodedTitle = `${hasPhoto ? '[ДЗ-ФОТО|' : '[ДЗ|'}${dueDate}] ${title}`;
+                const base64Payload = hasPhoto ? selectedTaskPhotoBase64 : createPlaceholderTaskImage();
+
+                const res = await fetch(GOOGLE_SCRIPT_WEBAPP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'uploadMaterial',
+                        group: currentGrp,
+                        sessionToken: starostaAuth.sessionToken,
+                        subject: subject,
+                        title: encodedTitle,
+                        fileName: hasPhoto ? `dz_${dueDate}.jpg` : `dz_${dueDate}.png`,
+                        mimeType: hasPhoto ? 'image/jpeg' : 'image/png',
+                        base64Data: base64Payload
+                    })
+                });
+
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || "Не удалось опубликовать задание");
+
+                await fetchGoogleDriveMaterials();
+                switchSection('tasks');
+                loadScheduleForActive();
+            } catch (e) {
+                alert("Ошибка публикации: " + e.message);
+                statusEl.innerText = "⚠️ Ошибка: " + e.message;
+            } finally {
+                submitBtn.disabled = false;
+            }
         }
+
 
         function toggleTaskStatus(id) {
             const t = localTasks.find(x => x.id === id);
