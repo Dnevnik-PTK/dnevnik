@@ -212,18 +212,27 @@ app.get('/api/changes', async (req, res) => {
     try {
         let targetUrl = req.query.url;
         let fileTitle = req.query.title || 'changes.docx';
+        
         if (!targetUrl) {
             if (changesListCache.length === 0) changesListCache = await fetchReplacementFilesList();
             if (changesListCache.length === 0) return res.status(404).json({ error: 'Файлы не найдены' });
             targetUrl = changesListCache[0].url;
             fileTitle = changesListCache[0].title;
         }
+
+        // ЗАЩИТА ОТ SSRF: разрешаем скачивать только с официального домена НовГУ
+        const parsedUrl = new URL(targetUrl);
+        if (!parsedUrl.hostname.endsWith('novsu.ru')) {
+            return res.status(403).json({ error: 'Доступ запрещен: разрешены только ссылки portal.novsu.ru' });
+        }
+
         if (changesBufferCache.has(targetUrl)) {
             const cachedItem = changesBufferCache.get(targetUrl);
             res.setHeader('Content-Type', 'application/octet-stream');
             res.setHeader('X-File-Title', encodeURIComponent(cachedItem.title || fileTitle));
             return res.send(cachedItem.buffer);
         }
+
         const fileRes = await fetch(targetUrl, { headers: BROWSER_HEADERS });
         if (!fileRes.ok) throw new Error(`Не удалось скачать (${fileRes.status})`);
         const buffer = Buffer.from(await fileRes.arrayBuffer());
@@ -235,6 +244,7 @@ app.get('/api/changes', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
 
 app.get('/api/schedule/:group', async (req, res) => {
     try {
