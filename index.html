@@ -2533,34 +2533,81 @@ function getInitialWeekType() {
         }
 
 
-        function toggleTaskStatus(id) {
-            const t = localTasks.find(x => x.id === id);
-            if (!t) return;
-            const order = ['todo', 'progress', 'done'];
-            t.status = order[(order.indexOf(t.status) + 1) % order.length];
-            localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
+                function toggleTaskStatus(id) {
+            const strId = String(id);
+            if (strId.startsWith('grp_')) {
+                const gt = groupCloudTasks.find(x => String(x.id) === strId);
+                if (!gt) return;
+                gt.status = gt.status === 'done' ? 'todo' : 'done';
+                let doneGroupIds = JSON.parse(localStorage.getItem('ptk_done_group_tasks_v1') || '[]');
+                if (gt.status === 'done') {
+                    if (!doneGroupIds.includes(strId)) doneGroupIds.push(strId);
+                } else {
+                    doneGroupIds = doneGroupIds.filter(x => x !== strId);
+                }
+                localStorage.setItem('ptk_done_group_tasks_v1', JSON.stringify(doneGroupIds));
+            } else {
+                const t = localTasks.find(x => String(x.id) === strId);
+                if (!t) return;
+                const order = ['todo', 'progress', 'done'];
+                t.status = order[(order.indexOf(t.status) + 1) % order.length];
+                localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
+            }
             renderTasksList();
-            updateLiveNotifications();
+            if (typeof updateLiveNotifications === 'function') updateLiveNotifications();
             loadScheduleForActive();
         }
 
-        function deleteTask(event, id) {
+        async function deleteTask(event, id, isGroup, fileId) {
             event.stopPropagation();
-            localTasks = localTasks.filter(x => x.id !== id);
-            localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
+            if (isGroup) {
+                const currentGrp = getActiveGroupName();
+                if (!starostaAuth || !starostaAuth.sessionToken || starostaAuth.group !== currentGrp) {
+                    alert("Удалить задание группы может только староста!");
+                    return;
+                }
+                if (!confirm("Удалить это задание у всей группы?")) return;
+                try {
+                    const res = await fetch(GOOGLE_SCRIPT_WEBAPP_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({
+                            action: 'deleteMaterial',
+                            group: currentGrp,
+                            sessionToken: starostaAuth.sessionToken,
+                            fileId: fileId
+                        })
+                    });
+                    const data = await res.json();
+                    if (!data.success) throw new Error(data.error || "Ошибка удаления");
+                    groupCloudTasks = groupCloudTasks.filter(x => x.fileId !== fileId);
+                } catch (e) {
+                    alert("Ошибка: " + e.message);
+                }
+            } else {
+                localTasks = localTasks.filter(x => String(x.id) !== String(id));
+                localStorage.setItem(STORAGE_TASKS_KEY, JSON.stringify(localTasks));
+            }
             renderTasksList();
-            updateLiveNotifications();
+            if (typeof updateLiveNotifications === 'function') updateLiveNotifications();
             loadScheduleForActive();
         }
 
         function renderTasksList() {
             const container = document.getElementById('tasksList');
-            const todayStr = new Date().toISOString().slice(0, 10);
-            const nowTime = new Date(todayStr).getTime();
+            if (!container) return;
 
-            const filtered = localTasks.filter(t => {
+            const todayStr = getDateForDayIndex(selectedDayIndex);
+            const now = new Date();
+            const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+            const allTasks = [...groupCloudTasks, ...localTasks];
+
+            const filtered = allTasks.filter(t => {
                 if (!t.dueDate) return true;
-                const diffDays = Math.round((new Date(t.dueDate).getTime() - nowTime) / (1000 * 60 * 60 * 24));
+                const [y, m, d] = t.dueDate.split('-').map(Number);
+                const taskTime = new Date(y, m - 1, d).getTime();
+                const diffDays = Math.round((taskTime - nowMidnight) / (1000 * 60 * 60 * 24));
                 if (activeTaskFilter === 'TODAY') return diffDays === 0;
                 if (activeTaskFilter === 'WEEK') return diffDays >= 0 && diffDays <= 7;
                 if (activeTaskFilter === 'OVERDUE') return diffDays < 0 && t.status !== 'done';
@@ -2572,11 +2619,14 @@ function getInitialWeekType() {
                 return;
             }
 
+            const isStarosta = Boolean(starostaAuth && starostaAuth.sessionToken && starostaAuth.group === getActiveGroupName());
             let html = '';
+
             filtered.forEach(t => {
                 const icon = getSubjectIcon(t.subject);
-                const diffDays = t.dueDate ? Math.round((new Date(t.dueDate).getTime() - nowTime) / (1000 * 60 * 60 * 24)) : 0;
-                const dateFormatted = t.dueDate ? t.dueDate.split('-').reverse().slice(0,2).join('.') : '';
+                const [y, m, d] = (t.dueDate || '2026-01-01').split('-').map(Number);
+                const diffDays = Math.round((new Date(y, m - 1, d).getTime() - nowMidnight) / (1000 * 60 * 60 * 24));
+                const dateFormatted = t.dueDate ? t.dueDate.split('-').reverse().slice(0, 2).join('.') : '';
                 const daysText = diffDays === 0 ? 'Сегодня' : (diffDays > 0 ? `${diffDays} дн.` : 'Просрочено');
 
                 let badgeHtml = '';
@@ -2588,25 +2638,43 @@ function getInitialWeekType() {
                     badgeHtml = `<span class="pill-bar text-slate-300 px-2.5 py-0.5 rounded-full text-[11px] font-medium">Не начато</span>`;
                 }
 
+                const scopeBadge = t.isGroup
+                    ? `<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-md text-[10px] font-bold">👥 Группа</span>`
+                    : `<span class="pill-bar text-slate-400 px-2 py-0.5 rounded-md text-[10px]">👤 Личное</span>`;
+
+                const safeCaption = String(t.subject + ': ' + t.title).replace(/'/g, "\\'");
+                const photoBtnHtml = t.photoUrl
+                    ? `<button type="button" onclick="event.stopPropagation(); openTaskPhotoViewer('${t.photoUrl}', '${safeCaption}', '${t.externalUrl || ''}')" class="mt-2 inline-flex items-center gap-1.5 bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-xl text-[11px] font-semibold transition">
+                           <span>📷</span><span>Открыть фото доски</span>
+                       </button>`
+                    : '';
+
+                const canDelete = !t.isGroup || isStarosta;
+
                 html += `
-                    <div onclick="toggleTaskStatus(${t.id})" class="app-card p-4 rounded-3xl flex items-center gap-3.5 cursor-pointer active:scale-[0.99] transition">
-                        <div class="w-11 h-11 rounded-2xl pill-bar flex items-center justify-center text-blue-400 font-bold text-base shrink-0">
+                    <div onclick="toggleTaskStatus('${t.id}')" class="app-card p-4 rounded-3xl flex items-start gap-3.5 cursor-pointer active:scale-[0.99] transition">
+                        <div class="w-11 h-11 rounded-2xl pill-bar flex items-center justify-center text-blue-400 font-bold text-base shrink-0 mt-0.5">
                             ${icon}
                         </div>
                         <div class="flex-1 min-w-0">
-                            <div class="text-xs text-slate-400 truncate">${t.subject}</div>
-                            <div class="text-sm font-bold text-white truncate ${t.status === 'done' ? 'opacity-50' : ''}">${t.title}</div>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <span class="text-xs text-slate-400 truncate">${t.subject}</span>
+                                ${scopeBadge}
+                            </div>
+                            <div class="text-sm font-bold text-white mt-0.5 leading-snug ${t.status === 'done' ? 'line-through opacity-50' : ''}">${t.title}</div>
                             <div class="text-[11px] text-slate-400 mt-0.5">До ${dateFormatted} • ${daysText}</div>
+                            ${photoBtnHtml}
                         </div>
                         <div class="flex flex-col items-end gap-1.5 shrink-0">
                             ${badgeHtml}
-                            <button type="button" onclick="deleteTask(event, ${t.id})" class="text-[10px] text-slate-400 hover:text-red-400">Удалить</button>
+                            ${canDelete ? `<button type="button" onclick="deleteTask(event, '${t.id}', ${Boolean(t.isGroup)}, '${t.fileId || ''}')" class="text-[10px] text-slate-400 hover:text-red-400 mt-1">Удалить</button>` : ''}
                         </div>
                     </div>
                 `;
             });
             container.innerHTML = html;
         }
+
 
         function formatBytes(bytes) {
             if (!bytes || isNaN(bytes)) return '';
