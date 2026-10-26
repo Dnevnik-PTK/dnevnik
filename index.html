@@ -818,13 +818,16 @@
             else switchSection('schedule');
         });
 
-        // ================= ДВИЖОК РЕАЛЬНЫХ УВЕДОМЛЕНИЙ =================
+                // ================= ДВИЖОК РЕАЛЬНЫХ УВЕДОМЛЕНИЙ =================
         function generateLiveNotifications() {
             const list = [];
             const curGroup = getActiveGroupName();
             const now = new Date();
-            const todayStr = now.toISOString().slice(0, 10);
-            const nowTime = new Date(todayStr).getTime();
+            const todayYear = now.getFullYear();
+            const todayMonth = String(now.getMonth() + 1).padStart(2, '0');
+            const todayDay = String(now.getDate()).padStart(2, '0');
+            const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
+            const nowMidnight = new Date(todayYear, now.getMonth(), now.getDate()).getTime();
 
             // 1. Уведомления по заменам для текущей группы
             if (changesData && Array.isArray(changesData.items)) {
@@ -850,13 +853,18 @@
                 });
             }
 
-            // 2. Уведомления по приближающимся дедлайнам заданий
-            localTasks.forEach(t => {
+            // 2. Уведомления по приближающимся дедлайнам (личные + групповые ДЗ от старосты)
+            const allTasks = (typeof groupCloudTasks !== 'undefined' ? groupCloudTasks : []).concat(localTasks || []);
+            allTasks.forEach(t => {
                 if (t.status === 'done' || !t.dueDate) return;
-                const taskTime = new Date(t.dueDate).getTime();
-                const diffDays = Math.round((taskTime - nowTime) / (1000 * 60 * 60 * 24));
+                const [y, m, d] = t.dueDate.split('-').map(Number);
+                if (!y || !m || !d) return;
+                const taskTime = new Date(y, m - 1, d).getTime();
+                const diffDays = Math.round((taskTime - nowMidnight) / (1000 * 60 * 60 * 24));
                 const id = `task_${t.id}_${t.dueDate}`;
                 if (dismissedNotifIds.includes(id)) return;
+
+                const prefix = t.isGroup ? '👥 [Группа] ' : '';
 
                 if (diffDays < 0) {
                     list.push({
@@ -864,9 +872,9 @@
                         type: 'overdue',
                         icon: '⚠️',
                         badgeColor: 'text-rose-400 bg-rose-500/10 border-rose-500/30',
-                        title: `Просрочено: ${t.subject}`,
-                        subtitle: `Дедлайн был ${t.dueDate}`,
-                        text: `Задание «${t.title}» не сдано вовремя. Сдайте работу как можно скорее.`
+                        title: `${prefix}Просрочено: ${t.subject}`,
+                        subtitle: `Дедлайн был ${t.dueDate.split('-').reverse().join('.')}`,
+                        text: `Задание «${t.title}» не сдано вовремя.`
                     });
                 } else if (diffDays === 0) {
                     list.push({
@@ -874,7 +882,7 @@
                         type: 'deadline',
                         icon: '⏰',
                         badgeColor: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
-                        title: `Дедлайн сегодня: ${t.subject}`,
+                        title: `${prefix}Дедлайн сегодня: ${t.subject}`,
                         subtitle: 'Срок сдачи: сегодня до 23:59',
                         text: `Не забудьте сдать: «${t.title}».`
                     });
@@ -884,8 +892,8 @@
                         type: 'warning',
                         icon: '⏳',
                         badgeColor: 'text-blue-400 bg-blue-500/10 border-blue-500/30',
-                        title: `Дедлайн завтра: ${t.subject}`,
-                        subtitle: `Сдача: ${t.dueDate}`,
+                        title: `${prefix}Дедлайн завтра: ${t.subject}`,
+                        subtitle: `Сдача: ${t.dueDate.split('-').reverse().join('.')}`,
                         text: `Остался 1 день до сдачи задания «${t.title}».`
                     });
                 }
@@ -977,7 +985,6 @@
             const list = generateLiveNotifications();
             const badge = document.getElementById('notifBadge');
             
-            // Если уведомлений 0 — бейдж прячется, если есть — выводит точное количество
             if (badge) {
                 if (list.length > 0) {
                     badge.innerText = list.length;
@@ -1046,6 +1053,7 @@
             localStorage.setItem(STORAGE_DISMISSED_NOTIFS_KEY, JSON.stringify(dismissedNotifIds));
             updateLiveNotifications();
         }
+
 
         function toggleAccordion(id) {
             const el = document.getElementById(id);
