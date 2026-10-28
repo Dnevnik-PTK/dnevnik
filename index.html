@@ -1202,7 +1202,8 @@
                 renderPortalFilesButtons();
                 renderChangesGroupFilter();
                 renderChangesList();
-                if (!changesData.items || changesData.items.length === 0) fetchChangesFromPortal();
+                // Сразу показываем кэш и тихо проверяем, не вышел ли на сайте новый файл
+                fetchChangesFromPortal(null, null, false, true);
             } else if (section === 'notifications') {
                 document.getElementById('notificationsSection').classList.remove('hidden');
                 updateLiveNotifications();
