@@ -2005,14 +2005,15 @@
             return (files || []).filter(f => /\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(String(f.title || ''))).slice(0, 5);
         }
 
-        async function fetchChangesFromPortal(specificUrl, specificTitle) {
+        async function fetchChangesFromPortal(specificUrl, specificTitle, forceRefresh = true, isBackground = false) {
             const statusEl = document.getElementById('changesStatusText');
             const listEl = document.getElementById('changesList');
             const btn = document.getElementById('fetchChangesBtn');
 
             if (!changesData.byDate) changesData.byDate = {};
 
-            if (specificTitle && changesData.byDate[specificTitle]) {
+            // 1. Если пользователь нажал на кнопку конкретной даты и не просит принудительно перекачать — открываем из кэша за 0 мс
+            if (specificTitle && !forceRefresh && changesData.byDate[specificTitle]) {
                 const cached = changesData.byDate[specificTitle];
                 changesData.fileName = specificTitle;
                 changesData.dateTitle = cached.dateTitle;
@@ -2027,32 +2028,44 @@
                 return;
             }
 
-            statusEl.innerText = "⏳ Загружаем с сайта НовГУ...";
-            if (!changesData.items || changesData.items.length === 0) {
-                listEl.innerHTML = '<div class="app-card p-8 rounded-3xl text-center text-slate-400 animate-pulse text-xs">Получаем свежий документ изменений...</div>';
+            if (!isBackground) {
+                statusEl.innerText = "⏳ Загружаем с сайта НовГУ...";
+                if (!changesData.items || changesData.items.length === 0) {
+                    listEl.innerHTML = '<div class="app-card p-8 rounded-3xl text-center text-slate-400 animate-pulse text-xs">Получаем свежий документ изменений...</div>';
+                }
+                if (btn) btn.innerText = "⏳...";
             }
-            if (btn) btn.innerText = "⏳...";
 
             try {
+                // Если это фоновая автопроверка — сначала проверяем список файлов на портале
+                if (!specificUrl) {
+                    const listRes = await fetch(`${RENDER_URL}/api/changes-list`).catch(() => null);
+                    if (listRes && listRes.ok) {
+                        const listJson = await listRes.json();
+                        const cleanFiles = filterOnlyLast5DateFiles(listJson.files);
+                        if (cleanFiles.length > 0) {
+                            changesData.portalFiles = cleanFiles;
+                            renderPortalFilesButtons();
+                            const newestFile = cleanFiles[0];
+
+                            // Если в фоновом режиме самая свежая дата уже загружена и не требуется ручной сброс — только докачиваем соседние даты
+                            if (isBackground && !forceRefresh && changesData.byDate[newestFile.title] && changesData.items && changesData.items.length > 0) {
+                                prefetchRemainingDates();
+                                return;
+                            }
+
+                            specificUrl = newestFile.url;
+                            specificTitle = newestFile.title;
+                        }
+                    }
+                }
+
                 let fetchUrl = `${RENDER_URL}/api/changes`;
                 if (specificUrl) {
                     fetchUrl += `?url=${encodeURIComponent(specificUrl)}&title=${encodeURIComponent(specificTitle || '')}`;
                 }
 
-                const [listRes, fileRes] = await Promise.all([
-                    !specificUrl ? fetch(`${RENDER_URL}/api/changes-list`).catch(() => null) : Promise.resolve(null),
-                    fetch(fetchUrl)
-                ]);
-
-                if (listRes && listRes.ok) {
-                    const listJson = await listRes.json();
-                    const cleanFiles = filterOnlyLast5DateFiles(listJson.files);
-                    if (cleanFiles.length > 0) {
-                        changesData.portalFiles = cleanFiles;
-                        if (!specificTitle) specificTitle = cleanFiles[0].title;
-                    }
-                }
-
+                const fileRes = await fetch(fetchUrl);
                 if (!fileRes.ok) throw new Error("Не удалось скачать файл замен");
 
                 const headerTitle = fileRes.headers.get('X-File-Title');
@@ -2060,11 +2073,14 @@
                 const arrayBuffer = await fileRes.arrayBuffer();
                 await parseChangesBuffer(arrayBuffer, finalTitle, false);
 
+                // Запускаем тихую предзагрузку остальных 4 дат в фоне
                 prefetchRemainingDates();
             } catch (e) {
-                statusEl.innerText = "Ошибка автозагрузки";
-                if (!changesData.items || changesData.items.length === 0) {
-                    listEl.innerHTML = `<div class="app-card p-5 rounded-3xl text-center text-amber-400 text-xs">⚠️ ${e.message}</div>`;
+                if (!isBackground) {
+                    statusEl.innerText = "Ошибка автозагрузки";
+                    if (!changesData.items || changesData.items.length === 0) {
+                        listEl.innerHTML = `<div class="app-card p-5 rounded-3xl text-center text-amber-400 text-xs">⚠️ ${e.message}</div>`;
+                    }
                 }
             } finally {
                 if (btn) btn.innerText = "🔄 С сайта";
@@ -2102,7 +2118,8 @@
                 btn.type = 'button';
                 btn.className = `px-3 py-1.5 rounded-xl text-xs font-medium transition ${cls}`;
                 btn.textContent = f.title;
-                btn.onclick = () => fetchChangesFromPortal(f.url, f.title);
+                // false третьим аргументом = брать из кэша мгновенно, если дата уже скачана
+                btn.onclick = () => fetchChangesFromPortal(f.url, f.title, false, false);
                 list.appendChild(btn);
             });
         }
