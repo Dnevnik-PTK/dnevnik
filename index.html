@@ -167,14 +167,14 @@
                 <div class="flex justify-between items-center gap-2">
                     <div>
                         <div id="changesHeaderTitle" class="font-bold text-xs text-white">Актуальные изменения</div>
-                        <div id="changesStatusText" class="text-[11px] text-slate-400 mt-0.5">Нажмите «С сайта» для обновления</div>
+                        <div id="changesStatusText" class="text-[11px] text-slate-400 mt-0.5">Синхронизация с НовГУ...</div>
                     </div>
                     <div class="flex gap-1.5 shrink-0">
                         <label class="cursor-pointer pill-bar px-2.5 py-1.5 rounded-xl text-xs text-slate-300 transition">
                             📁 .docx
                             <input type="file" accept=".docx,.doc,.xls,.xlsx" onchange="handleManualChangesFile(event)" class="hidden">
                         </label>
-                        <button type="button" id="fetchChangesBtn" onclick="fetchChangesFromPortal()" class="blue-glow px-3 py-1.5 rounded-xl text-xs font-semibold active:scale-95 transition">
+                        <button type="button" id="fetchChangesBtn" onclick="fetchChangesFromPortal(null, null, true, false)" class="blue-glow px-3 py-1.5 rounded-xl text-xs font-semibold active:scale-95 transition">
                             🔄 С сайта
                         </button>
                     </div>
@@ -299,7 +299,7 @@
             <div id="marksList" class="space-y-2.5"></div>
         </section>
 
-                <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ ПРЕДМЕТА ==================== -->
+        <!-- ==================== МОДАЛКА: ДОБАВЛЕНИЕ ПРЕДМЕТА ==================== -->
         <section id="setupScreen" class="app-card p-5 rounded-3xl space-y-4 hidden">
             <div class="flex justify-between items-center">
                 <h2 class="font-bold text-base text-white">Подключение предмета</h2>
@@ -544,6 +544,20 @@
                     </div>
                 </div>
 
+                <div class="space-y-2 pt-3 border-t border-slate-800/80">
+                    <div class="text-xs font-bold text-white">Мои данные</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="profLastName" placeholder="Фамилия" autocomplete="family-name" class="w-full pill-bar rounded-xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
+                        <input type="text" id="profFirstName" placeholder="Имя" autocomplete="given-name" class="w-full pill-bar rounded-xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
+                    </div>
+                    <input type="text" id="profMainGroup" list="profGroupsList" placeholder="Основная группа (например 5952)" class="w-full pill-bar rounded-xl p-3 text-xs text-white focus:outline-none focus:border-blue-500">
+                    <datalist id="profGroupsList"></datalist>
+                    <button type="button" id="btnSaveProfile" onclick="saveProfile()" class="w-full blue-glow font-semibold py-2.5 rounded-xl text-xs active:scale-95 transition">
+                        💾 Сохранить и синхронизировать
+                    </button>
+                    <div id="profileSyncStatus" class="text-[11px] text-slate-400 leading-relaxed"></div>
+                </div>
+
                 <button type="button" onclick="openAddSchedule()" class="w-full blue-glow font-semibold py-3 rounded-2xl text-xs transition active:scale-95">
                     Сменить / добавить группу расписания
                 </button>
@@ -672,7 +686,7 @@
 
     </div>
 
-    <!-- ==================== НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ (5 ПУНКТОВ) ==================== -->
+    <!-- НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ (5 ПУНКТОВ) -->
     <nav class="fixed bottom-0 left-0 right-0 bottom-nav backdrop-blur-md px-2 py-1.5 z-50">
         <div class="max-w-md mx-auto grid grid-cols-5 gap-1 text-center">
             <!-- 1: Расписание -->
@@ -739,11 +753,13 @@
         const STORAGE_STAROSTA_SESSION_KEY = 'ptk_diary_starosta_session_v3';
         const STORAGE_CREATOR_PASS_KEY = 'ptk_diary_creator_pass_v1';
         const STORAGE_DISMISSED_NOTIFS_KEY = 'ptk_diary_dismissed_notifs_v1';
+        const STORAGE_PROFILE_KEY = 'ptk_diary_profile_v1';
 
         const DAY_NAMES_FULL = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
         const DAY_NAMES_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
         const MONTHS_GENITIVE = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 
+        let userProfile = { lastName: '', firstName: '', mainGroup: '' };
         let subjects = [], activeSubjectIndex = 0;
         let schedules = [], activeScheduleIndex = 0;
         let currentSelectedWeek = 'upper';
@@ -795,12 +811,14 @@
             try { personalMaterials = JSON.parse(localStorage.getItem(STORAGE_PERSONAL_MATS_KEY)) || []; } catch(e) { personalMaterials = []; }
             try { starostaAuth = JSON.parse(localStorage.getItem(STORAGE_STAROSTA_SESSION_KEY)) || null; } catch(e) { starostaAuth = null; }
             try { dismissedNotifIds = JSON.parse(localStorage.getItem(STORAGE_DISMISSED_NOTIFS_KEY)) || []; } catch(e) { dismissedNotifIds = []; }
+            try { userProfile = Object.assign({ lastName: '', firstName: '', mainGroup: '' }, JSON.parse(localStorage.getItem(STORAGE_PROFILE_KEY))); } catch(e) {}
 
             const savedIdx = parseInt(localStorage.getItem('ptk_active_sched'), 10);
             if (!isNaN(savedIdx) && savedIdx >= 0 && savedIdx < schedules.length) {
                 activeScheduleIndex = savedIdx;
             } else {
-                activeScheduleIndex = 0;
+                const mainIdx = schedules.findIndex(s => s.groupName === userProfile.mainGroup);
+                activeScheduleIndex = mainIdx !== -1 ? mainIdx : 0;
             }
 
             const savedTheme = localStorage.getItem(STORAGE_THEME_KEY) || 'dark';
@@ -815,18 +833,15 @@
 
             activeChangesGroupFilter = getActiveGroupName() || 'ALL';
 
+            updateProfileHeader();
             updateStarostaUI();
             updateCreatorUI();
             fetchGoogleDriveMaterials();
             updateLiveNotifications();
 
-            // Автоматически проверяем свежие замены с сайта НовГУ при каждом входе в приложение
             fetchChangesFromPortal(null, null, false, true);
 
-            // Автообновление уведомлений о парах каждую минуту
             setInterval(updateLiveNotifications, 60000);
-
-            // Автообновление замен с сайта каждые 15 минут в фоне
             setInterval(function() {
                 fetchChangesFromPortal(null, null, false, true);
             }, 15 * 60 * 1000);
@@ -835,6 +850,19 @@
             else if (subjects.length > 0) switchSection('marks');
             else switchSection('schedule');
         });
+
+        function isStarostaHere() {
+            const g = getActiveGroupName();
+            return Boolean(g && starostaAuth && starostaAuth.sessionToken && String(starostaAuth.group) === g);
+        }
+
+        function getVisibleTasks() {
+            const g = getActiveGroupName();
+            const cloud = typeof groupCloudTasks !== 'undefined' ? groupCloudTasks : [];
+            const local = (localTasks || []).filter(t => !t.group || t.group === g);
+            return cloud.concat(local);
+        }
+
         // ================= ДВИЖОК РЕАЛЬНЫХ УВЕДОМЛЕНИЙ =================
         function generateLiveNotifications() {
             const list = [];
@@ -846,7 +874,6 @@
             const todayStr = `${todayYear}-${todayMonth}-${todayDay}`;
             const nowMidnight = new Date(todayYear, now.getMonth(), now.getDate()).getTime();
 
-            // 1. Уведомления по заменам для текущей группы (стабильный id без idx)
             if (curGroup && changesData && Array.isArray(changesData.items)) {
                 const grpChanges = changesData.items.filter(it => 
                     (it.groups && it.groups.includes(curGroup)) || String(it.groupRaw).includes(curGroup)
@@ -872,7 +899,6 @@
                 });
             }
 
-            // 2. Уведомления по приближающимся дедлайнам
             const allTasks = getVisibleTasks();
             allTasks.forEach(t => {
                 if (t.status === 'done' || !t.dueDate) return;
@@ -918,7 +944,6 @@
                 }
             });
 
-            // 3. Уведомление о текущей или скорой паре выбранной группы
             const currentSched = schedules[activeScheduleIndex];
             if (currentSched && currentSched.rawRows) {
                 const jsDay = now.getDay();
@@ -1124,6 +1149,136 @@
             return cur ? String(cur.groupName) : '';
         }
 
+        function normName(s) {
+            return String(s || '').toLowerCase().replace(/ё/g, 'е')
+                .replace(/[^а-яa-z0-9\s-]/g, ' ').replace(/\s+/g, ' ').trim();
+        }
+
+        function profileTokens() {
+            return normName(`${userProfile.lastName} ${userProfile.firstName}`).split(' ').filter(Boolean);
+        }
+
+        function nameMatchesProfile(cell) {
+            const t = profileTokens();
+            if (t.length < 2) return false;
+            const words = normName(cell).split(' ');
+            return t.every(x => words.includes(x));
+        }
+
+        function findStudentRow(matrix, nameColIdx, firstStudentRow, storedName) {
+            const rows = matrix.slice(firstStudentRow);
+            const cellName = r => String(r[nameColIdx] || '').trim();
+
+            if (profileTokens().length >= 2) {
+                const m = rows.filter(r => nameMatchesProfile(cellName(r)));
+                if (m.length === 1) return { row: m[0], fullName: cellName(m[0]), ambiguous: false };
+                if (m.length > 1) {
+                    const exact = storedName && m.find(r => cellName(r) === storedName);
+                    if (exact) return { row: exact, fullName: storedName, ambiguous: false };
+                    return { row: null, fullName: '', ambiguous: true };
+                }
+            }
+            const ex = storedName ? rows.find(r => cellName(r) === storedName) : null;
+            return { row: ex || null, fullName: ex ? storedName : '', ambiguous: false };
+        }
+
+        async function fetchSheetMatrix(sheetId, tabName) {
+            const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}&_t=${Date.now()}`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('нет доступа к таблице');
+            return Papa.parse(await res.text(), { skipEmptyLines: true }).data;
+        }
+
+        function updateProfileHeader() {
+            const full = `${userProfile.lastName} ${userProfile.firstName}`.trim();
+            const nameEl = document.getElementById('profileStudentName');
+            if (nameEl) nameEl.innerText = full || (subjects[activeSubjectIndex] && subjects[activeSubjectIndex].studentName) || 'Студент НовГУ';
+        }
+
+        function fillProfileForm() {
+            const ln = document.getElementById('profLastName');
+            const fn = document.getElementById('profFirstName');
+            const mg = document.getElementById('profMainGroup');
+            if (ln) ln.value = userProfile.lastName || '';
+            if (fn) fn.value = userProfile.firstName || '';
+            if (mg) mg.value = userProfile.mainGroup || '';
+            const dl = document.getElementById('profGroupsList');
+            if (dl) dl.innerHTML = getKnownUserGroups().map(g => `<option value="${g}"></option>`).join('');
+        }
+
+        async function ensureMainGroupSchedule() {
+            const g = userProfile.mainGroup;
+            if (!g) return;
+            let idx = schedules.findIndex(s => s.groupName === g);
+            if (idx === -1) {
+                const res = await fetch(`${RENDER_URL}/api/schedule/${encodeURIComponent(g)}`);
+                const data = await res.json();
+                if (!res.ok || data.error) throw new Error(data.error || `Группа ${g} не найдена на сайте`);
+                schedules.push({ groupName: g, fileName: `НовГУ (${data.fileName || data.sheet})`, rawRows: data.rows, merges: data.merges || [] });
+                idx = schedules.length - 1;
+                localStorage.setItem(STORAGE_SCHED_KEY, JSON.stringify(schedules));
+            }
+            switchSchedule(idx);
+        }
+
+        async function syncProfileWithSheets() {
+            const out = { ok: [], notFound: [], ambiguous: [] };
+            for (const s of subjects) {
+                try {
+                    const m = await fetchSheetMatrix(s.sheetId, s.groupName);
+                    const { nameColIdx, firstStudentRow } = analyzeMatrix(m);
+                    const found = findStudentRow(m, nameColIdx, firstStudentRow, s.studentName);
+                    if (found.row) { s.studentName = found.fullName; out.ok.push(s.subjectName); }
+                    else if (found.ambiguous) out.ambiguous.push(s.subjectName);
+                    else out.notFound.push(s.subjectName);
+                } catch (e) { out.notFound.push(`${s.subjectName} (${e.message})`); }
+            }
+            localStorage.setItem(STORAGE_MARKS_KEY, JSON.stringify(subjects));
+            cachedSubjectSummaries = {};
+            return out;
+        }
+
+        async function saveProfile() {
+            const lastName = document.getElementById('profLastName').value.trim();
+            const firstName = document.getElementById('profFirstName').value.trim();
+            const mainGroup = document.getElementById('profMainGroup').value.trim();
+            const statusEl = document.getElementById('profileSyncStatus');
+            const btn = document.getElementById('btnSaveProfile');
+
+            if (!lastName || !firstName) { alert('Укажите фамилию и имя'); return; }
+            if (mainGroup && !/^\d{4}[а-яa-z]*$/i.test(mainGroup)) { alert('Номер группы должен быть вида 5952'); return; }
+
+            userProfile = { lastName, firstName, mainGroup };
+            localStorage.setItem(STORAGE_PROFILE_KEY, JSON.stringify(userProfile));
+            updateProfileHeader();
+
+            btn.disabled = true;
+            const lines = [];
+            try {
+                if (mainGroup) {
+                    statusEl.innerText = '⏳ Загружаем расписание основной группы...';
+                    try { await ensureMainGroupSchedule(); lines.push(`✓ Основная группа: ${mainGroup}`); }
+                    catch (e) { lines.push(`⚠️ Расписание группы: ${e.message}`); }
+                }
+                if (subjects.length) {
+                    statusEl.innerText = '⏳ Ищем вас в таблицах оценок...';
+                    const r = await syncProfileWithSheets();
+                    if (r.ok.length) lines.push(`✓ Найдено в таблицах: ${r.ok.join(', ')}`);
+                    if (r.notFound.length) lines.push(`⚠️ Не найдено: ${r.notFound.join(', ')}`);
+                    if (r.ambiguous.length) lines.push(`⚠️ Несколько совпадений (выберите вручную): ${r.ambiguous.join(', ')}`);
+                } else {
+                    lines.push('Таблиц оценок пока нет. При добавлении предмета вас найдёт автоматически.');
+                }
+            } finally {
+                btn.disabled = false;
+                statusEl.innerText = lines.join('\n');
+                statusEl.style.whiteSpace = 'pre-line';
+                document.getElementById('profileGroupText').innerText = `Активная группа: ${getActiveGroupName() || 'не выбрана'}`;
+                renderProfileSubjectsList();
+                fillProfileForm();
+            }
+        }
+
         function getWeekTypeForDate(dateObj) {
             const d = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
             const year = d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1;
@@ -1202,7 +1357,6 @@
                 renderPortalFilesButtons();
                 renderChangesGroupFilter();
                 renderChangesList();
-                // Сразу показываем кэш и тихо проверяем, не вышел ли на сайте новый файл
                 fetchChangesFromPortal(null, null, false, true);
             } else if (section === 'notifications') {
                 document.getElementById('notificationsSection').classList.remove('hidden');
@@ -1235,12 +1389,11 @@
             const topProfBtn = document.getElementById('topProfileBtn');
             if (topProfBtn) topProfBtn.className = "w-10 h-10 rounded-2xl blue-glow flex items-center justify-center active:scale-95 transition";
 
-            const stName = subjects.length > 0 ? subjects[activeSubjectIndex].studentName : 'Студент НовГУ';
             const grp = getActiveGroupName() || 'не выбрана';
-            const stNameEl = document.getElementById('profileStudentName');
-            if (stNameEl) stNameEl.innerText = stName;
             document.getElementById('profileGroupText').innerText = `Активная группа: ${grp}`;
 
+            updateProfileHeader();
+            fillProfileForm();
             renderProfileSubjectsList();
             updateCreatorUI();
             updateStarostaUI();
@@ -2005,14 +2158,13 @@
             return (files || []).filter(f => /\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(String(f.title || ''))).slice(0, 5);
         }
 
-        async function fetchChangesFromPortal(specificUrl, specificTitle, forceRefresh = true, isBackground = false) {
+        async function fetchChangesFromPortal(specificUrl, specificTitle, forceRefresh = false, isBackground = false) {
             const statusEl = document.getElementById('changesStatusText');
             const listEl = document.getElementById('changesList');
             const btn = document.getElementById('fetchChangesBtn');
 
             if (!changesData.byDate) changesData.byDate = {};
 
-            // 1. Если пользователь нажал на кнопку конкретной даты и не просит принудительно перекачать — открываем из кэша за 0 мс
             if (specificTitle && !forceRefresh && changesData.byDate[specificTitle]) {
                 const cached = changesData.byDate[specificTitle];
                 changesData.fileName = specificTitle;
@@ -2037,7 +2189,6 @@
             }
 
             try {
-                // Если это фоновая автопроверка — сначала проверяем список файлов на портале
                 if (!specificUrl) {
                     const listRes = await fetch(`${RENDER_URL}/api/changes-list`).catch(() => null);
                     if (listRes && listRes.ok) {
@@ -2048,7 +2199,6 @@
                             renderPortalFilesButtons();
                             const newestFile = cleanFiles[0];
 
-                            // Если в фоновом режиме самая свежая дата уже загружена и не требуется ручной сброс — только докачиваем соседние даты
                             if (isBackground && !forceRefresh && changesData.byDate[newestFile.title] && changesData.items && changesData.items.length > 0) {
                                 prefetchRemainingDates();
                                 return;
@@ -2073,7 +2223,6 @@
                 const arrayBuffer = await fileRes.arrayBuffer();
                 await parseChangesBuffer(arrayBuffer, finalTitle, false);
 
-                // Запускаем тихую предзагрузку остальных 4 дат в фоне
                 prefetchRemainingDates();
             } catch (e) {
                 if (!isBackground) {
@@ -2118,7 +2267,6 @@
                 btn.type = 'button';
                 btn.className = `px-3 py-1.5 rounded-xl text-xs font-medium transition ${cls}`;
                 btn.textContent = f.title;
-                // false третьим аргументом = брать из кэша мгновенно, если дата уже скачана
                 btn.onclick = () => fetchChangesFromPortal(f.url, f.title, false, false);
                 list.appendChild(btn);
             });
@@ -2214,7 +2362,7 @@
                 const cls = isSelected ? "blue-glow" : "pill-bar text-slate-400";
                 const btn = document.createElement('button');
                 btn.type = 'button';
-                btn.className = `px-3 py-1.5 rounded-xl text-xs font-medium shrink-0 transition ${cls}`;
+                btn.className = `px-3 py-1.5 rounded-xl text-xs font-medium transition ${cls}`;
                 btn.textContent = g === 'ALL' ? 'Все группы' : 'Гр. ' + g;
                 btn.onclick = () => { activeChangesGroupFilter = g; renderChangesGroupFilter(); renderChangesList(); };
                 container.appendChild(btn);
@@ -3158,6 +3306,10 @@
                 tempMarksWorkbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
                 renderSheetGroupButtons(tempMarksWorkbook.SheetNames || []);
                 document.getElementById('groupSelectBlock').classList.remove('hidden');
+
+                const mg = normName(userProfile.mainGroup);
+                const autoTab = mg && (tempMarksWorkbook.SheetNames || []).find(n => normName(n).includes(mg));
+                if (autoTab) selectGroupForMarks(autoTab);
             } catch (e) { alert("Ошибка: " + e.message); } finally { btn.innerText = "Найти группы"; }
         }
 
@@ -3217,6 +3369,10 @@
                         const opt = document.createElement('option');
                         opt.value = name; opt.textContent = name; select.appendChild(opt);
                     }
+                }
+                if (profileTokens().length >= 2) {
+                    const opt = Array.from(select.options).find(o => o.value && nameMatchesProfile(o.value));
+                    if (opt) select.value = opt.value;
                 }
                 document.getElementById('studentSelectBlock').classList.remove('hidden');
             } catch (err) { alert("Ошибка: " + err.message); }
@@ -3337,10 +3493,18 @@
                     complete: function(results) {
                         const matrix = results.data;
                         const { nameColIdx, firstStudentRow } = analyzeMatrix(matrix);
-                        let studentRow = matrix.slice(firstStudentRow).find(r => String(r[nameColIdx] || '').trim() === current.studentName);
+                        const found = findStudentRow(matrix, nameColIdx, firstStudentRow, current.studentName);
+                        const studentRow = found.row;
                         if (!studentRow) {
-                            container.innerHTML = '<div class="app-card p-6 rounded-3xl text-center text-red-400 text-xs">Студент не найден в таблице</div>';
+                            container.innerHTML = found.ambiguous
+                                ? '<div class="app-card p-6 rounded-3xl text-center text-amber-400 text-xs">В таблице несколько совпадений с вашим именем. Выберите себя вручную в профиле.</div>'
+                                : '<div class="app-card p-6 rounded-3xl text-center text-red-400 text-xs">Вас нет в этой таблице. Проверьте фамилию и имя в профиле.</div>';
                             return;
+                        }
+                        if (found.fullName && found.fullName !== current.studentName) {
+                            current.studentName = found.fullName;
+                            localStorage.setItem(STORAGE_MARKS_KEY, JSON.stringify(subjects));
+                            document.getElementById('marksUpdatedTime').innerText = `${current.studentName} • Гр. ${current.groupName}`;
                         }
 
                         const headers = [];
