@@ -751,7 +751,7 @@
         const STORAGE_THEME_KEY = 'ptk_diary_theme_v1';
         const STORAGE_PERSONAL_MATS_KEY = 'ptk_diary_personal_mats_v2';
         const STORAGE_STAROSTA_SESSION_KEY = 'ptk_diary_starosta_session_v3';
-        const STORAGE_CREATOR_PASS_KEY = 'ptk_diary_creator_pass_v1';
+        const STORAGE_CREATOR_PASS_KEY = 'ptk_diary_creator_token_v2';
         const STORAGE_DISMISSED_NOTIFS_KEY = 'ptk_diary_dismissed_notifs_v1';
         const STORAGE_PROFILE_KEY = 'ptk_diary_profile_v1';
 
@@ -769,7 +769,13 @@
         let currentTheme = 'dark';
 
         let starostaAuth = null;
-        let creatorMasterPassword = localStorage.getItem(STORAGE_CREATOR_PASS_KEY) || null;
+        let creatorMasterPassword = null; // теперь это временный токен администратора (пароль не хранится)
+        try {
+            localStorage.removeItem('ptk_diary_creator_pass_v1'); // удаляем старый сохранённый пароль
+            const st = JSON.parse(localStorage.getItem(STORAGE_CREATOR_PASS_KEY) || 'null');
+            if (st && st.token && st.exp > Date.now()) creatorMasterPassword = st.token;
+            else localStorage.removeItem(STORAGE_CREATOR_PASS_KEY);
+        } catch (e) {}
 
         let personalMaterials = [];
         let googleDriveMaterials = [];
@@ -1443,13 +1449,13 @@
                 const res = await fetch(GOOGLE_SCRIPT_WEBAPP_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: 'adminAuth', password: pass })
+                    body: JSON.stringify({ action: 'adminLogin', password: pass })
                 });
                 const data = await res.json();
                 if (!data.success) throw new Error(data.error || "Неверный пароль");
 
-                creatorMasterPassword = pass;
-                localStorage.setItem(STORAGE_CREATOR_PASS_KEY, pass);
+                creatorMasterPassword = data.token;
+                localStorage.setItem(STORAGE_CREATOR_PASS_KEY, JSON.stringify({ token: data.token, exp: data.expiresAt }));
                 input.value = '';
                 updateCreatorUI();
                 alert("✓ Вход в панель администратора выполнен!");
@@ -1479,12 +1485,20 @@
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify({
                         action: 'generateStarostaKey',
-                        adminPassword: creatorMasterPassword,
+                        adminToken: creatorMasterPassword,
                         group: grp
                     })
                 });
                 const data = await res.json();
-                if (!data.success) throw new Error(data.error || "Ошибка генерации ключа");
+                if (!data.success) {
+                    if (data.error === 'ADMIN_TOKEN_INVALID') {
+                        creatorMasterPassword = null;
+                        localStorage.removeItem(STORAGE_CREATOR_PASS_KEY);
+                        updateCreatorUI();
+                        throw new Error("Сессия администратора истекла — войдите снова");
+                    }
+                    throw new Error(data.error || "Ошибка генерации ключа");
+                }
 
                 document.getElementById('creatorKeyResult').innerText = data.key;
                 document.getElementById('creatorKeyBox').classList.remove('hidden');
