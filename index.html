@@ -821,7 +821,8 @@
             updateLiveNotifications();
 
             setInterval(updateLiveNotifications, 60000);
-
+            // Автоматически подгружаем замены в фоне при запуске приложения
+            fetchChangesFromPortal();
             if (schedules.length > 0) switchSection('schedule');
             else if (subjects.length > 0) switchSection('marks');
             else switchSection('schedule');
