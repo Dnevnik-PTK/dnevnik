@@ -820,26 +820,21 @@
             fetchGoogleDriveMaterials();
             updateLiveNotifications();
 
+            // Автоматически проверяем свежие замены с сайта НовГУ при каждом входе в приложение
+            fetchChangesFromPortal(null, null, false, true);
+
+            // Автообновление уведомлений о парах каждую минуту
             setInterval(updateLiveNotifications, 60000);
-            // Автоматически подгружаем замены в фоне при запуске приложения
-            fetchChangesFromPortal();
+
+            // Автообновление замен с сайта каждые 15 минут в фоне
+            setInterval(function() {
+                fetchChangesFromPortal(null, null, false, true);
+            }, 15 * 60 * 1000);
+
             if (schedules.length > 0) switchSection('schedule');
             else if (subjects.length > 0) switchSection('marks');
             else switchSection('schedule');
         });
-
-        function isStarostaHere() {
-            const g = getActiveGroupName();
-            return Boolean(g && starostaAuth && starostaAuth.sessionToken && String(starostaAuth.group) === g);
-        }
-
-        function getVisibleTasks() {
-            const g = getActiveGroupName();
-            const cloud = typeof groupCloudTasks !== 'undefined' ? groupCloudTasks : [];
-            const local = (localTasks || []).filter(t => !t.group || t.group === g);
-            return cloud.concat(local);
-        }
-
         // ================= ДВИЖОК РЕАЛЬНЫХ УВЕДОМЛЕНИЙ =================
         function generateLiveNotifications() {
             const list = [];
