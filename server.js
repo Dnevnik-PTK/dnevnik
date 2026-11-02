@@ -112,29 +112,126 @@ function findGroupInWorkbook(workbook, targetGroup) {
     return null;
 }
 
-async function fetchReplacementFilesList() {
-    const pageUrl = 'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999';
-    const response = await fetch(pageUrl, { headers: BROWSER_HEADERS });
-    if (!response.ok) throw new Error(`Портал ответил ${response.status}`);
-    const html = await response.text();
-    const allLinks = extractLinksFromHtml(html, pageUrl);
-    const files = [];
+const MONTH_STEMS = [
+    { rx: /январ/i, m: 0 },
+    { rx: /феврал/i, m: 1 },
+    { rx: /март/i, m: 2 },
+    { rx: /апрел/i, m: 3 },
+    { rx: /\bма[йяюе]\b/i, m: 4 },
+    { rx: /июн/i, m: 5 },
+    { rx: /июл/i, m: 6 },
+    { rx: /август/i, m: 7 },
+    { rx: /сентябр/i, m: 8 },
+    { rx: /октябр/i, m: 9 },
+    { rx: /ноябр/i, m: 10 },
+    { rx: /декабр/i, m: 11 }
+];
 
-    for (const link of allLinks) {
+function parseMonthFolderScore(text) {
+    const clean = String(text || '').trim();
+    let monthIdx = -1;
+    for (const item of MONTH_STEMS) {
+        if (item.rx.test(clean)) {
+            monthIdx = item.m;
+            break;
+        }
+    }
+    if (monthIdx === -1) return null;
+    const yearMatch = clean.match(/\b(20\d{2})\b/);
+    const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
+    return year * 12 + monthIdx;
+}
+
+function collectDateFilesFromLinks(links, targetArray) {
+    for (const link of links) {
+        // Пропускаем диапазоны недель вида "02.11.2026 - 07.11.2026"
+        if (/\d{1,2}\.\d{1,2}\.\d{2,4}\s*-\s*\d{1,2}\.\d{1,2}\.\d{2,4}/.test(link.text)) continue;
+
         const dateMatch = link.text.match(/\b(\d{1,2})\.(\d{1,2})\.(\d{2,4})\b/);
         if (!dateMatch) continue;
+
         const d = parseInt(dateMatch[1], 10);
         const m = parseInt(dateMatch[2], 10) - 1;
         let y = parseInt(dateMatch[3], 10);
         if (y < 100) y += 2000;
+
         const timestamp = new Date(y, m, d).getTime();
-        if (!files.some(f => f.url === link.url || f.title === link.text)) {
-            files.push({ title: link.text, url: link.url, timestamp });
+        const cleanTitle = `${String(d).padStart(2, '0')}.${String(m + 1).padStart(2, '0')}.${y}`;
+
+        if (!targetArray.some(f => f.url === link.url || f.title === cleanTitle)) {
+            targetArray.push({ title: cleanTitle, url: link.url, timestamp });
         }
     }
+}
+
+async function fetchReplacementFilesList() {
+    const entryUrls = [
+        'https://portal.novsu.ru/univer/timetable/spo/i.1473214/',
+        'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999'
+    ];
+
+    const visitedPages = new Set();
+    const allDiscoveredLinks = [];
+
+    async function scanPage(url) {
+        if (!url || visitedPages.has(url)) return [];
+        visitedPages.add(url);
+        try {
+            const res = await fetch(url, { headers: BROWSER_HEADERS, timeout: 10000 });
+            if (!res.ok) return [];
+            const html = await res.text();
+            const links = extractLinksFromHtml(html, url);
+            allDiscoveredLinks.push(...links);
+            return links;
+        } catch (e) {
+            return [];
+        }
+    }
+
+    // 1. Сканируем стартовые страницы
+    for (const url of entryUrls) {
+        await scanPage(url);
+    }
+
+    // 2. Если на странице есть ссылка в корневую папку "ПТК" (из хлебных крошек), заходим в неё
+    const ptkRootLinks = allDiscoveredLinks.filter(l => /^птк$/i.test(l.text.trim()));
+    for (const ptkLink of ptkRootLinks) {
+        await scanPage(ptkLink.url);
+    }
+
+    // 3. Ищем все папки месяцев ("Сентябрь 2026", "октябрь 2026", "ноябрь 2026" и т.д.)
+    const monthFolders = [];
+    const seenFolderUrls = new Set();
+
+    for (const link of allDiscoveredLinks) {
+        const score = parseMonthFolderScore(link.text);
+        if (score !== null && !seenFolderUrls.has(link.url)) {
+            seenFolderUrls.add(link.url);
+            monthFolders.push({ title: link.text, url: link.url, score });
+        }
+    }
+
+    // Сортируем папки месяцев от самой новой к старой (Ноябрь 2026 -> Октябрь 2026 -> Сентябрь 2026)
+    monthFolders.sort((a, b) => b.score - a.score);
+
+    // 4. Заходим в 2 самых свежих месяца параллельно (чтобы в начале месяца захватывать и конец прошлого)
+    const foldersToScan = monthFolders.slice(0, 2);
+    const files = [];
+
+    if (foldersToScan.length > 0) {
+        await Promise.allSettled(foldersToScan.map(async (folder) => {
+            const folderLinks = await scanPage(folder.url);
+            collectDateFilesFromLinks(folderLinks, files);
+        }));
+    }
+
+    // На случай если файлы лежат сразу в корне
+    collectDateFilesFromLinks(allDiscoveredLinks, files);
+
     files.sort((a, b) => b.timestamp - a.timestamp);
     return files.slice(0, 5).map(f => ({ title: f.title, url: f.url }));
 }
+
 
 async function syncAllDataFromNovsu() {
     if (isSyncing) return;
