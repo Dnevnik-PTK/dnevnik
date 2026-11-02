@@ -307,14 +307,18 @@ setInterval(syncAllDataFromNovsu, 30 * 60 * 1000);
 // ================= API РОУТЫ =================
 app.get('/api/changes-list', async (req, res) => {
     try {
-        if (changesListCache.length > 0) return res.json({ files: changesListCache, cached: true });
+        const forceRefresh = req.query.refresh === '1';
+        if (!forceRefresh && changesListCache.length > 0) {
+            return res.json({ files: changesListCache, cached: true });
+        }
         const files = await fetchReplacementFilesList();
-        changesListCache = files;
-        res.json({ files, cached: false });
+        if (files.length > 0) changesListCache = files;
+        res.json({ files: changesListCache, cached: false });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
+
 
 app.get('/api/changes', async (req, res) => {
     try {
