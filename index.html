@@ -2188,7 +2188,7 @@
             return Boolean(entry && entry.fetchedAt && (Date.now() - entry.fetchedAt < CHANGES_TTL_MS));
         }
 
-        async function fetchChangesFromPortal(specificUrl, specificTitle, forceRefresh = false, isBackground = false) {
+                async function fetchChangesFromPortal(specificUrl, specificTitle, forceRefresh = false, isBackground = false) {
             const statusEl = document.getElementById('changesStatusText');
             const listEl = document.getElementById('changesList');
             const btn = document.getElementById('fetchChangesBtn');
@@ -2221,7 +2221,8 @@
 
             try {
                 if (!specificUrl) {
-                    const listRes = await fetch(`${RENDER_URL}/api/changes-list`).catch(() => null);
+                    const listUrl = `${RENDER_URL}/api/changes-list${forceRefresh ? '?refresh=1' : ''}`;
+                    const listRes = await fetch(listUrl).catch(() => null);
                     if (listRes && listRes.ok) {
                         const listJson = await listRes.json();
                         const cleanFiles = filterOnlyLast5DateFiles(listJson.files);
@@ -2230,7 +2231,14 @@
                             renderPortalFilesButtons();
                             const newestFile = cleanFiles[0];
 
-                            if (isBackground && !forceRefresh && isChangesEntryFresh(changesData.byDate[newestFile.title]) && changesData.items && changesData.items.length > 0) {
+                            if (
+                                isBackground &&
+                                !forceRefresh &&
+                                changesData.fileName === newestFile.title &&
+                                isChangesEntryFresh(changesData.byDate[newestFile.title]) &&
+                                changesData.items &&
+                                changesData.items.length > 0
+                            ) {
                                 prefetchRemainingDates();
                                 return;
                             }
@@ -2266,6 +2274,9 @@
                 if (btn) btn.innerText = "🔄 С сайта";
             }
         }
+
+
+                
 
         async function prefetchRemainingDates() {
             const files = filterOnlyLast5DateFiles(changesData.portalFiles);
