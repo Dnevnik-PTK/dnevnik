@@ -1564,6 +1564,20 @@
             }
         }
 
+        async function verifyStarostaSession() {
+        if (!starostaAuth || !starostaAuth.sessionToken) return;
+    try {
+        const url = `${GOOGLE_SCRIPT_WEBAPP_URL}?action=checkSession&group=${encodeURIComponent(starostaAuth.group)}&sessionToken=${encodeURIComponent(starostaAuth.sessionToken)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.success && data.valid === false) {
+            starostaAuth = null;
+            localStorage.removeItem(STORAGE_STAROSTA_SESSION_KEY);
+            updateStarostaUI();
+        }
+    } catch (e) {}
+}
+        
         function logoutStarosta() {
             if (confirm("Сбросить сессию старосты? Для повторного входа потребуется новый ключ.")) {
                 starostaAuth = null;
