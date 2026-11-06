@@ -1572,66 +1572,120 @@
             }
         }
 
+                let selectedWeekOffset = 0; // 0 = текущая неделя, -2..-1 = прошлые, +1..+2 = будущие
+
         function getMondayOfCurrentWeek() {
             const now = new Date();
             const day = now.getDay();
             const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-            return new Date(now.setDate(diff));
+            return new Date(now.getFullYear(), now.getMonth(), diff);
         }
 
-        function getDateForDayIndex(dayIdx) {
+        function getDateObjForWeekAndDay(weekOffset, dayIdx) {
             const monday = getMondayOfCurrentWeek();
-            const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + dayIdx);
-            
+            return new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + (weekOffset * 7) + dayIdx);
+        }
+
+        function getDateForDayIndex(dayIdx, weekOffset = selectedWeekOffset) {
+            const d = getDateObjForWeekAndDay(weekOffset, dayIdx);
             const year = d.getFullYear();
             const month = String(d.getMonth() + 1).padStart(2, '0');
             const day = String(d.getDate()).padStart(2, '0');
-            
             return `${year}-${month}-${day}`;
         }
 
-        function renderWeekDaysBar() {
+        function renderWeekDaysBar(preserveScroll = false) {
             const bar = document.getElementById('weekDaysBar');
             if (!bar) return;
+
+            const prevScroll = bar.scrollLeft;
             bar.innerHTML = '';
-            const monday = getMondayOfCurrentWeek();
 
-            for (let i = 0; i < 7; i++) {
-                const d = new Date(monday);
-                d.setDate(monday.getDate() + i);
-                const dateNum = d.getDate();
-                const isSelected = (i === selectedDayIndex && scheduleViewMode === 'day');
+            const now = new Date();
+            const todayYear = now.getFullYear();
+            const todayMonth = now.getMonth();
+            const todayDate = now.getDate();
 
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = isSelected
-                    ? "py-2 rounded-2xl flex flex-col items-center justify-center transition blue-glow font-bold shadow-md"
-                    : "py-2 rounded-2xl flex flex-col items-center justify-center transition app-card text-slate-400";
-                btn.innerHTML = `<span class="text-[11px]">${DAY_NAMES_SHORT[i]}</span><span class="text-sm font-bold mt-0.5">${dateNum}</span>`;
-                btn.onclick = () => {
-                    selectedDayIndex = i;
-                    scheduleViewMode = 'day';
-                    updateScheduleModeUI();
-                    renderWeekDaysBar();
-                    loadScheduleForActive();
-                };
-                bar.appendChild(btn);
+            // Рендерим 5 недель: 2 назад, текущую (0) и 2 вперёд
+            for (let w = -2; w <= 2; w++) {
+                for (let i = 0; i < 7; i++) {
+                    const d = getDateObjForWeekAndDay(w, i);
+                    const dateNum = d.getDate();
+                    const isSelected = (w === selectedWeekOffset && i === selectedDayIndex && scheduleViewMode === 'day');
+                    const isToday = (d.getFullYear() === todayYear && d.getMonth() === todayMonth && dateNum === todayDate);
+
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.dataset.week = String(w);
+                    btn.dataset.day = String(i);
+                    btn.style.flex = '0 0 calc((100% - 36px) / 7)';
+                    if (i === 0) btn.style.scrollSnapAlign = 'start';
+
+                    let cls = "py-2 rounded-2xl flex flex-col items-center justify-center transition relative ";
+                    if (isSelected) {
+                        cls += "blue-glow font-bold shadow-md";
+                    } else if (isToday) {
+                        cls += "app-card text-blue-400 border border-blue-500/40 font-semibold";
+                    } else {
+                        cls += "app-card text-slate-400";
+                    }
+                    btn.className = cls;
+
+                    const todayDot = isToday && !isSelected
+                        ? `<span class="w-1 h-1 rounded-full bg-blue-400 mt-0.5"></span>`
+                        : '';
+
+                    btn.innerHTML = `
+                        <span class="text-[11px]">${DAY_NAMES_SHORT[i]}</span>
+                        <span class="text-sm font-bold mt-0.5">${dateNum}</span>
+                        ${todayDot}
+                    `;
+
+                    btn.onclick = () => {
+                        selectedWeekOffset = w;
+                        selectedDayIndex = i;
+                        scheduleViewMode = 'day';
+
+                        // Автоматически определяем Верхнюю или Нижнюю неделю для выбранной даты
+                        const clickedDate = getDateObjForWeekAndDay(w, i);
+                        currentSelectedWeek = getWeekTypeForDate(clickedDate);
+
+                        updateWeekButtonsUI();
+                        updateScheduleModeUI();
+                        renderWeekDaysBar(true);
+                        loadScheduleForActive();
+                    };
+
+                    bar.appendChild(btn);
+                }
             }
 
-            const selDate = new Date(monday);
-            selDate.setDate(monday.getDate() + selectedDayIndex);
+            if (preserveScroll) {
+                bar.scrollLeft = prevScroll;
+            } else {
+                requestAnimationFrame(() => {
+                    const mondayBtn = bar.querySelector(`[data-week="${selectedWeekOffset}"][data-day="0"]`);
+                    if (mondayBtn) bar.scrollLeft = mondayBtn.offsetLeft;
+                });
+            }
+
+            const selDate = getDateObjForWeekAndDay(selectedWeekOffset, selectedDayIndex);
             const headingEl = document.getElementById('selectedDateHeading');
             if (headingEl) {
-                headingEl.innerText = scheduleViewMode === 'day'
-                    ? `${DAY_NAMES_FULL[selectedDayIndex]}, ${selDate.getDate()} ${MONTHS_GENITIVE[selDate.getMonth()]}`
-                    : `Расписание на всю неделю`;
+                if (scheduleViewMode === 'day') {
+                    headingEl.innerText = `${DAY_NAMES_FULL[selectedDayIndex]}, ${selDate.getDate()} ${MONTHS_GENITIVE[selDate.getMonth()]}`;
+                } else {
+                    const monDate = getDateObjForWeekAndDay(selectedWeekOffset, 0);
+                    const sunDate = getDateObjForWeekAndDay(selectedWeekOffset, 6);
+                    headingEl.innerText = `Неделя: ${monDate.getDate()} ${MONTHS_GENITIVE[monDate.getMonth()]} — ${sunDate.getDate()} ${MONTHS_GENITIVE[sunDate.getMonth()]}`;
+                }
             }
         }
 
         function setScheduleViewMode(mode) {
             scheduleViewMode = mode;
             updateScheduleModeUI();
-            renderWeekDaysBar();
+            renderWeekDaysBar(true);
             loadScheduleForActive();
         }
 
@@ -1640,6 +1694,7 @@
             bDay.className = scheduleViewMode === 'day' ? "py-1.5 rounded-xl text-xs font-semibold transition blue-glow" : "py-1.5 rounded-xl text-xs font-medium transition text-slate-400";
             bWeek.className = scheduleViewMode === 'week' ? "py-1.5 rounded-xl text-xs font-semibold transition blue-glow" : "py-1.5 rounded-xl text-xs font-medium transition text-slate-400";
         }
+
 
         function parseLessonDetails(rawText) {
             const str = String(rawText || '').trim();
