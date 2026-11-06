@@ -2032,6 +2032,68 @@
             return (merges || []).some(m => m.s.r === r && m.e.r > r && c >= m.s.c && c <= m.e.c);
         }
 
+        function extractPairNumbers(pairStr) {
+            const str = String(pairStr || '').trim();
+            const nums = new Set();
+            const rangeMatch = str.match(/(\d+)\s*-\s*(\d+)/);
+            if (rangeMatch) {
+                const start = parseInt(rangeMatch[1], 10);
+                const end = parseInt(rangeMatch[2], 10);
+                for (let i = Math.min(start, end); i <= Math.max(start, end); i++) nums.add(i);
+            }
+            const allDigits = str.match(/\d+/g);
+            if (allDigits) {
+                allDigits.forEach(n => nums.add(parseInt(n, 10)));
+            }
+            return Array.from(nums);
+        }
+
+        function getChangesForGroupAndDate(groupName, yyyyMmDd) {
+            if (!groupName || !yyyyMmDd || !changesData) return [];
+            const parts = String(yyyyMmDd).split('-');
+            if (parts.length !== 3) return [];
+            const dNum = parseInt(parts[2], 10);
+            const mNum = parseInt(parts[1], 10);
+            const yNum = parseInt(parts[0], 10);
+
+            let dayEntry = null;
+            const byDate = changesData.byDate || {};
+
+            const matchesTargetDate = (textStr, titleStr) => {
+                const m = String(textStr || '').match(/(\d{1,2})\.(\d{1,2})\.(\d{2,4})/);
+                if (m) {
+                    const kd = parseInt(m[1], 10);
+                    const km = parseInt(m[2], 10);
+                    let ky = parseInt(m[3], 10);
+                    if (ky < 100) ky += 2000;
+                    if (kd === dNum && km === mNum && ky === yNum) return true;
+                }
+                if (titleStr && MONTHS_GENITIVE[mNum - 1]) {
+                    const wordRx = new RegExp(`\\b${dNum}\\s+${MONTHS_GENITIVE[mNum - 1]}`, 'i');
+                    if (wordRx.test(titleStr)) return true;
+                }
+                return false;
+            };
+
+            for (const [key, val] of Object.entries(byDate)) {
+                if (matchesTargetDate(key, val && val.dateTitle)) {
+                    dayEntry = val;
+                    break;
+                }
+            }
+
+            if (!dayEntry && matchesTargetDate(changesData.fileName, changesData.dateTitle)) {
+                dayEntry = { items: changesData.items || [], dateTitle: changesData.dateTitle };
+            }
+
+            if (!dayEntry || !Array.isArray(dayEntry.items)) return [];
+
+            return dayEntry.items.filter(it =>
+                (it.groups && it.groups.includes(groupName)) ||
+                String(it.groupRaw || '').includes(groupName)
+            );
+        }
+
         function loadScheduleForActive() {
             const current = schedules[activeScheduleIndex];
             const container = document.getElementById('scheduleList');
@@ -2047,7 +2109,14 @@
                 return;
             }
 
-            document.getElementById('schedSubInfo').innerText = `Гр. ${current.groupName} • ${currentSelectedWeek === 'upper' ? 'Верхняя' : 'Нижняя'}`;
+            const activeDayDateStr = getDateForDayIndex(selectedDayIndex);
+            const activeDayChangesCount = scheduleViewMode === 'day'
+                ? getChangesForGroupAndDate(current.groupName, activeDayDateStr).length
+                : 0;
+
+            document.getElementById('schedSubInfo').innerText =
+                `Гр. ${current.groupName} • ${currentSelectedWeek === 'upper' ? 'Верхняя' : 'Нижняя'}` +
+                (activeDayChangesCount > 0 ? ` • ⚠️ Замен: ${activeDayChangesCount}` : '');
 
             try {
                 const rows = current.rawRows, merges = current.merges || [];
@@ -2118,14 +2187,16 @@
                     const targetDayDateStr = getDateForDayIndex(dayIdx);
 
                     const dayTasks = combinedTasks.filter(t => t.dueDate === targetDayDateStr);
+                    const dayChanges = getChangesForGroupAndDate(current.groupName, targetDayDateStr);
+                    const usedChangeIndices = new Set();
 
-                    if (scheduleViewMode === 'week' && lessons.length === 0 && dayTasks.length === 0) return;
+                    if (scheduleViewMode === 'week' && lessons.length === 0 && dayTasks.length === 0 && dayChanges.length === 0) return;
 
                     if (scheduleViewMode === 'week') {
                         html += `<div class="text-xs font-bold text-blue-400 uppercase tracking-wider px-1 pt-2">${dayName}</div>`;
                     }
 
-                    if (lessons.length === 0) {
+                    if (lessons.length === 0 && dayChanges.length === 0) {
                         if (scheduleViewMode === 'day' && dayTasks.length === 0) {
                             html += `
                                 <div class="app-card p-6 rounded-3xl text-center space-y-1">
@@ -2141,6 +2212,66 @@
                             const statusText = getLessonLiveStatus(l.time, l.pairNum);
                             const isNow = statusText === 'Сейчас';
                             const statusCls = isNow ? 'blue-glow' : 'pill-bar text-slate-300';
+
+                            // Ищем замены или отмены для этой пары
+                            const matchedChanges = [];
+                            dayChanges.forEach((chg, cIdx) => {
+                                const pNums = extractPairNumbers(chg.pair);
+                                const titleLow = String(info.title || '').toLowerCase();
+                                const oldLow = String(chg.oldLesson || '').toLowerCase();
+                                const byPair = pNums.includes(l.pairNum);
+                                const byName = pNums.length === 0 && oldLow && (titleLow.includes(oldLow) || oldLow.includes(titleLow));
+
+                                if (byPair || byName) {
+                                    usedChangeIndices.add(cIdx);
+                                    matchedChanges.push(chg);
+                                }
+                            });
+
+                            const hasCancel = matchedChanges.some(c => /не\s*будет|отмен/i.test(c.aud) || /не\s*будет|отмен/i.test(c.newLesson));
+                            const hasReplace = matchedChanges.length > 0 && !hasCancel;
+
+                            let cardExtraBorder = '';
+                            let changeBadgeHtml = '';
+                            let changeInsideCardHtml = '';
+
+                            if (hasCancel) {
+                                cardExtraBorder = 'border border-red-500/50';
+                                changeBadgeHtml = `<span class="bg-red-500/20 text-red-400 border border-red-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full">🚫 Отмена</span>`;
+                            } else if (hasReplace) {
+                                cardExtraBorder = 'border border-amber-500/50';
+                                changeBadgeHtml = `<span class="bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full">⇄ Замена</span>`;
+                            }
+
+                            if (matchedChanges.length > 0) {
+                                changeInsideCardHtml += `<div class="mt-2 pt-2 border-t border-slate-700/60 space-y-1.5">`;
+                                matchedChanges.forEach(chg => {
+                                    const isChgCancel = /не\s*будет|отмен/i.test(chg.aud) || /не\s*будет|отмен/i.test(chg.newLesson);
+                                    if (isChgCancel) {
+                                        changeInsideCardHtml += `
+                                            <div class="bg-red-500/15 border border-red-500/40 p-2.5 rounded-2xl text-xs flex items-start gap-2">
+                                                <span class="text-red-400 font-bold shrink-0">🚫</span>
+                                                <div>
+                                                    <div class="text-[10px] font-bold uppercase tracking-wider text-red-400">Отмена по заменам НовГУ</div>
+                                                    <div class="text-red-300 font-medium mt-0.5">Занятие «${chg.oldLesson || info.title}» отменено</div>
+                                                </div>
+                                            </div>
+                                        `;
+                                    } else {
+                                        changeInsideCardHtml += `
+                                            <div class="bg-amber-500/15 border border-amber-500/40 p-2.5 rounded-2xl text-xs space-y-1">
+                                                <div class="flex items-center justify-between gap-2">
+                                                    <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">⇄ Назначена замена</span>
+                                                    <span class="text-[10px] text-amber-300 font-semibold">📍 Ауд. ${chg.aud || 'по расписанию'}</span>
+                                                </div>
+                                                <div class="text-white font-bold leading-snug">${chg.newLesson || 'Перенос аудитории'}</div>
+                                                ${chg.oldLesson && chg.oldLesson !== '—' ? `<div class="text-[11px] text-slate-400">Вместо: <span class="line-through">${chg.oldLesson}</span></div>` : ''}
+                                            </div>
+                                        `;
+                                    }
+                                });
+                                changeInsideCardHtml += `</div>`;
+                            }
 
                             const lessonTasks = dayTasks.filter(t => {
                                 const tSubj = String(t.subject || '').trim().toLowerCase();
@@ -2173,26 +2304,62 @@
                                 taskInsideCardHtml += `</div>`;
                             }
 
+                            const strikeOriginal = hasCancel || matchedChanges.some(c => c.newLesson && !/не\s*будет|отмен/i.test(c.newLesson));
+
                             html += `
-                                <div class="app-card p-4 rounded-3xl space-y-2 relative transition">
-                                    <div class="flex justify-between items-center">
+                                <div class="app-card p-4 rounded-3xl space-y-2 relative transition ${cardExtraBorder}">
+                                    <div class="flex justify-between items-center gap-2">
                                         <span class="text-xs font-mono text-slate-400 font-medium">${l.time}</span>
-                                        <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${statusCls}">${statusText}</span>
+                                        <div class="flex items-center gap-1.5">
+                                            ${changeBadgeHtml}
+                                            <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${statusCls}">${statusText}</span>
+                                        </div>
                                     </div>
-                                    <div class="font-bold text-[15px] text-white leading-snug pr-4">${info.title}</div>
-                                    <div class="text-xs text-slate-400">${info.teacher}</div>
+                                    <div class="font-bold text-[15px] text-white leading-snug pr-4 ${strikeOriginal ? 'line-through opacity-50' : ''}">${info.title}</div>
+                                    <div class="text-xs text-slate-400 ${strikeOriginal ? 'line-through opacity-40' : ''}">${info.teacher}</div>
                                     <div class="flex items-center justify-between pt-1 text-xs text-slate-300">
                                         <div class="flex items-center gap-1.5">
                                             <span class="text-blue-400">📍</span>
-                                            <span>${info.aud}</span>
+                                            <span class="${strikeOriginal ? 'line-through opacity-50' : ''}">${info.aud}</span>
                                         </div>
                                         ${l.onlyThisWeek ? `<span class="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-md font-medium">${currentSelectedWeek === 'upper' ? 'Верхняя нед.' : 'Нижняя нед.'}</span>` : '<span class="text-slate-400">›</span>'}
                                     </div>
+                                    ${changeInsideCardHtml}
                                     ${taskInsideCardHtml}
                                 </div>
                             `;
                         });
                     }
+
+                    // Если в заменах есть пара (например, 5 пара), которой не было в основном расписании этого дня — выводим её отдельной карточкой
+                    const unmatchedChanges = dayChanges.filter((_, cIdx) => !usedChangeIndices.has(cIdx));
+                    unmatchedChanges.forEach(chg => {
+                        const isChgCancel = /не\s*будет|отмен/i.test(chg.aud) || /не\s*будет|отмен/i.test(chg.newLesson);
+                        const borderCls = isChgCancel ? 'border border-red-500/50' : 'border border-amber-500/50';
+                        const badgeHtml = isChgCancel
+                            ? `<span class="bg-red-500/20 text-red-400 border border-red-500/40 text-[10px] font-bold px-2.5 py-0.5 rounded-full">🚫 Отмена</span>`
+                            : `<span class="bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[10px] font-bold px-2.5 py-0.5 rounded-full">⇄ Доп. замена</span>`;
+
+                        html += `
+                            <div class="app-card p-4 rounded-3xl space-y-2 relative transition ${borderCls}">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs font-mono text-slate-300 font-semibold">${chg.pair} пара (по заменам)</span>
+                                    ${badgeHtml}
+                                </div>
+                                ${isChgCancel ? `
+                                    <div class="font-bold text-[15px] text-red-300 line-through opacity-75 leading-snug">${chg.oldLesson}</div>
+                                    <div class="text-xs text-red-400 font-medium">🚫 Занятие отменено по распоряжению учебной части</div>
+                                ` : `
+                                    <div class="font-bold text-[15px] text-white leading-snug">${chg.newLesson || chg.oldLesson}</div>
+                                    ${chg.oldLesson && chg.oldLesson !== '—' && chg.newLesson ? `<div class="text-xs text-slate-400">Вместо: <span class="line-through">${chg.oldLesson}</span></div>` : ''}
+                                    <div class="flex items-center gap-1.5 pt-1 text-xs text-amber-300 font-medium">
+                                        <span>📍</span>
+                                        <span>Ауд. ${chg.aud || 'по расписанию'}</span>
+                                    </div>
+                                `}
+                            </div>
+                        `;
+                    });
 
                     const unassignedTasks = dayTasks.filter(t => {
                         const tSubj = String(t.subject || '').trim().toLowerCase();
@@ -2223,7 +2390,7 @@
                 container.innerHTML = `<div class="app-card p-6 rounded-3xl text-center text-red-400 text-xs">Ошибка: ${e.message}</div>`;
             }
         }
-
+        
         function setChangesTypeFilter(type) {
             activeChangesTypeFilter = type;
             const ids = { ALL: 'chgFilterAll', MOVE: 'chgFilterMove', CANCEL: 'chgFilterCancel' };
