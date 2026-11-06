@@ -2515,6 +2515,7 @@
                     await parseChangesBuffer(buf, f.title, true);
                 } catch (e) {}
             }
+            if (typeof loadScheduleForActive === 'function') loadScheduleForActive();
         }
 
         function renderPortalFilesButtons() {
@@ -2613,6 +2614,7 @@
             renderChangesGroupFilter();
             renderChangesList();
 
+            if (typeof loadScheduleForActive === 'function') loadScheduleForActive();
             if (typeof updateLiveNotifications === 'function') updateLiveNotifications();
         }
 
