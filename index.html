@@ -1843,12 +1843,13 @@
 
             const jsDay = now.getDay();
             const todayIdx = jsDay === 0 ? 6 : jsDay - 1;
-            if (selectedDayIndex === todayIdx && scheduleViewMode === 'day') {
+            if (selectedWeekOffset === 0 && selectedDayIndex === todayIdx && scheduleViewMode === 'day') {
                 if (curMin >= startMin && curMin <= endMin) return 'Сейчас';
                 if (startMin > curMin && startMin - curMin <= 60) return `Через ${startMin - curMin} мин`;
             }
             return `${pairIdx} пара`;
         }
+
 
         function openAddSchedule() {
             const allSecs = ['scheduleSection', 'changesSection', 'notificationsSection', 'tasksSection', 'marksSection', 'setupScreen', 'addTaskModal', 'addMaterialModal', 'profileSection'];
