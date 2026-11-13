@@ -3,7 +3,6 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 const express = require('express');
 const fetch = require('node-fetch');
 const XLSX = require('xlsx');
-const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -24,195 +23,10 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-// ================= СТАТИСТИКА СЕРВЕРА =================
-
-// Если ограничение памяти Render отличается, можно изменить переменную MEMORY_LIMIT_MB
-const MEMORY_LIMIT_MB = Number(process.env.MEMORY_LIMIT_MB || 500);
-
-let currentStatsDay = new Date().toISOString().slice(0, 10);
-
-let requestsToday = 0;
-let errorsToday = 0;
-
-let concurrentRequests = 0;
-let maxConcurrentRequestsToday = 0;
-
-let maxRssTodayMB = 0;
-let maxHeapTodayMB = 0;
-
-let totalResponseTimeToday = 0;
-let maxResponseTimeToday = 0;
-let completedRequestsToday = 0;
-
-// Храним только хеш идентификатора клиента, а не сам IP
-const activeClientsMap = new Map();
-const uniqueUsersTodaySet = new Set();
-
-// Статистика по HTTP-кодам
-const statusCodesToday = new Map();
-
-// Статистика по типам запросов
-const requestsByPathToday = new Map();
-
-function getClientHash(req) {
-    const forwardedFor = String(
-        req.headers['x-forwarded-for'] ||
-        req.socket.remoteAddress ||
-        'unknown'
-    ).split(',')[0].trim();
-
-    const userAgent = String(req.headers['user-agent'] || '').slice(0, 100);
-
-    return crypto
-        .createHash('sha256')
-        .update(`${forwardedFor}|${userAgent}`)
-        .digest('hex');
-}
-
-function resetDailyStats() {
-    currentStatsDay = new Date().toISOString().slice(0, 10);
-
-    requestsToday = 0;
-    errorsToday = 0;
-
-    maxConcurrentRequestsToday = concurrentRequests;
-
-    maxRssTodayMB = 0;
-    maxHeapTodayMB = 0;
-
-    totalResponseTimeToday = 0;
-    maxResponseTimeToday = 0;
-    completedRequestsToday = 0;
-
-    uniqueUsersTodaySet.clear();
-    statusCodesToday.clear();
-    requestsByPathToday.clear();
-}
-
-function updateMemoryMetrics() {
-    const mem = process.memoryUsage();
-
-    const rssMB = mem.rss / 1024 / 1024;
-    const heapMB = mem.heapUsed / 1024 / 1024;
-
-    if (rssMB > maxRssTodayMB) {
-        maxRssTodayMB = rssMB;
-    }
-
-    if (heapMB > maxHeapTodayMB) {
-        maxHeapTodayMB = heapMB;
-    }
-}
-
-function updateDailyMetrics(req) {
-    const now = Date.now();
-    const todayStr = new Date(now).toISOString().slice(0, 10);
-
-    if (todayStr !== currentStatsDay) {
-        resetDailyStats();
-    }
-
-    updateMemoryMetrics();
-
-    if (req && req.path !== '/ping') {
-        requestsToday++;
-
-        const clientHash = getClientHash(req);
-
-        activeClientsMap.set(clientHash, now);
-        uniqueUsersTodaySet.add(clientHash);
-
-        // Ограничиваем количество хранимых уникальных клиентов,
-        // чтобы статистика сама не создавала лишнюю нагрузку на RAM.
-        if (uniqueUsersTodaySet.size > 50000) {
-            const firstKey = uniqueUsersTodaySet.values().next().value;
-            uniqueUsersTodaySet.delete(firstKey);
-        }
-
-        const path = req.path.startsWith('/api/schedule/')
-            ? '/api/schedule/:group'
-            : req.path;
-
-        requestsByPathToday.set(
-            path,
-            (requestsByPathToday.get(path) || 0) + 1
-        );
-    }
-
-    // Удаляем неактивных клиентов
-    const fiveMinAgo = now - 5 * 60 * 1000;
-
-    for (const [key, lastSeen] of activeClientsMap.entries()) {
-        if (lastSeen < fiveMinAgo) {
-            activeClientsMap.delete(key);
-        }
-    }
-}
-
-// Сбор статистики памяти и очистка неактивных клиентов
-setInterval(() => {
-    updateDailyMetrics(null);
-}, 15000);
-
-// Middleware статистики запросов
-app.use((req, res, next) => {
-    if (req.path === '/ping') {
-        return next();
-    }
-
-    const startedAt = Date.now();
-
-    concurrentRequests++;
-
-    if (concurrentRequests > maxConcurrentRequestsToday) {
-        maxConcurrentRequestsToday = concurrentRequests;
-    }
-
-    updateDailyMetrics(req);
-
-    let finished = false;
-
-    function finishRequest() {
-        if (finished) return;
-        finished = true;
-
-        const duration = Date.now() - startedAt;
-
-        concurrentRequests = Math.max(0, concurrentRequests - 1);
-
-        totalResponseTimeToday += duration;
-        completedRequestsToday++;
-
-        if (duration > maxResponseTimeToday) {
-            maxResponseTimeToday = duration;
-        }
-
-        const status = String(res.statusCode);
-
-        statusCodesToday.set(
-            status,
-            (statusCodesToday.get(status) || 0) + 1
-        );
-
-        if (res.statusCode >= 500) {
-            errorsToday++;
-        }
-
-        updateDailyMetrics(null);
-    }
-
-    res.on('finish', finishRequest);
-    res.on('close', finishRequest);
-
-    next();
-});
-
 // ================= КЭШ И ЛИМИТЫ ПАМЯТИ =================
-
 const scheduleCache = new Map();
 let changesListCache = [];
 const changesBufferCache = new Map();
-
 let lastCacheUpdate = null;
 let isSyncing = false;
 
@@ -221,13 +35,12 @@ const pendingSchedules = new Map();
 const pendingChangesFiles = new Map();
 let pendingChangesList = null;
 
-// Ограничения безопасности для Render
+// Ограничения безопасности для Render (контроль нагрузки и RAM)
 const MAX_CONCURRENT_DOWNLOADS = 5;
-const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
-const MAX_CHANGES_CACHE_ITEMS = 10;
+const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 МБ максимум на один документ
+const MAX_CHANGES_CACHE_ITEMS = 10;           // Максимум файлов замен в RAM
 
 // ================= ГЛОБАЛЬНЫЙ ОГРАНИЧИТЕЛЬ ЗАПРОСОВ К НОВГУ =================
-
 let activeNovsuRequests = 0;
 const novsuRequestQueue = [];
 
@@ -236,7 +49,6 @@ function acquireNovsuSlot() {
         activeNovsuRequests++;
         return Promise.resolve();
     }
-
     return new Promise((resolve) => {
         novsuRequestQueue.push(resolve);
     });
@@ -251,9 +63,9 @@ function releaseNovsuSlot() {
     }
 }
 
+// Все обращения к НовГУ (и фоновые, и от пользователей) идут через этот глобальный лимитер
 async function fetchNovsu(url, options = {}) {
     await acquireNovsuSlot();
-
     try {
         return await fetch(url, {
             headers: BROWSER_HEADERS,
@@ -266,107 +78,58 @@ async function fetchNovsu(url, options = {}) {
 }
 
 async function readBufferWithLimit(response, maxBytes = MAX_FILE_SIZE_BYTES) {
-    const contentLength = parseInt(
-        response.headers.get('content-length') || '0',
-        10
-    );
-
+    const contentLength = parseInt(response.headers.get('content-length') || '0', 10);
     if (contentLength > maxBytes) {
-        throw new Error(
-            `Файл слишком большой (${Math.round(contentLength / 1024 / 1024)} МБ)`
-        );
+        throw new Error(`Файл слишком большой (${Math.round(contentLength / 1024 / 1024)} МБ)`);
     }
-
     const arrayBuffer = await response.arrayBuffer();
-
     if (arrayBuffer.byteLength > maxBytes) {
-        throw new Error(
-            `Превышен лимит размера файла (${Math.round(arrayBuffer.byteLength / 1024 / 1024)} МБ)`
-        );
+        throw new Error(`Превышен лимит размера файла (${Math.round(arrayBuffer.byteLength / 1024 / 1024)} МБ)`);
     }
-
     return Buffer.from(arrayBuffer);
 }
 
 function enforceChangesCacheLimit() {
     while (changesBufferCache.size > MAX_CHANGES_CACHE_ITEMS) {
         const oldestKey = changesBufferCache.keys().next().value;
-
         if (!oldestKey) break;
-
         changesBufferCache.delete(oldestKey);
     }
 }
 
 // ================= ПАРСИНГ ССЫЛОК И ТАБЛИЦ =================
-
 function extractLinksFromHtml(html, baseUrl) {
     const links = [];
-
     const regex = /<a\s+[^>]*href=(?:["']([^"']+)["']|([^\s>]+))[^>]*>([\s\S]*?)<\/a>/gi;
-
     let m;
-
     while ((m = regex.exec(html)) !== null) {
-        const rawHref = (m[1] || m[2] || '')
-            .replace(/&amp;/g, '&')
-            .trim();
-
-        const text = (m[3] || '')
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/&nbsp;/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-        if (
-            !rawHref ||
-            rawHref.startsWith('#') ||
-            rawHref.startsWith('javascript:')
-        ) {
-            continue;
-        }
-
+        const rawHref = (m[1] || m[2] || '').replace(/&amp;/g, '&').trim();
+        const text = (m[3] || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+        if (!rawHref || rawHref.startsWith('#') || rawHref.startsWith('javascript:')) continue;
         try {
             const fullUrl = new URL(rawHref, baseUrl).href;
-
-            links.push({
-                href: rawHref,
-                url: fullUrl,
-                text
-            });
+            links.push({ href: rawHref, url: fullUrl, text });
         } catch (e) {}
     }
-
     return links;
 }
 
 function indexWorkbookGroups(workbook, fileLabel) {
     let count = 0;
-
     for (const sheetName of workbook.SheetNames) {
         const sheet = workbook.Sheets[sheetName];
-
-        const rows = XLSX.utils.sheet_to_json(sheet, {
-            header: 1,
-            defval: ''
-        });
-
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
         const merges = sheet['!merges'] || [];
-
         if (rows.length < 4) continue;
 
         for (let r = 0; r < Math.min(30, rows.length); r++) {
             const row = rows[r] || [];
-
             for (let c = 0; c < row.length; c++) {
                 const cellVal = String(row[c] || '').trim();
-
                 const matches = cellVal.match(/\b([2-9]\d{3}[а-яa-z]*)\b/gi);
-
                 if (matches) {
                     for (const grp of matches) {
                         if (/^202\d$/.test(grp)) continue;
-
                         scheduleCache.set(grp, {
                             group: grp,
                             sheet: sheetName,
@@ -376,73 +139,44 @@ function indexWorkbookGroups(workbook, fileLabel) {
                             groupColIdx: c,
                             headerRowIdx: r
                         });
-
                         count++;
                     }
                 }
             }
         }
     }
-
     return count;
 }
 
 function findGroupInWorkbook(workbook, targetGroup) {
     const cleanTarget = targetGroup.replace(/\s+/g, '');
-
     for (const sheetName of workbook.SheetNames) {
         const sheet = workbook.Sheets[sheetName];
-
-        const rows = XLSX.utils.sheet_to_json(sheet, {
-            header: 1,
-            defval: ''
-        });
-
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
         const merges = sheet['!merges'] || [];
-
         if (rows.length < 4) continue;
 
         for (let r = 0; r < Math.min(35, rows.length); r++) {
             const row = rows[r] || [];
-
             for (let c = 0; c < row.length; c++) {
                 const cellVal = String(row[c] || '').replace(/\s+/g, '');
-
                 if (cellVal === cleanTarget || cellVal.includes(cleanTarget)) {
-                    return {
-                        rows,
-                        merges,
-                        groupColIdx: c,
-                        headerRowIdx: r,
-                        sheet: sheetName
-                    };
+                    return { rows, merges, groupColIdx: c, headerRowIdx: r, sheet: sheetName };
                 }
             }
         }
 
         for (let r = 0; r < Math.min(25, rows.length); r++) {
             const row = rows[r] || [];
-
             const c0 = String(row[0] || '').trim().toLowerCase();
-
             if (c0 === 'понедельник') {
                 const headerRow = Math.max(0, r - 1);
-
                 if (!rows[headerRow]) rows[headerRow] = [];
-
                 rows[headerRow][2] = targetGroup;
-
-                return {
-                    rows,
-                    merges,
-                    groupColIdx: 2,
-                    headerRowIdx: headerRow,
-                    sheet: sheetName
-                };
+                return { rows, merges, groupColIdx: 2, headerRowIdx: headerRow, sheet: sheetName };
             }
         }
     }
-
     return null;
 }
 
@@ -463,55 +197,36 @@ const MONTH_STEMS = [
 
 function parseMonthFolderScore(text) {
     const clean = String(text || '').trim();
-
     let monthIdx = -1;
-
     for (const item of MONTH_STEMS) {
         if (item.rx.test(clean)) {
             monthIdx = item.m;
             break;
         }
     }
-
     if (monthIdx === -1) return null;
-
     const yearMatch = clean.match(/\b(20\d{2})\b/);
-
-    const year = yearMatch
-        ? parseInt(yearMatch[1], 10)
-        : new Date().getFullYear();
-
+    const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
     return year * 12 + monthIdx;
 }
 
 function collectDateFilesFromLinks(links, targetArray) {
     for (const link of links) {
-        if (/\d{1,2}\.\d{1,2}\.\d{2,4}\s*-\s*\d{1,2}\.\d{1,2}\.\d{2,4}/.test(link.text)) {
-            continue;
-        }
+        if (/\d{1,2}\.\d{1,2}\.\d{2,4}\s*-\s*\d{1,2}\.\d{1,2}\.\d{2,4}/.test(link.text)) continue;
 
         const dateMatch = link.text.match(/\b(\d{1,2})\.(\d{1,2})\.(\d{2,4})\b/);
-
         if (!dateMatch) continue;
 
         const d = parseInt(dateMatch[1], 10);
         const m = parseInt(dateMatch[2], 10) - 1;
-
         let y = parseInt(dateMatch[3], 10);
-
         if (y < 100) y += 2000;
 
         const timestamp = new Date(y, m, d).getTime();
-
-        const cleanTitle =
-            `${String(d).padStart(2, '0')}.${String(m + 1).padStart(2, '0')}.${y}`;
+        const cleanTitle = `${String(d).padStart(2, '0')}.${String(m + 1).padStart(2, '0')}.${y}`;
 
         if (!targetArray.some(f => f.url === link.url || f.title === cleanTitle)) {
-            targetArray.push({
-                title: cleanTitle,
-                url: link.url,
-                timestamp
-            });
+            targetArray.push({ title: cleanTitle, url: link.url, timestamp });
         }
     }
 }
@@ -524,36 +239,22 @@ async function fetchReplacementFilesList() {
 
     const visitedPages = new Set();
     const allDiscoveredLinks = [];
-
     let successfulPagesCount = 0;
     let lastNetworkError = null;
 
     async function scanPage(url) {
         if (!url || visitedPages.has(url)) return [];
-
         visitedPages.add(url);
-
         try {
-            const res = await fetchNovsu(url, {
-                timeout: 10000
-            });
-
+            const res = await fetchNovsu(url, { timeout: 10000 });
             if (!res.ok) {
-                lastNetworkError = new Error(
-                    `Портал НовГУ ответил кодом ${res.status}`
-                );
-
+                lastNetworkError = new Error(`Портал НовГУ ответил кодом ${res.status}`);
                 return [];
             }
-
             successfulPagesCount++;
-
             const html = await res.text();
-
             const links = extractLinksFromHtml(html, url);
-
             allDiscoveredLinks.push(...links);
-
             return links;
         } catch (e) {
             lastNetworkError = e;
@@ -565,14 +266,12 @@ async function fetchReplacementFilesList() {
         await scanPage(url);
     }
 
+    // Если ни одна стартовая страница не открылась — пробрасываем реальную ошибку, чтобы сработал stale-режим
     if (successfulPagesCount === 0) {
         throw lastNetworkError || new Error('Портал НовГУ недоступен');
     }
 
-    const ptkRootLinks = allDiscoveredLinks.filter(
-        l => /^птк$/i.test(l.text.trim())
-    );
-
+    const ptkRootLinks = allDiscoveredLinks.filter(l => /^птк$/i.test(l.text.trim()));
     for (const ptkLink of ptkRootLinks) {
         await scanPage(ptkLink.url);
     }
@@ -582,81 +281,50 @@ async function fetchReplacementFilesList() {
 
     for (const link of allDiscoveredLinks) {
         const score = parseMonthFolderScore(link.text);
-
         if (score !== null && !seenFolderUrls.has(link.url)) {
             seenFolderUrls.add(link.url);
-
-            monthFolders.push({
-                title: link.text,
-                url: link.url,
-                score
-            });
+            monthFolders.push({ title: link.text, url: link.url, score });
         }
     }
 
     monthFolders.sort((a, b) => b.score - a.score);
 
     const foldersToScan = monthFolders.slice(0, 2);
-
     const files = [];
 
     if (foldersToScan.length > 0) {
-        await Promise.allSettled(
-            foldersToScan.map(async (folder) => {
-                const folderLinks = await scanPage(folder.url);
-
-                collectDateFilesFromLinks(folderLinks, files);
-            })
-        );
+        await Promise.allSettled(foldersToScan.map(async (folder) => {
+            const folderLinks = await scanPage(folder.url);
+            collectDateFilesFromLinks(folderLinks, files);
+        }));
     }
 
     collectDateFilesFromLinks(allDiscoveredLinks, files);
 
     files.sort((a, b) => b.timestamp - a.timestamp);
-
-    return files.slice(0, 5).map(f => ({
-        title: f.title,
-        url: f.url
-    }));
+    return files.slice(0, 5).map(f => ({ title: f.title, url: f.url }));
 }
 
 // ================= ФУНКЦИИ С ДЕДУПЛИКАЦИЕЙ И ЗАЩИТОЙ КЭША =================
-
 async function downloadChangesFileBuffer(url, title) {
     if (changesBufferCache.has(url)) {
         return changesBufferCache.get(url);
     }
-
     if (pendingChangesFiles.has(url)) {
         return pendingChangesFiles.get(url);
     }
 
     const promise = (async () => {
-        const fileRes = await fetchNovsu(url, {
-            timeout: 10000
-        });
-
-        if (!fileRes.ok) {
-            throw new Error(`Не удалось скачать (${fileRes.status})`);
-        }
-
+        const fileRes = await fetchNovsu(url, { timeout: 10000 });
+        if (!fileRes.ok) throw new Error(`Не удалось скачать (${fileRes.status})`);
         const buffer = await readBufferWithLimit(fileRes);
-
-        const item = {
-            buffer,
-            title: title || 'changes.docx',
-            fetchedAt: Date.now()
-        };
-
+        const item = { buffer, title: title || 'changes.docx', fetchedAt: Date.now() };
         changesBufferCache.set(url, item);
-
         enforceChangesCacheLimit();
-
         return item;
     })();
 
     pendingChangesFiles.set(url, promise);
-
     try {
         return await promise;
     } finally {
@@ -668,13 +336,8 @@ async function downloadChangesFileBuffer(url, title) {
 
 async function getOrFetchChangesList(forceRefresh = false) {
     if (!forceRefresh && changesListCache.length > 0) {
-        return {
-            files: changesListCache,
-            cached: true,
-            stale: false
-        };
+        return { files: changesListCache, cached: true, stale: false };
     }
-
     if (pendingChangesList) {
         return pendingChangesList;
     }
@@ -682,45 +345,24 @@ async function getOrFetchChangesList(forceRefresh = false) {
     const promise = (async () => {
         try {
             const files = await fetchReplacementFilesList();
-
             if (files.length > 0) {
                 changesListCache = files;
-
-                return {
-                    files: changesListCache,
-                    cached: false,
-                    stale: false
-                };
+                return { files: changesListCache, cached: false, stale: false };
             }
-
+            // Если портал открылся, но список пуст (например, во время работ на сайте), отдаём старый кэш как stale
             if (changesListCache.length > 0) {
-                return {
-                    files: changesListCache,
-                    cached: true,
-                    stale: true
-                };
+                return { files: changesListCache, cached: true, stale: true };
             }
-
-            return {
-                files: [],
-                cached: false,
-                stale: false
-            };
+            return { files: [], cached: false, stale: false };
         } catch (err) {
             if (changesListCache.length > 0) {
-                return {
-                    files: changesListCache,
-                    cached: true,
-                    stale: true
-                };
+                return { files: changesListCache, cached: true, stale: true };
             }
-
             throw err;
         }
     })();
 
     pendingChangesList = promise;
-
     try {
         return await promise;
     } finally {
@@ -735,79 +377,39 @@ async function fetchAndCacheGroupSchedule(targetGroup) {
         'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999',
         'https://portal.novsu.ru/univer/timetable/spo/'
     ];
-
     const exactRegex = new RegExp(`(^|\\D)${targetGroup}(\\D|$)`);
-
     const prefix3 = targetGroup.slice(0, 3);
-
     const prefixRegex = new RegExp(`(^|\\D)${prefix3}\\d(\\D|$)`);
-
     const candidates = [];
     const seenUrls = new Set();
 
-    await Promise.allSettled(
-        pagesToScan.map(async (pageUrl) => {
-            try {
-                const r = await fetchNovsu(pageUrl, {
-                    timeout: 10000
-                });
-
-                if (!r.ok) return;
-
-                const html = await r.text();
-
-                const links = extractLinksFromHtml(html, pageUrl);
-
-                for (const link of links) {
-                    const combined = `${link.text} ${decodeURIComponent(link.url)}`;
-
-                    if (/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(link.text)) {
-                        continue;
-                    }
-
-                    if (link.text.trim() === targetGroup || exactRegex.test(combined)) {
-                        if (!seenUrls.has(link.url)) {
-                            candidates.unshift(link);
-                            seenUrls.add(link.url);
-                        }
-                    } else if (prefix3.length === 3 && prefixRegex.test(combined)) {
-                        if (!seenUrls.has(link.url)) {
-                            candidates.push(link);
-                            seenUrls.add(link.url);
-                        }
-                    }
+    await Promise.allSettled(pagesToScan.map(async (pageUrl) => {
+        try {
+            const r = await fetchNovsu(pageUrl, { timeout: 10000 });
+            if (!r.ok) return;
+            const html = await r.text();
+            const links = extractLinksFromHtml(html, pageUrl);
+            for (const link of links) {
+                const combined = `${link.text} ${decodeURIComponent(link.url)}`;
+                if (/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(link.text)) continue;
+                if (link.text.trim() === targetGroup || exactRegex.test(combined)) {
+                    if (!seenUrls.has(link.url)) { candidates.unshift(link); seenUrls.add(link.url); }
+                } else if (prefix3.length === 3 && prefixRegex.test(combined)) {
+                    if (!seenUrls.has(link.url)) { candidates.push(link); seenUrls.add(link.url); }
                 }
-            } catch (e) {}
-        })
-    );
+            }
+        } catch (e) {}
+    }));
 
     for (const cand of candidates) {
         try {
-            const fileRes = await fetchNovsu(cand.url, {
-                timeout: 15000
-            });
-
+            const fileRes = await fetchNovsu(cand.url, { timeout: 15000 });
             if (!fileRes.ok) continue;
-
             const buffer = await readBufferWithLimit(fileRes);
+            const headStr = buffer.slice(0, 100).toString('utf8').trim().toLowerCase();
+            if (headStr.startsWith('<!doctype') || headStr.startsWith('<html')) continue;
 
-            const headStr = buffer
-                .slice(0, 100)
-                .toString('utf8')
-                .trim()
-                .toLowerCase();
-
-            if (
-                headStr.startsWith('<!doctype') ||
-                headStr.startsWith('<html')
-            ) {
-                continue;
-            }
-
-            const workbook = XLSX.read(buffer, {
-                type: 'buffer'
-            });
-
+            const workbook = XLSX.read(buffer, { type: 'buffer' });
             indexWorkbookGroups(workbook, cand.text);
 
             if (scheduleCache.has(targetGroup)) {
@@ -815,14 +417,9 @@ async function fetchAndCacheGroupSchedule(targetGroup) {
             }
 
             const result = findGroupInWorkbook(workbook, targetGroup);
-
             if (result) {
-                if (!result.rows[result.headerRowIdx]) {
-                    result.rows[result.headerRowIdx] = [];
-                }
-
+                if (!result.rows[result.headerRowIdx]) result.rows[result.headerRowIdx] = [];
                 result.rows[result.headerRowIdx][result.groupColIdx] = targetGroup;
-
                 const payload = {
                     group: targetGroup,
                     sheet: result.sheet,
@@ -832,14 +429,11 @@ async function fetchAndCacheGroupSchedule(targetGroup) {
                     groupColIdx: result.groupColIdx,
                     headerRowIdx: result.headerRowIdx
                 };
-
                 scheduleCache.set(targetGroup, payload);
-
                 return payload;
             }
         } catch (e) {}
     }
-
     return null;
 }
 
@@ -859,34 +453,25 @@ function getGroupScheduleWithDedup(targetGroup) {
     })();
 
     pendingSchedules.set(targetGroup, promise);
-
     return promise;
 }
 
 // ================= ФОНОВАЯ СИНХРОНИЗАЦИЯ =================
-
 async function syncAllDataFromNovsu() {
     if (isSyncing) return;
-
     isSyncing = true;
-
     try {
         const chgFiles = await fetchReplacementFilesList().catch(() => []);
-
         if (chgFiles.length > 0) {
             changesListCache = chgFiles;
-
             const activeUrls = new Set(chgFiles.map(f => f.url));
 
-            await Promise.allSettled(
-                chgFiles.map(async (f) => {
-                    if (changesBufferCache.has(f.url)) return;
-
-                    try {
-                        await downloadChangesFileBuffer(f.url, f.title);
-                    } catch (e) {}
-                })
-            );
+            await Promise.allSettled(chgFiles.map(async (f) => {
+                if (changesBufferCache.has(f.url)) return;
+                try {
+                    await downloadChangesFileBuffer(f.url, f.title);
+                } catch (e) {}
+            }));
 
             for (const cachedUrl of changesBufferCache.keys()) {
                 if (!activeUrls.has(cachedUrl)) {
@@ -899,76 +484,38 @@ async function syncAllDataFromNovsu() {
             'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999',
             'https://portal.novsu.ru/univer/timetable/spo/'
         ];
-
         const excelUrls = new Map();
 
-        await Promise.allSettled(
-            pagesToScan.map(async (pageUrl) => {
-                try {
-                    const r = await fetchNovsu(pageUrl, {
-                        timeout: 10000
-                    });
-
-                    if (!r.ok) return;
-
-                    const html = await r.text();
-
-                    const links = extractLinksFromHtml(html, pageUrl);
-
-                    for (const link of links) {
-                        if (/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(link.text)) {
-                            continue;
-                        }
-
-                        if (
-                            /\b[2-9]\d{3}\b/.test(link.text) ||
-                            /\.(xlsx?|xls)($|\?)/i.test(link.url)
-                        ) {
-                            if (!excelUrls.has(link.url)) {
-                                excelUrls.set(link.url, link.text);
-                            }
-                        }
+        await Promise.allSettled(pagesToScan.map(async (pageUrl) => {
+            try {
+                const r = await fetchNovsu(pageUrl, { timeout: 10000 });
+                if (!r.ok) return;
+                const html = await r.text();
+                const links = extractLinksFromHtml(html, pageUrl);
+                for (const link of links) {
+                    if (/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(link.text)) continue;
+                    if (/\b[2-9]\d{3}\b/.test(link.text) || /\.(xlsx?|xls)($|\?)/i.test(link.url)) {
+                        if (!excelUrls.has(link.url)) excelUrls.set(link.url, link.text);
                     }
-                } catch (e) {}
-            })
-        );
+                }
+            } catch (e) {}
+        }));
 
         const excelEntries = Array.from(excelUrls.entries());
-
         let updatedSchedulesCount = 0;
 
-        await Promise.allSettled(
-            excelEntries.map(async ([url, label]) => {
-                try {
-                    const fileRes = await fetchNovsu(url, {
-                        timeout: 15000
-                    });
+        await Promise.allSettled(excelEntries.map(async ([url, label]) => {
+            try {
+                const fileRes = await fetchNovsu(url, { timeout: 15000 });
+                if (!fileRes.ok) return;
+                const buffer = await readBufferWithLimit(fileRes);
+                const headStr = buffer.slice(0, 100).toString('utf8').trim().toLowerCase();
+                if (headStr.startsWith('<!doctype') || headStr.startsWith('<html')) return;
 
-                    if (!fileRes.ok) return;
-
-                    const buffer = await readBufferWithLimit(fileRes);
-
-                    const headStr = buffer
-                        .slice(0, 100)
-                        .toString('utf8')
-                        .trim()
-                        .toLowerCase();
-
-                    if (
-                        headStr.startsWith('<!doctype') ||
-                        headStr.startsWith('<html')
-                    ) {
-                        return;
-                    }
-
-                    const workbook = XLSX.read(buffer, {
-                        type: 'buffer'
-                    });
-
-                    updatedSchedulesCount += indexWorkbookGroups(workbook, label);
-                } catch (e) {}
-            })
-        );
+                const workbook = XLSX.read(buffer, { type: 'buffer' });
+                updatedSchedulesCount += indexWorkbookGroups(workbook, label);
+            } catch (e) {}
+        }));
 
         if (chgFiles.length > 0 || updatedSchedulesCount > 0) {
             lastCacheUpdate = new Date().toISOString();
@@ -977,33 +524,22 @@ async function syncAllDataFromNovsu() {
         console.error('[SYNC ERROR]', err.message);
     } finally {
         isSyncing = false;
-        updateMemoryMetrics();
     }
 }
 
 setInterval(syncAllDataFromNovsu, 30 * 60 * 1000);
 
 // ================= API РОУТЫ =================
-
 app.get('/api/changes-list', async (req, res) => {
     try {
         const forceRefresh = req.query.refresh === '1';
-
         const result = await getOrFetchChangesList(forceRefresh);
-
         res.json(result);
     } catch (error) {
         if (changesListCache.length > 0) {
-            return res.json({
-                files: changesListCache,
-                cached: true,
-                stale: true
-            });
+            return res.json({ files: changesListCache, cached: true, stale: true });
         }
-
-        res.status(500).json({
-            error: error.message
-        });
+        res.status(500).json({ error: error.message });
     }
 });
 
@@ -1014,271 +550,69 @@ app.get('/api/changes', async (req, res) => {
 
         if (!targetUrl) {
             const listResult = await getOrFetchChangesList(false);
-
             if (!listResult.files || listResult.files.length === 0) {
-                return res.status(404).json({
-                    error: 'Файлы не найдены'
-                });
+                return res.status(404).json({ error: 'Файлы не найдены' });
             }
-
             targetUrl = listResult.files[0].url;
             fileTitle = listResult.files[0].title;
         }
 
         const parsedUrl = new URL(targetUrl);
-
         if (!parsedUrl.hostname.endsWith('novsu.ru')) {
-            return res.status(403).json({
-                error: 'Разрешена загрузка только с домена novsu.ru'
-            });
+            return res.status(403).json({ error: 'Разрешена загрузка только с домена novsu.ru' });
         }
 
-        const cachedOrDownloaded = await downloadChangesFileBuffer(
-            targetUrl,
-            fileTitle
-        );
+        const cachedOrDownloaded = await downloadChangesFileBuffer(targetUrl, fileTitle);
 
         res.setHeader('Content-Type', 'application/octet-stream');
-
-        res.setHeader(
-            'X-File-Title',
-            encodeURIComponent(cachedOrDownloaded.title || fileTitle)
-        );
-
+        res.setHeader('X-File-Title', encodeURIComponent(cachedOrDownloaded.title || fileTitle));
         res.send(cachedOrDownloaded.buffer);
     } catch (error) {
-        res.status(500).json({
-            error: error.message
-        });
+        res.status(500).json({ error: error.message });
     }
 });
 
 app.get('/api/schedule/:group', async (req, res) => {
     try {
         const targetGroup = String(req.params.group || '').trim();
-
-        if (!targetGroup) {
-            return res.status(400).json({
-                error: 'Не указана группа'
-            });
-        }
+        if (!targetGroup) return res.status(400).json({ error: 'Не указана группа' });
 
         if (scheduleCache.has(targetGroup)) {
             return res.json(scheduleCache.get(targetGroup));
         }
 
         const payload = await getGroupScheduleWithDedup(targetGroup);
-
         if (payload) {
             return res.json(payload);
         }
 
-        return res.status(404).json({
-            error: `Группа ${targetGroup} не найдена`
-        });
+        return res.status(404).json({ error: `Группа ${targetGroup} не найдена` });
     } catch (error) {
         const targetGroup = String(req.params.group || '').trim();
-
         if (scheduleCache.has(targetGroup)) {
             return res.json(scheduleCache.get(targetGroup));
         }
-
-        res.status(500).json({
-            error: error.message
-        });
+        res.status(500).json({ error: error.message });
     }
 });
-
-// ================= ПОДРОБНЫЙ PING =================
 
 app.get('/ping', (req, res) => {
-    updateDailyMetrics(null);
-
     const mem = process.memoryUsage();
-
-    const mb = value => Math.round(value / 1024 / 1024 * 10) / 10;
-
-    const rssMB = mb(mem.rss);
-    const heapUsedMB = mb(mem.heapUsed);
-    const heapTotalMB = mb(mem.heapTotal);
-    const externalMB = mb(mem.external);
-    const arrayBuffersMB = mb(mem.arrayBuffers || 0);
-
-    const cachedChangesBytes = Array.from(changesBufferCache.values())
-        .reduce((total, item) => total + (item.buffer ? item.buffer.length : 0), 0);
-
-    const cachedChangesMB = Math.round(
-        cachedChangesBytes / 1024 / 1024 * 100
-    ) / 100;
-
-    const memoryPercent = Math.round(
-        rssMB / MEMORY_LIMIT_MB * 1000
-    ) / 10;
-
-    const averageResponseTime = completedRequestsToday > 0
-        ? Math.round(totalResponseTimeToday / completedRequestsToday)
-        : 0;
-
-    const uptimeSeconds = Math.floor(process.uptime());
-
-    const uptimeDays = Math.floor(uptimeSeconds / 86400);
-    const uptimeHours = Math.floor((uptimeSeconds % 86400) / 3600);
-    const uptimeMinutes = Math.floor((uptimeSeconds % 3600) / 60);
-    const uptimeRemainingSeconds = uptimeSeconds % 60;
-
-    const uptimeText =
-        `${uptimeDays} д. ${uptimeHours} ч. ${uptimeMinutes} мин. ${uptimeRemainingSeconds} сек.`;
-
-    const statusCodes = {};
-
-    for (const [code, count] of statusCodesToday.entries()) {
-        statusCodes[code] = count;
-    }
-
-    const requestsByPath = {};
-
-    for (const [path, count] of requestsByPathToday.entries()) {
-        requestsByPath[path] = count;
-    }
-
-    const stats = {
-        status: 'Работает',
-        дата: currentStatsDay,
-        время_сервера: new Date().toISOString(),
-
-        пользователи: {
-            онлайн_за_последние_5_минут: activeClientsMap.size,
-            уникальных_за_сегодня: uniqueUsersTodaySet.size,
-            пояснение: 'Уникальность приблизительная: IP и браузер'
-        },
-
-        запросы: {
-            всего_за_сегодня: requestsToday,
-            завершено_за_сегодня: completedRequestsToday,
-            ошибок_с_кодом_500_и_выше: errorsToday,
-            сейчас_обрабатывается: concurrentRequests,
-            максимум_одновременно_за_день: maxConcurrentRequestsToday,
-            среднее_время_ответа_мс: averageResponseTime,
-            максимальное_время_ответа_мс: maxResponseTimeToday,
-            коды_ответов: statusCodes,
-            распределение_по_адресам: requestsByPath
-        },
-
-        память: {
-            ограничение_для_расчета_мб: MEMORY_LIMIT_MB,
-            используется_RSS_мб: rssMB,
-            используется_Heap_мб: heapUsedMB,
-            всего_Heap_мб: heapTotalMB,
-            внешняя_память_мб: externalMB,
-            ArrayBuffers_мб: arrayBuffersMB,
-            занято_от_условного_лимита_процентов: memoryPercent,
-            максимум_RSS_за_день_мб: Math.round(maxRssTodayMB * 10) / 10,
-            максимум_Heap_за_день_мб: Math.round(maxHeapTodayMB * 10) / 10
-        },
-
-        кэш: {
-            групп_расписания: scheduleCache.size,
-            файлов_замен_в_RAM: changesBufferCache.size,
-            примерный_размер_файлов_замен_мб: cachedChangesMB,
-            файлов_в_списке_замен: changesListCache.length
-        },
-
-        новгу: {
-            активных_запросов: activeNovsuRequests,
-            ожидают_очереди: novsuRequestQueue.length,
-            максимальное_количество_одновременных_запросов: MAX_CONCURRENT_DOWNLOADS
-        },
-
-        синхронизация: {
-            сейчас_выполняется: isSyncing,
-            последняя_синхронизация: lastCacheUpdate || 'Ещё не выполнялась'
-        },
-
-        дополнительные_данные: {
-            активных_загрузок_расписания: pendingSchedules.size,
-            ожидающих_загрузок_файлов_замен: pendingChangesFiles.size,
-            список_замен_загружается: Boolean(pendingChangesList),
-            время_работы_сервера: uptimeText,
-            версия_NodeJS: process.version,
-            операционная_система: process.platform,
-            архитектура: process.arch
-        }
-    };
-
-    // Удобный текстовый формат
-    if (req.query.format === 'text') {
-        const lines = [
-            '========== ДНЕВНИК — СТАТИСТИКА СЕРВЕРА ==========',
-            '',
-            `Статус: ${stats.status}`,
-            `Дата: ${stats.дата}`,
-            `Время: ${stats.время_сервера}`,
-            `Время работы: ${uptimeText}`,
-            '',
-            '========== ПОЛЬЗОВАТЕЛИ ==========',
-            `Сейчас онлайн (за 5 минут): ${activeClientsMap.size}`,
-            `Уникальных пользователей сегодня: ${uniqueUsersTodaySet.size}`,
-            '',
-            '========== ЗАПРОСЫ ==========',
-            `Всего запросов сегодня: ${requestsToday}`,
-            `Завершённых запросов: ${completedRequestsToday}`,
-            `Ошибок сервера (500+): ${errorsToday}`,
-            `Сейчас обрабатывается: ${concurrentRequests}`,
-            `Максимум одновременно за день: ${maxConcurrentRequestsToday}`,
-            `Среднее время ответа: ${averageResponseTime} мс`,
-            `Самый долгий ответ: ${maxResponseTimeToday} мс`,
-            '',
-            '========== ПАМЯТЬ ==========',
-            `RSS: ${rssMB} МБ`,
-            `Heap используется: ${heapUsedMB} МБ`,
-            `Heap всего: ${heapTotalMB} МБ`,
-            `External: ${externalMB} МБ`,
-            `ArrayBuffers: ${arrayBuffersMB} МБ`,
-            `Использование условного лимита ${MEMORY_LIMIT_MB} МБ: ${memoryPercent}%`,
-            `Максимальный RSS сегодня: ${Math.round(maxRssTodayMB * 10) / 10} МБ`,
-            `Максимальный Heap сегодня: ${Math.round(maxHeapTodayMB * 10) / 10} МБ`,
-            '',
-            '========== КЭШ ==========',
-            `Групп расписания: ${scheduleCache.size}`,
-            `Файлов замен в RAM: ${changesBufferCache.size}`,
-            `Размер файлов замен: ${cachedChangesMB} МБ`,
-            `Файлов в списке замен: ${changesListCache.length}`,
-            '',
-            '========== НОВГУ ==========',
-            `Активных запросов: ${activeNovsuRequests}`,
-            `Ожидают в очереди: ${novsuRequestQueue.length}`,
-            `Лимит одновременных запросов: ${MAX_CONCURRENT_DOWNLOADS}`,
-            '',
-            '========== СИНХРОНИЗАЦИЯ ==========',
-            `Выполняется сейчас: ${isSyncing ? 'Да' : 'Нет'}`,
-            `Последнее обновление: ${lastCacheUpdate || 'Ещё не было'}`,
-            '',
-            '========== ДОПОЛНИТЕЛЬНО ==========',
-            `Активных загрузок расписания: ${pendingSchedules.size}`,
-            `Ожидающих загрузок файлов замен: ${pendingChangesFiles.size}`,
-            `Node.js: ${process.version}`,
-            `ОС: ${process.platform}`,
-            `Архитектура: ${process.arch}`,
-            '',
-            '=============================================='
-        ];
-
-        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-
-        return res.send(lines.join('\n'));
-    }
-
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-
-    res.send(JSON.stringify(stats, null, 2) + '\n');
+    res.json({
+        status: 'ok',
+        cachedGroupsCount: scheduleCache.size,
+        changesFilesInRam: changesBufferCache.size,
+        inFlightSchedules: pendingSchedules.size,
+        activeNovsuRequests,
+        queuedNovsuRequests: novsuRequestQueue.length,
+        lastCacheUpdate,
+        heapUsedMB: Math.round((mem.heapUsed / 1024 / 1024) * 10) / 10,
+        rssMB: Math.round((mem.rss / 1024 / 1024) * 10) / 10,
+        memoryUsage: mem
+    });
 });
-
-// ================= ЗАПУСК СЕРВЕРА =================
 
 app.listen(PORT, () => {
     console.log(`PTK Schedule Server running on port ${PORT}`);
-
-    updateMemoryMetrics();
-
     syncAllDataFromNovsu();
 });
