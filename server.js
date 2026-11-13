@@ -23,67 +23,6 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-// ================= ДНЕВНАЯ СТАТИСТИКА И ОНЛАЙН =================
-let currentStatsDay = new Date().toISOString().slice(0, 10);
-let requestsToday = 0;
-let concurrentRequests = 0;
-let maxRssTodayMB = 0;
-let maxHeapUsedTodayMB = 0;
-const activeClientsMap = new Map();
-const uniqueUsersTodaySet = new Set();
-
-function updateDailyMetrics(req) {
-    const now = Date.now();
-    const todayStr = new Date(now).toISOString().slice(0, 10);
-
-    if (todayStr !== currentStatsDay) {
-        currentStatsDay = todayStr;
-        requestsToday = 0;
-        maxRssTodayMB = 0;
-        maxHeapUsedTodayMB = 0;
-        uniqueUsersTodaySet.clear();
-    }
-
-    const mem = process.memoryUsage();
-    const rssMB = Math.round((mem.rss / 1024 / 1024) * 10) / 10;
-    const heapMB = Math.round((mem.heapUsed / 1024 / 1024) * 10) / 10;
-
-    if (rssMB > maxRssTodayMB) maxRssTodayMB = rssMB;
-    if (heapMB > maxHeapUsedTodayMB) maxHeapUsedTodayMB = heapMB;
-
-    if (req && req.path !== '/ping') {
-        requestsToday++;
-        const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
-        const ua = String(req.headers['user-agent'] || '').slice(0, 60);
-        const clientKey = `${ip}|${ua}`;
-
-        activeClientsMap.set(clientKey, now);
-        uniqueUsersTodaySet.add(clientKey);
-    }
-
-    const fiveMinAgo = now - 5 * 60 * 1000;
-    for (const [key, lastSeen] of activeClientsMap.entries()) {
-        if (lastSeen < fiveMinAgo) activeClientsMap.delete(key);
-    }
-}
-
-setInterval(() => updateDailyMetrics(null), 15000);
-
-app.use((req, res, next) => {
-    concurrentRequests++;
-    updateDailyMetrics(req);
-    let finished = false;
-    const onDone = () => {
-        if (finished) return;
-        finished = true;
-        concurrentRequests = Math.max(0, concurrentRequests - 1);
-        updateDailyMetrics(null);
-    };
-    res.on('finish', onDone);
-    res.on('close', onDone);
-    next();
-});
-
 // ================= КЭШ И ЛИМИТЫ ПАМЯТИ =================
 const scheduleCache = new Map();
 let changesListCache = [];
@@ -91,13 +30,15 @@ const changesBufferCache = new Map();
 let lastCacheUpdate = null;
 let isSyncing = false;
 
+// In-flight запросы (Promise Deduplication)
 const pendingSchedules = new Map();
 const pendingChangesFiles = new Map();
 let pendingChangesList = null;
 
+// Ограничения безопасности для Render (контроль нагрузки и RAM)
 const MAX_CONCURRENT_DOWNLOADS = 5;
-const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
-const MAX_CHANGES_CACHE_ITEMS = 10;
+const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 МБ максимум на один документ
+const MAX_CHANGES_CACHE_ITEMS = 10;           // Максимум файлов замен в RAM
 
 // ================= ГЛОБАЛЬНЫЙ ОГРАНИЧИТЕЛЬ ЗАПРОСОВ К НОВГУ =================
 let activeNovsuRequests = 0;
@@ -122,6 +63,7 @@ function releaseNovsuSlot() {
     }
 }
 
+// Все обращения к НовГУ (и фоновые, и от пользователей) идут через этот глобальный лимитер
 async function fetchNovsu(url, options = {}) {
     await acquireNovsuSlot();
     try {
@@ -324,6 +266,7 @@ async function fetchReplacementFilesList() {
         await scanPage(url);
     }
 
+    // Если ни одна стартовая страница не открылась — пробрасываем реальную ошибку, чтобы сработал stale-режим
     if (successfulPagesCount === 0) {
         throw lastNetworkError || new Error('Портал НовГУ недоступен');
     }
@@ -406,6 +349,7 @@ async function getOrFetchChangesList(forceRefresh = false) {
                 changesListCache = files;
                 return { files: changesListCache, cached: false, stale: false };
             }
+            // Если портал открылся, но список пуст (например, во время работ на сайте), отдаём старый кэш как stale
             if (changesListCache.length > 0) {
                 return { files: changesListCache, cached: true, stale: true };
             }
@@ -580,7 +524,6 @@ async function syncAllDataFromNovsu() {
         console.error('[SYNC ERROR]', err.message);
     } finally {
         isSyncing = false;
-        updateDailyMetrics(null);
     }
 }
 
@@ -654,51 +597,19 @@ app.get('/api/schedule/:group', async (req, res) => {
 });
 
 app.get('/ping', (req, res) => {
-    updateDailyMetrics(null);
     const mem = process.memoryUsage();
-    const rssMB = Math.round((mem.rss / 1024 / 1024) * 10) / 10;
-    const heapUsedMB = Math.round((mem.heapUsed / 1024 / 1024) * 10) / 10;
-
-    if (req.query.format === 'text') {
-        const lines = [
-            `Статус сервера: ok (${currentStatsDay})`,
-            `Используют прямо сейчас (онлайн за 5 мин): ${activeClientsMap.size} чел.`,
-            `Одновременных соединений в эту секунду: ${concurrentRequests}`,
-            `Уникальных пользователей за сегодня: ${uniqueUsersTodaySet.size}`,
-            `Запросов за сегодня: ${requestsToday}`,
-            `Память сейчас (RSS / Heap): ${rssMB} МБ / ${heapUsedMB} МБ`,
-            `Макс. память за сегодня (RSS / Heap): ${maxRssTodayMB} МБ / ${maxHeapUsedTodayMB} МБ`,
-            `Групп в кэше: ${scheduleCache.size}`,
-            `Файлов замен в RAM: ${changesBufferCache.size}`,
-            `Активных загрузок расписания: ${pendingSchedules.size}`,
-            `Запросов к НовГУ (активно / в очереди): ${activeNovsuRequests} / ${novsuRequestQueue.length}`,
-            `Последнее обновление кэша: ${lastCacheUpdate || 'ещё не было'}`
-        ];
-        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-        return res.send(lines.join('\n'));
-    }
-
-    const stats = {
+    res.json({
         status: 'ok',
-        date: currentStatsDay,
-        onlineUsersLast5Min: activeClientsMap.size,
-        concurrentRequestsNow: concurrentRequests,
-        uniqueUsersToday: uniqueUsersTodaySet.size,
-        requestsToday: requestsToday,
-        heapUsedMB: heapUsedMB,
-        rssMB: rssMB,
-        maxHeapUsedTodayMB: maxHeapUsedTodayMB,
-        maxRssTodayMB: maxRssTodayMB,
         cachedGroupsCount: scheduleCache.size,
         changesFilesInRam: changesBufferCache.size,
         inFlightSchedules: pendingSchedules.size,
-        activeNovsuRequests: activeNovsuRequests,
+        activeNovsuRequests,
         queuedNovsuRequests: novsuRequestQueue.length,
-        lastCacheUpdate: lastCacheUpdate
-    };
-
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.send(JSON.stringify(stats, null, 2) + '\n');
+        lastCacheUpdate,
+        heapUsedMB: Math.round((mem.heapUsed / 1024 / 1024) * 10) / 10,
+        rssMB: Math.round((mem.rss / 1024 / 1024) * 10) / 10,
+        memoryUsage: mem
+    });
 });
 
 app.listen(PORT, () => {
