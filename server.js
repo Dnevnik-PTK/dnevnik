@@ -311,20 +311,32 @@ async function fetchReplacementFilesList() {
 // ================= ФУНКЦИИ С ДЕДУПЛИКАЦИЕЙ И ЗАЩИТОЙ КЭША =================
 async function downloadChangesFileBuffer(url, title) {
     if (changesBufferCache.has(url)) {
-        return changesBufferCache.get(url);
+        const cached = changesBufferCache.get(url);
+        // Если файл скачан менее 30 минут назад — сразу отдаём из памяти сервера
+        if (Date.now() - cached.fetchedAt < CHANGES_CACHE_TTL_MS) {
+            return cached;
+        }
     }
     if (pendingChangesFiles.has(url)) {
         return pendingChangesFiles.get(url);
     }
 
     const promise = (async () => {
-        const fileRes = await fetchNovsu(url, { timeout: 10000 });
-        if (!fileRes.ok) throw new Error(`Не удалось скачать (${fileRes.status})`);
-        const buffer = await readBufferWithLimit(fileRes);
-        const item = { buffer, title: title || 'changes.docx', fetchedAt: Date.now() };
-        changesBufferCache.set(url, item);
-        enforceChangesCacheLimit();
-        return item;
+        try {
+            const fileRes = await fetchNovsu(url, { timeout: 10000 });
+            if (!fileRes.ok) throw new Error(`Не удалось скачать (${fileRes.status})`);
+            const buffer = await readBufferWithLimit(fileRes);
+            const item = { buffer, title: title || 'changes.docx', fetchedAt: Date.now() };
+            changesBufferCache.set(url, item);
+            enforceChangesCacheLimit();
+            return item;
+        } catch (err) {
+            // Если НовГУ недоступен, но в памяти есть старая копия файла — отдаём её
+            if (changesBufferCache.has(url)) {
+                return changesBufferCache.get(url);
+            }
+            throw err;
+        }
     })();
 
     pendingChangesFiles.set(url, promise);
@@ -338,9 +350,17 @@ async function downloadChangesFileBuffer(url, title) {
 }
 
 async function getOrFetchChangesList(forceRefresh = false) {
-    if (!forceRefresh && changesListCache.length > 0) {
+    const now = Date.now();
+    const isFreshWithin30Min =
+        changesListCache.length > 0 &&
+        (now - lastChangesNovsuSyncAt < CHANGES_CACHE_TTL_MS);
+
+    // Даже если нажали кнопку «С сайта» (forceRefresh = true),
+    // но с прошлой загрузки с НовГУ ещё не прошло 30 минут — отдаём готовый кэш
+    if (isFreshWithin30Min) {
         return { files: changesListCache, cached: true, stale: false };
     }
+
     if (pendingChangesList) {
         return pendingChangesList;
     }
@@ -350,9 +370,17 @@ async function getOrFetchChangesList(forceRefresh = false) {
             const files = await fetchReplacementFilesList();
             if (files.length > 0) {
                 changesListCache = files;
+                lastChangesNovsuSyncAt = Date.now();
+
+                // Сразу подгружаем файлы замен в оперативную память сервера
+                await Promise.allSettled(files.map(async (f) => {
+                    try {
+                        await downloadChangesFileBuffer(f.url, f.title);
+                    } catch (e) {}
+                }));
+
                 return { files: changesListCache, cached: false, stale: false };
             }
-            // Если портал открылся, но список пуст (например, во время работ на сайте), отдаём старый кэш как stale
             if (changesListCache.length > 0) {
                 return { files: changesListCache, cached: true, stale: true };
             }
@@ -374,6 +402,7 @@ async function getOrFetchChangesList(forceRefresh = false) {
         }
     }
 }
+
 
 async function fetchAndCacheGroupSchedule(targetGroup) {
     const pagesToScan = [
