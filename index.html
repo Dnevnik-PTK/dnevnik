@@ -2460,7 +2460,7 @@
 
             try {
                 if (!specificUrl) {
-                    const listUrl = `${RENDER_URL}/api/changes-list${forceRefresh ? '?refresh=1' : ''}`;
+                    const listUrl = `${RENDER_URL}/api/changes-list`;
                     const listRes = await fetch(listUrl).catch(() => null);
                     if (listRes && listRes.ok) {
                         const listJson = await listRes.json();
