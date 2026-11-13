@@ -493,10 +493,12 @@ async function syncAllDataFromNovsu() {
     if (isSyncing) return;
     isSyncing = true;
     try {
-        const chgFiles = await fetchReplacementFilesList().catch(() => []);
+                const chgFiles = await fetchReplacementFilesList().catch(() => []);
         if (chgFiles.length > 0) {
             changesListCache = chgFiles;
+            lastChangesNovsuSyncAt = Date.now();
             const activeUrls = new Set(chgFiles.map(f => f.url));
+
 
             await Promise.allSettled(chgFiles.map(async (f) => {
                 if (changesBufferCache.has(f.url)) return;
