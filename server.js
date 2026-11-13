@@ -28,6 +28,7 @@ const scheduleCache = new Map();
 let changesListCache = [];
 const changesBufferCache = new Map();
 let lastCacheUpdate = null;
+let lastChangesNovsuSyncAt = 0; // Время последней реальной загрузки замен с НовГУ
 let isSyncing = false;
 
 // In-flight запросы (Promise Deduplication)
@@ -39,6 +40,8 @@ let pendingChangesList = null;
 const MAX_CONCURRENT_DOWNLOADS = 5;
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 МБ максимум на один документ
 const MAX_CHANGES_CACHE_ITEMS = 10;           // Максимум файлов замен в RAM
+const CHANGES_CACHE_TTL_MS = 30 * 60 * 1000;  // 30 минут не качаем заново с НовГУ
+
 
 // ================= ГЛОБАЛЬНЫЙ ОГРАНИЧИТЕЛЬ ЗАПРОСОВ К НОВГУ =================
 let activeNovsuRequests = 0;
