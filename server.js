@@ -18,7 +18,13 @@ app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type');
+    res.header(
+        'Access-Control-Expose-Headers',
+        'X-Cache-Status, X-File-Title'
+    );
+
     if (req.method === 'OPTIONS') return res.sendStatus(200);
+
     next();
 });
 
@@ -26,7 +32,6 @@ app.use(express.json());
 
 // ================= СТАТИСТИКА СЕРВЕРА =================
 
-// Если ограничение памяти Render отличается, можно изменить переменную MEMORY_LIMIT_MB
 const MEMORY_LIMIT_MB = Number(process.env.MEMORY_LIMIT_MB || 500);
 
 let currentStatsDay = new Date().toISOString().slice(0, 10);
@@ -44,14 +49,10 @@ let totalResponseTimeToday = 0;
 let maxResponseTimeToday = 0;
 let completedRequestsToday = 0;
 
-// Храним только хеш идентификатора клиента, а не сам IP
 const activeClientsMap = new Map();
 const uniqueUsersTodaySet = new Set();
 
-// Статистика по HTTP-кодам
 const statusCodesToday = new Map();
-
-// Статистика по типам запросов
 const requestsByPathToday = new Map();
 
 function getClientHash(req) {
@@ -122,8 +123,6 @@ function updateDailyMetrics(req) {
         activeClientsMap.set(clientHash, now);
         uniqueUsersTodaySet.add(clientHash);
 
-        // Ограничиваем количество хранимых уникальных клиентов,
-        // чтобы статистика сама не создавала лишнюю нагрузку на RAM.
         if (uniqueUsersTodaySet.size > 50000) {
             const firstKey = uniqueUsersTodaySet.values().next().value;
             uniqueUsersTodaySet.delete(firstKey);
@@ -139,7 +138,6 @@ function updateDailyMetrics(req) {
         );
     }
 
-    // Удаляем неактивных клиентов
     const fiveMinAgo = now - 5 * 60 * 1000;
 
     for (const [key, lastSeen] of activeClientsMap.entries()) {
@@ -149,12 +147,10 @@ function updateDailyMetrics(req) {
     }
 }
 
-// Сбор статистики памяти и очистка неактивных клиентов
 setInterval(() => {
     updateDailyMetrics(null);
 }, 15000);
 
-// Middleware статистики запросов
 app.use((req, res, next) => {
     if (req.path === '/ping') {
         return next();
@@ -209,19 +205,23 @@ app.use((req, res, next) => {
 
 // ================= КЭШ И ЛИМИТЫ ПАМЯТИ =================
 
+const CHANGES_CACHE_TTL_MS = 10 * 60 * 1000;
+
 const scheduleCache = new Map();
+
 let changesListCache = [];
+let changesListFetchedAt = 0;
+
 const changesBufferCache = new Map();
 
 let lastCacheUpdate = null;
 let isSyncing = false;
 
-// In-flight запросы (Promise Deduplication)
 const pendingSchedules = new Map();
 const pendingChangesFiles = new Map();
+
 let pendingChangesList = null;
 
-// Ограничения безопасности для Render
 const MAX_CONCURRENT_DOWNLOADS = 5;
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
 const MAX_CHANGES_CACHE_ITEMS = 10;
@@ -265,7 +265,10 @@ async function fetchNovsu(url, options = {}) {
     }
 }
 
-async function readBufferWithLimit(response, maxBytes = MAX_FILE_SIZE_BYTES) {
+async function readBufferWithLimit(
+    response,
+    maxBytes = MAX_FILE_SIZE_BYTES
+) {
     const contentLength = parseInt(
         response.headers.get('content-length') || '0',
         10
@@ -286,6 +289,17 @@ async function readBufferWithLimit(response, maxBytes = MAX_FILE_SIZE_BYTES) {
     }
 
     return Buffer.from(arrayBuffer);
+}
+
+function normalizeChangesUrl(url) {
+    return new URL(url).href;
+}
+
+function isAllowedNovsuUrl(url) {
+    const hostname = new URL(url).hostname.toLowerCase();
+
+    return hostname === 'novsu.ru' ||
+        hostname.endsWith('.novsu.ru');
 }
 
 function enforceChangesCacheLimit() {
@@ -623,51 +637,95 @@ async function fetchReplacementFilesList() {
 // ================= ФУНКЦИИ С ДЕДУПЛИКАЦИЕЙ И ЗАЩИТОЙ КЭША =================
 
 async function downloadChangesFileBuffer(url, title) {
-    if (changesBufferCache.has(url)) {
-        return changesBufferCache.get(url);
-    }
+    const cacheKey = normalizeChangesUrl(url);
+    const now = Date.now();
 
-    if (pendingChangesFiles.has(url)) {
-        return pendingChangesFiles.get(url);
-    }
+    const cached = changesBufferCache.get(cacheKey);
 
-    const promise = (async () => {
-        const fileRes = await fetchNovsu(url, {
-            timeout: 10000
-        });
-
-        if (!fileRes.ok) {
-            throw new Error(`Не удалось скачать (${fileRes.status})`);
-        }
-
-        const buffer = await readBufferWithLimit(fileRes);
-
-        const item = {
-            buffer,
-            title: title || 'changes.docx',
-            fetchedAt: Date.now()
+    // 1. Проверяем общий кеш
+    if (
+        cached &&
+        now - cached.fetchedAt < CHANGES_CACHE_TTL_MS
+    ) {
+        return {
+            ...cached,
+            cacheStatus: 'HIT'
         };
+    }
 
-        changesBufferCache.set(url, item);
+    // 2. Если другой пользователь уже загружает файл,
+    // используем тот же Promise
+    if (pendingChangesFiles.has(cacheKey)) {
+        return pendingChangesFiles.get(cacheKey);
+    }
 
-        enforceChangesCacheLimit();
+    // 3. Создаём единственную загрузку
+    const promise = (async () => {
+        try {
+            const fileRes = await fetchNovsu(cacheKey, {
+                timeout: 12000
+            });
 
-        return item;
+            if (!fileRes.ok) {
+                throw new Error(
+                    `Не удалось скачать (${fileRes.status})`
+                );
+            }
+
+            const buffer = await readBufferWithLimit(fileRes);
+
+            const item = {
+                buffer,
+                title: title || 'changes.docx',
+                fetchedAt: Date.now()
+            };
+
+            changesBufferCache.set(cacheKey, item);
+
+            enforceChangesCacheLimit();
+
+            return {
+                ...item,
+                cacheStatus: 'MISS'
+            };
+
+        } catch (error) {
+            // Если НовГУ недоступен, отдаём старую версию
+            if (cached) {
+                console.warn(
+                    '[CHANGES CACHE] Используется старая версия:',
+                    error.message
+                );
+
+                return {
+                    ...cached,
+                    cacheStatus: 'STALE'
+                };
+            }
+
+            throw error;
+        }
     })();
 
-    pendingChangesFiles.set(url, promise);
+    pendingChangesFiles.set(cacheKey, promise);
 
     try {
         return await promise;
     } finally {
-        if (pendingChangesFiles.get(url) === promise) {
-            pendingChangesFiles.delete(url);
+        if (pendingChangesFiles.get(cacheKey) === promise) {
+            pendingChangesFiles.delete(cacheKey);
         }
     }
 }
 
-async function getOrFetchChangesList(forceRefresh = false) {
-    if (!forceRefresh && changesListCache.length > 0) {
+async function getOrFetchChangesList() {
+    const now = Date.now();
+
+    // Список ещё актуален
+    if (
+        changesListCache.length > 0 &&
+        now - changesListFetchedAt < CHANGES_CACHE_TTL_MS
+    ) {
         return {
             files: changesListCache,
             cached: true,
@@ -675,6 +733,7 @@ async function getOrFetchChangesList(forceRefresh = false) {
         };
     }
 
+    // Уже идёт обновление списка
     if (pendingChangesList) {
         return pendingChangesList;
     }
@@ -683,30 +742,26 @@ async function getOrFetchChangesList(forceRefresh = false) {
         try {
             const files = await fetchReplacementFilesList();
 
-            if (files.length > 0) {
-                changesListCache = files;
-
-                return {
-                    files: changesListCache,
-                    cached: false,
-                    stale: false
-                };
+            if (!files || files.length === 0) {
+                throw new Error('Список замен пуст');
             }
 
-            if (changesListCache.length > 0) {
-                return {
-                    files: changesListCache,
-                    cached: true,
-                    stale: true
-                };
-            }
+            changesListCache = files;
+            changesListFetchedAt = Date.now();
 
             return {
-                files: [],
+                files: changesListCache,
                 cached: false,
                 stale: false
             };
-        } catch (err) {
+
+        } catch (error) {
+            console.error(
+                '[CHANGES LIST ERROR]',
+                error.message
+            );
+
+            // При ошибке используем предыдущий список
             if (changesListCache.length > 0) {
                 return {
                     files: changesListCache,
@@ -715,7 +770,7 @@ async function getOrFetchChangesList(forceRefresh = false) {
                 };
             }
 
-            throw err;
+            throw error;
         }
     })();
 
@@ -729,6 +784,8 @@ async function getOrFetchChangesList(forceRefresh = false) {
         }
     }
 }
+
+// ================= РАСПИСАНИЕ =================
 
 async function fetchAndCacheGroupSchedule(targetGroup) {
     const pagesToScan = [
@@ -875,19 +932,38 @@ async function syncAllDataFromNovsu() {
 
         if (chgFiles.length > 0) {
             changesListCache = chgFiles;
+            changesListFetchedAt = Date.now();
 
-            const activeUrls = new Set(chgFiles.map(f => f.url));
+            const activeUrls = new Set(
+                chgFiles.map(f => normalizeChangesUrl(f.url))
+            );
 
             await Promise.allSettled(
                 chgFiles.map(async (f) => {
-                    if (changesBufferCache.has(f.url)) return;
+                    const cacheKey = normalizeChangesUrl(f.url);
+                    const cached = changesBufferCache.get(cacheKey);
+
+                    // Не скачиваем повторно свежие документы
+                    if (
+                        cached &&
+                        Date.now() - cached.fetchedAt < CHANGES_CACHE_TTL_MS
+                    ) {
+                        return;
+                    }
 
                     try {
                         await downloadChangesFileBuffer(f.url, f.title);
-                    } catch (e) {}
+                    } catch (e) {
+                        console.warn(
+                            '[SYNC] Не удалось загрузить замену:',
+                            f.title,
+                            e.message
+                        );
+                    }
                 })
             );
 
+            // Удаляем документы, которых больше нет в актуальном списке
             for (const cachedUrl of changesBufferCache.keys()) {
                 if (!activeUrls.has(cachedUrl)) {
                     changesBufferCache.delete(cachedUrl);
@@ -973,6 +1049,7 @@ async function syncAllDataFromNovsu() {
         if (chgFiles.length > 0 || updatedSchedulesCount > 0) {
             lastCacheUpdate = new Date().toISOString();
         }
+
     } catch (err) {
         console.error('[SYNC ERROR]', err.message);
     } finally {
@@ -987,11 +1064,10 @@ setInterval(syncAllDataFromNovsu, 30 * 60 * 1000);
 
 app.get('/api/changes-list', async (req, res) => {
     try {
-        const forceRefresh = req.query.refresh === '1';
-
-        const result = await getOrFetchChangesList(forceRefresh);
+        const result = await getOrFetchChangesList();
 
         res.json(result);
+
     } catch (error) {
         if (changesListCache.length > 0) {
             return res.json({
@@ -1013,7 +1089,7 @@ app.get('/api/changes', async (req, res) => {
         let fileTitle = req.query.title || 'changes.docx';
 
         if (!targetUrl) {
-            const listResult = await getOrFetchChangesList(false);
+            const listResult = await getOrFetchChangesList();
 
             if (!listResult.files || listResult.files.length === 0) {
                 return res.status(404).json({
@@ -1027,18 +1103,23 @@ app.get('/api/changes', async (req, res) => {
 
         const parsedUrl = new URL(targetUrl);
 
-        if (!parsedUrl.hostname.endsWith('novsu.ru')) {
+        if (!isAllowedNovsuUrl(parsedUrl.href)) {
             return res.status(403).json({
                 error: 'Разрешена загрузка только с домена novsu.ru'
             });
         }
 
         const cachedOrDownloaded = await downloadChangesFileBuffer(
-            targetUrl,
+            parsedUrl.href,
             fileTitle
         );
 
         res.setHeader('Content-Type', 'application/octet-stream');
+
+        res.setHeader(
+            'X-Cache-Status',
+            cachedOrDownloaded.cacheStatus || 'UNKNOWN'
+        );
 
         res.setHeader(
             'X-File-Title',
@@ -1046,7 +1127,10 @@ app.get('/api/changes', async (req, res) => {
         );
 
         res.send(cachedOrDownloaded.buffer);
+
     } catch (error) {
+        console.error('[CHANGES ERROR]', error.message);
+
         res.status(500).json({
             error: error.message
         });
@@ -1076,6 +1160,7 @@ app.get('/api/schedule/:group', async (req, res) => {
         return res.status(404).json({
             error: `Группа ${targetGroup} не найдена`
         });
+
     } catch (error) {
         const targetGroup = String(req.params.group || '').trim();
 
@@ -1141,6 +1226,15 @@ app.get('/ping', (req, res) => {
         requestsByPath[path] = count;
     }
 
+    const now = Date.now();
+
+    const changesCacheDetails = Array.from(changesBufferCache.entries())
+        .map(([url, item]) => ({
+            title: item.title,
+            возраст_секунд: Math.floor((now - item.fetchedAt) / 1000),
+            актуален: now - item.fetchedAt < CHANGES_CACHE_TTL_MS
+        }));
+
     const stats = {
         status: 'Работает',
         дата: currentStatsDay,
@@ -1180,7 +1274,15 @@ app.get('/ping', (req, res) => {
             групп_расписания: scheduleCache.size,
             файлов_замен_в_RAM: changesBufferCache.size,
             примерный_размер_файлов_замен_мб: cachedChangesMB,
-            файлов_в_списке_замен: changesListCache.length
+            файлов_в_списке_замен: changesListCache.length,
+
+            срок_актуальности_минут: CHANGES_CACHE_TTL_MS / 60000,
+
+            возраст_списка_замен_секунд: changesListFetchedAt
+                ? Math.floor((now - changesListFetchedAt) / 1000)
+                : null,
+
+            документы: changesCacheDetails
         },
 
         новгу: {
@@ -1205,7 +1307,6 @@ app.get('/ping', (req, res) => {
         }
     };
 
-    // Удобный текстовый формат
     if (req.query.format === 'text') {
         const lines = [
             '========== ДНЕВНИК — СТАТИСТИКА СЕРВЕРА ==========',
@@ -1243,6 +1344,8 @@ app.get('/ping', (req, res) => {
             `Файлов замен в RAM: ${changesBufferCache.size}`,
             `Размер файлов замен: ${cachedChangesMB} МБ`,
             `Файлов в списке замен: ${changesListCache.length}`,
+            `Срок кеша: ${CHANGES_CACHE_TTL_MS / 60000} минут`,
+            `Возраст списка замен: ${stats.кэш.возраст_списка_замен_секунд ?? 'Нет данных'} сек.`,
             '',
             '========== НОВГУ ==========',
             `Активных запросов: ${activeNovsuRequests}`,
