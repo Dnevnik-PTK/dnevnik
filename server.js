@@ -28,7 +28,9 @@ const scheduleCache = new Map();
 let changesListCache = [];
 const changesBufferCache = new Map();
 let lastCacheUpdate = null;
-let lastChangesNovsuSyncAt = 0; // Время последней реальной загрузки замен с НовГУ
+let lastSchedulesUpdate = null;
+let lastChangesNovsuSyncAt = 0;   // Время последней загрузки замен с НовГУ
+let lastSchedulesNovsuSyncAt = 0; // Время последней загрузки расписаний с НовГУ
 let isSyncing = false;
 
 // In-flight запросы (Promise Deduplication)
@@ -38,10 +40,10 @@ let pendingChangesList = null;
 
 // Ограничения безопасности для Render (контроль нагрузки и RAM)
 const MAX_CONCURRENT_DOWNLOADS = 5;
-const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 МБ максимум на один документ
-const MAX_CHANGES_CACHE_ITEMS = 10;           // Максимум файлов замен в RAM
-const CHANGES_CACHE_TTL_MS = 30 * 60 * 1000;  // 30 минут не качаем заново с НовГУ
-
+const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;          // 15 МБ максимум на один документ
+const MAX_CHANGES_CACHE_ITEMS = 10;                    // Максимум файлов замен в RAM
+const CHANGES_CACHE_TTL_MS = 30 * 60 * 1000;           // Замены: 30 минут
+const SCHEDULES_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // Расписания: 7 дней (раз в неделю)
 
 // ================= ГЛОБАЛЬНЫЙ ОГРАНИЧИТЕЛЬ ЗАПРОСОВ К НОВГУ =================
 let activeNovsuRequests = 0;
@@ -119,20 +121,26 @@ function extractLinksFromHtml(html, baseUrl) {
 
 function indexWorkbookGroups(workbook, fileLabel) {
     let count = 0;
+    const now = Date.now();
+    const labelGroups = String(fileLabel || '').match(/\b([2-9]\d{3}[а-яa-z]*)\b/gi) || [];
+
     for (const sheetName of workbook.SheetNames) {
         const sheet = workbook.Sheets[sheetName];
         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
         const merges = sheet['!merges'] || [];
         if (rows.length < 4) continue;
 
+        let foundInSheet = 0;
+
         for (let r = 0; r < Math.min(30, rows.length); r++) {
             const row = rows[r] || [];
             for (let c = 0; c < row.length; c++) {
                 const cellVal = String(row[c] || '').trim();
-                const matches = cellVal.match(/\b([2-9]\d{3}[а-яa-z]*)\b/gi);
+                const matches = cellVal.match(/(?:^|\D)([2-9]\d{3}[а-яa-z]*)(?=$|\D)/gi);
                 if (matches) {
-                    for (const grp of matches) {
-                        if (/^202\d$/.test(grp)) continue;
+                    for (const rawMatch of matches) {
+                        const grp = rawMatch.replace(/^[^\d]+/, '').trim();
+                        if (/^202\d$/i.test(grp)) continue;
                         scheduleCache.set(grp, {
                             group: grp,
                             sheet: sheetName,
@@ -140,9 +148,42 @@ function indexWorkbookGroups(workbook, fileLabel) {
                             rows: rows,
                             merges: merges,
                             groupColIdx: c,
-                            headerRowIdx: r
+                            headerRowIdx: r,
+                            cachedAt: now
                         });
                         count++;
+                        foundInSheet++;
+                    }
+                }
+            }
+        }
+
+        // Если внутри ячеек листа номер группы не написан, проверяем название листа или ссылки на сайте
+        const sheetGroups = String(sheetName || '').match(/\b([2-9]\d{3}[а-яa-z]*)\b/gi) || [];
+        const fallbackGroups = sheetGroups.length > 0 ? sheetGroups : (labelGroups.length === 1 ? labelGroups : []);
+
+        if (foundInSheet === 0 && fallbackGroups.length > 0) {
+            for (const targetGroup of fallbackGroups) {
+                if (/^202\d$/i.test(targetGroup)) continue;
+                for (let r = 0; r < Math.min(25, rows.length); r++) {
+                    const row = rows[r] || [];
+                    const c0 = String(row[0] || '').trim().toLowerCase();
+                    if (c0 === 'понедельник') {
+                        const headerRow = Math.max(0, r - 1);
+                        if (!rows[headerRow]) rows[headerRow] = [];
+                        rows[headerRow][2] = targetGroup;
+                        scheduleCache.set(targetGroup, {
+                            group: targetGroup,
+                            sheet: sheetName,
+                            fileName: fileLabel || sheetName,
+                            rows: rows,
+                            merges: merges,
+                            groupColIdx: 2,
+                            headerRowIdx: headerRow,
+                            cachedAt: now
+                        });
+                        count++;
+                        break;
                     }
                 }
             }
@@ -403,9 +444,9 @@ async function getOrFetchChangesList(forceRefresh = false) {
     }
 }
 
-
 async function fetchAndCacheGroupSchedule(targetGroup) {
     const pagesToScan = [
+        'https://portal.novsu.ru/univer/timetable/spo/i.1473214/',
         'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999',
         'https://portal.novsu.ru/univer/timetable/spo/'
     ];
@@ -459,7 +500,8 @@ async function fetchAndCacheGroupSchedule(targetGroup) {
                     rows: result.rows,
                     merges: result.merges,
                     groupColIdx: result.groupColIdx,
-                    headerRowIdx: result.headerRowIdx
+                    headerRowIdx: result.headerRowIdx,
+                    cachedAt: Date.now()
                 };
                 scheduleCache.set(targetGroup, payload);
                 return payload;
@@ -493,12 +535,12 @@ async function syncAllDataFromNovsu() {
     if (isSyncing) return;
     isSyncing = true;
     try {
-                const chgFiles = await fetchReplacementFilesList().catch(() => []);
+        // 1. Замены проверяем каждые 30 минут
+        const chgFiles = await fetchReplacementFilesList().catch(() => []);
         if (chgFiles.length > 0) {
             changesListCache = chgFiles;
             lastChangesNovsuSyncAt = Date.now();
             const activeUrls = new Set(chgFiles.map(f => f.url));
-
 
             await Promise.allSettled(chgFiles.map(async (f) => {
                 if (changesBufferCache.has(f.url)) return;
@@ -512,47 +554,58 @@ async function syncAllDataFromNovsu() {
                     changesBufferCache.delete(cachedUrl);
                 }
             }
+            lastCacheUpdate = new Date().toISOString();
         }
 
-        const pagesToScan = [
-            'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999',
-            'https://portal.novsu.ru/univer/timetable/spo/'
-        ];
-        const excelUrls = new Map();
+        // 2. Расписания групп скачиваем только при пустом кэше или раз в 7 дней (SCHEDULES_CACHE_TTL_MS)
+        const needScheduleSync =
+            scheduleCache.size === 0 ||
+            (Date.now() - lastSchedulesNovsuSyncAt >= SCHEDULES_CACHE_TTL_MS);
 
-        await Promise.allSettled(pagesToScan.map(async (pageUrl) => {
-            try {
-                const r = await fetchNovsu(pageUrl, { timeout: 10000 });
-                if (!r.ok) return;
-                const html = await r.text();
-                const links = extractLinksFromHtml(html, pageUrl);
-                for (const link of links) {
-                    if (/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(link.text)) continue;
-                    if (/\b[2-9]\d{3}\b/.test(link.text) || /\.(xlsx?|xls)($|\?)/i.test(link.url)) {
-                        if (!excelUrls.has(link.url)) excelUrls.set(link.url, link.text);
+        if (needScheduleSync) {
+            const pagesToScan = [
+                'https://portal.novsu.ru/univer/timetable/spo/i.1473214/',
+                'https://portal.novsu.ru/univer/timetable/spo/i.1473214/?id=2445999',
+                'https://portal.novsu.ru/univer/timetable/spo/'
+            ];
+            const excelUrls = new Map();
+
+            await Promise.allSettled(pagesToScan.map(async (pageUrl) => {
+                try {
+                    const r = await fetchNovsu(pageUrl, { timeout: 10000 });
+                    if (!r.ok) return;
+                    const html = await r.text();
+                    const links = extractLinksFromHtml(html, pageUrl);
+                    for (const link of links) {
+                        if (/\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(link.text)) continue;
+                        if (/\b[2-9]\d{3}\b/.test(link.text) || /\.(xlsx?|xls)($|\?)/i.test(link.url)) {
+                            if (!excelUrls.has(link.url)) excelUrls.set(link.url, link.text);
+                        }
                     }
-                }
-            } catch (e) {}
-        }));
+                } catch (e) {}
+            }));
 
-        const excelEntries = Array.from(excelUrls.entries());
-        let updatedSchedulesCount = 0;
+            const excelEntries = Array.from(excelUrls.entries());
+            let updatedSchedulesCount = 0;
 
-        await Promise.allSettled(excelEntries.map(async ([url, label]) => {
-            try {
-                const fileRes = await fetchNovsu(url, { timeout: 15000 });
-                if (!fileRes.ok) return;
-                const buffer = await readBufferWithLimit(fileRes);
-                const headStr = buffer.slice(0, 100).toString('utf8').trim().toLowerCase();
-                if (headStr.startsWith('<!doctype') || headStr.startsWith('<html')) return;
+            await Promise.allSettled(excelEntries.map(async ([url, label]) => {
+                try {
+                    const fileRes = await fetchNovsu(url, { timeout: 15000 });
+                    if (!fileRes.ok) return;
+                    const buffer = await readBufferWithLimit(fileRes);
+                    const headStr = buffer.slice(0, 100).toString('utf8').trim().toLowerCase();
+                    if (headStr.startsWith('<!doctype') || headStr.startsWith('<html')) return;
 
-                const workbook = XLSX.read(buffer, { type: 'buffer' });
-                updatedSchedulesCount += indexWorkbookGroups(workbook, label);
-            } catch (e) {}
-        }));
+                    const workbook = XLSX.read(buffer, { type: 'buffer' });
+                    updatedSchedulesCount += indexWorkbookGroups(workbook, label);
+                } catch (e) {}
+            }));
 
-        if (chgFiles.length > 0 || updatedSchedulesCount > 0) {
-            lastCacheUpdate = new Date().toISOString();
+            if (updatedSchedulesCount > 0) {
+                lastSchedulesNovsuSyncAt = Date.now();
+                lastSchedulesUpdate = new Date().toISOString();
+                lastCacheUpdate = lastSchedulesUpdate;
+            }
         }
     } catch (err) {
         console.error('[SYNC ERROR]', err.message);
@@ -612,12 +665,20 @@ app.get('/api/schedule/:group', async (req, res) => {
         if (!targetGroup) return res.status(400).json({ error: 'Не указана группа' });
 
         if (scheduleCache.has(targetGroup)) {
-            return res.json(scheduleCache.get(targetGroup));
+            const cachedEntry = scheduleCache.get(targetGroup);
+            const age = Date.now() - (cachedEntry.cachedAt || lastSchedulesNovsuSyncAt || 0);
+            if (age < SCHEDULES_CACHE_TTL_MS) {
+                return res.json(cachedEntry);
+            }
         }
 
         const payload = await getGroupScheduleWithDedup(targetGroup);
         if (payload) {
             return res.json(payload);
+        }
+
+        if (scheduleCache.has(targetGroup)) {
+            return res.json(scheduleCache.get(targetGroup));
         }
 
         return res.status(404).json({ error: `Группа ${targetGroup} не найдена` });
@@ -632,7 +693,7 @@ app.get('/api/schedule/:group', async (req, res) => {
 
 app.get('/ping', (req, res) => {
     const mem = process.memoryUsage();
-    res.json({
+    const stats = {
         status: 'ok',
         cachedGroupsCount: scheduleCache.size,
         changesFilesInRam: changesBufferCache.size,
@@ -640,10 +701,13 @@ app.get('/ping', (req, res) => {
         activeNovsuRequests,
         queuedNovsuRequests: novsuRequestQueue.length,
         lastCacheUpdate,
+        lastSchedulesUpdate,
         heapUsedMB: Math.round((mem.heapUsed / 1024 / 1024) * 10) / 10,
         rssMB: Math.round((mem.rss / 1024 / 1024) * 10) / 10,
         memoryUsage: mem
-    });
+    };
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.send(JSON.stringify(stats, null, 2) + '\n');
 });
 
 app.listen(PORT, () => {
