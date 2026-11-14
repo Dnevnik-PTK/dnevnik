@@ -2422,12 +2422,12 @@
             return (files || []).filter(f => /\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/.test(String(f.title || ''))).slice(0, 5);
         }
 
-        const CHANGES_TTL_MS = 10 * 60 * 1000;
+                const CHANGES_TTL_MS = 30 * 60 * 1000; // 30 минут
         function isChangesEntryFresh(entry) {
             return Boolean(entry && entry.fetchedAt && (Date.now() - entry.fetchedAt < CHANGES_TTL_MS));
         }
 
-                async function fetchChangesFromPortal(specificUrl, specificTitle, forceRefresh = false, isBackground = false) {
+        async function fetchChangesFromPortal(specificUrl, specificTitle, forceRefresh = false, isBackground = false) {
             const statusEl = document.getElementById('changesStatusText');
             const listEl = document.getElementById('changesList');
             const btn = document.getElementById('fetchChangesBtn');
@@ -2451,7 +2451,7 @@
             }
 
             if (!isBackground) {
-                statusEl.innerText = "⏳ Загружаем с сайта НовГУ...";
+                statusEl.innerText = "⏳ Проверяем обновления...";
                 if (!changesData.items || changesData.items.length === 0) {
                     listEl.innerHTML = '<div class="app-card p-8 rounded-3xl text-center text-slate-400 animate-pulse text-xs">Получаем свежий документ изменений...</div>';
                 }
@@ -2470,14 +2470,23 @@
                             renderPortalFilesButtons();
                             const newestFile = cleanFiles[0];
 
+                            // Если сервер вернул кэш (прошло меньше 30 мин) и этот файл уже разобран на телефоне — отдаём сразу
                             if (
-                                isBackground &&
-                                !forceRefresh &&
-                                changesData.fileName === newestFile.title &&
-                                isChangesEntryFresh(changesData.byDate[newestFile.title]) &&
-                                changesData.items &&
-                                changesData.items.length > 0
+                                (isBackground || listJson.cached) &&
+                                changesData.byDate[newestFile.title] &&
+                                isChangesEntryFresh(changesData.byDate[newestFile.title])
                             ) {
+                                const cached = changesData.byDate[newestFile.title];
+                                changesData.fileName = newestFile.title;
+                                changesData.dateTitle = cached.dateTitle;
+                                changesData.items = cached.items;
+                                localStorage.setItem(STORAGE_CHANGES_KEY, JSON.stringify(changesData));
+
+                                document.getElementById('changesHeaderTitle').innerText = cached.dateTitle;
+                                statusEl.innerText = `Дата: ${newestFile.title} • Найдено: ${cached.items.length}`;
+                                renderPortalFilesButtons();
+                                renderChangesGroupFilter();
+                                renderChangesList();
                                 prefetchRemainingDates();
                                 return;
                             }
@@ -2513,6 +2522,7 @@
                 if (btn) btn.innerText = "🔄 С сайта";
             }
         }
+
 
 
                 
